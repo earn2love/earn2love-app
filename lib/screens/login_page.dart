@@ -339,9 +339,6 @@ class _LoginPageState extends State<LoginPage>
 
   // ---------------- UI (PHONE) ----------------
   Widget _phoneRowCombined() {
-    final o = _optForCode(dialCode);
-    final _flag = o["flag"] ?? "🌍";
-    final _code = o["code"] ?? dialCode;
 
     return Container(
       decoration: BoxDecoration(
