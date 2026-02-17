@@ -25,7 +25,10 @@ class ProfileMenuPage extends StatelessWidget {
 
   List<String> asStringList(dynamic v) {
     if (v is List) {
-      return v.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      return v
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
     }
     return [];
   }
@@ -52,7 +55,8 @@ class ProfileMenuPage extends StatelessWidget {
               // ---------- TOP PROFILE CARD ----------
               Card(
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Row(
@@ -60,12 +64,16 @@ class ProfileMenuPage extends StatelessWidget {
                       InkWell(
                         borderRadius: BorderRadius.circular(999),
                         onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => ProfilePage()));
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const ProfilePage()));
                         },
                         child: CircleAvatar(
                           radius: 30,
                           backgroundColor: Colors.grey.shade200,
-                          backgroundImage: photo.isEmpty ? null : NetworkImage(photo),
+                          backgroundImage:
+                              photo.isEmpty ? null : NetworkImage(photo),
                           child: photo.isEmpty
                               ? const Icon(Icons.person, size: 30)
                               : null,
@@ -75,20 +83,26 @@ class ProfileMenuPage extends StatelessWidget {
                       Expanded(
                         child: InkWell(
                           onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => ProfilePage()));
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const ProfilePage()));
                           },
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 name,
-                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w900, fontSize: 16),
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 bio,
-                                style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontWeight: FontWeight.w600),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -96,11 +110,13 @@ class ProfileMenuPage extends StatelessWidget {
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(999),
                                       color: Colors.pink.shade50,
-                                      border: Border.all(color: Colors.pink.shade200),
+                                      border: Border.all(
+                                          color: Colors.pink.shade200),
                                     ),
                                     child: Text(
                                       "My Profile",
@@ -114,7 +130,10 @@ class ProfileMenuPage extends StatelessWidget {
                                   const SizedBox(width: 10),
                                   Text(
                                     "Tap to edit",
-                                    style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w700, fontSize: 12),
+                                    style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12),
                                   ),
                                 ],
                               )
@@ -142,7 +161,7 @@ class ProfileMenuPage extends StatelessWidget {
                 icon: Icons.person,
                 title: "My Profile",
                 subtitle: "Profile pic, display name, bio, privacy settings",
-                page: ProfilePage(),
+                page: const ProfilePage(),
               ),
 
               _menuTile(
@@ -181,7 +200,8 @@ class ProfileMenuPage extends StatelessWidget {
                 context,
                 icon: Icons.gavel,
                 title: "Rules & Regulations",
-                subtitle: "Rates, policies, conditions (language support later)",
+                subtitle:
+                    "Rates, policies, conditions (language support later)",
                 page: const RulesPage(),
               ),
 
@@ -245,7 +265,8 @@ class BankDetailsPage extends StatelessWidget {
         children: [
           Card(
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             child: const ListTile(
               leading: Icon(Icons.info_outline),
               title: Text("Coming soon"),
@@ -297,19 +318,23 @@ class RulesPage extends StatelessWidget {
         children: [
           Card(
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            child: const Padding(
+              padding: EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text("Conversion & Policies", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                children: [
+                  Text("Conversion & Policies",
+                      style:
+                          TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                   SizedBox(height: 8),
                   Text("• Silver → Gold (country based rates)"),
                   Text("• Gold → Diamond (country based rates)"),
                   Text("• Direct Silver → Diamond not allowed"),
                   SizedBox(height: 10),
-                  Text("More rules, terms, conditions and language-based display later."),
+                  Text(
+                      "More rules, terms, conditions and language-based display later."),
                 ],
               ),
             ),

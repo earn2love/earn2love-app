@@ -35,7 +35,8 @@ class _ProfileAddressPageState extends State<ProfileAddressPage> {
 
   String selectedCountry = "United Kingdom";
 
-  String asString(dynamic v, {String def = ""}) => v == null ? def : v.toString();
+  String asString(dynamic v, {String def = ""}) =>
+      v == null ? def : v.toString();
 
   @override
   void initState() {
@@ -87,7 +88,8 @@ class _ProfileAddressPageState extends State<ProfileAddressPage> {
     Navigator.pop(context);
   }
 
-  Widget _field(String label, TextEditingController ctrl, {TextInputType? type}) {
+  Widget _field(String label, TextEditingController ctrl,
+      {TextInputType? type}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
@@ -112,7 +114,8 @@ class _ProfileAddressPageState extends State<ProfileAddressPage> {
         children: [
           Card(
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
@@ -130,41 +133,40 @@ class _ProfileAddressPageState extends State<ProfileAddressPage> {
                   Expanded(
                     child: Text(
                       "Fill your address (optional).\nLater we can use this for nearby matching.",
-                      style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                          color: Colors.grey.shade800,
+                          fontWeight: FontWeight.w700),
                     ),
                   ),
                 ],
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
           DropdownButtonFormField<String>(
-            value: selectedCountry,
+            initialValue: selectedCountry,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               labelText: "Country",
             ),
-            items: countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-            onChanged: saving ? null : (v) => setState(() => selectedCountry = v ?? selectedCountry),
+            items: countries
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: saving
+                ? null
+                : (v) => setState(() => selectedCountry = v ?? selectedCountry),
           ),
-
           const SizedBox(height: 10),
-
           _field("Postcode", postcodeCtrl, type: TextInputType.text),
           _field("City / Town", cityCtrl, type: TextInputType.text),
           _field("House No / Flat", houseCtrl, type: TextInputType.text),
           _field("Street", streetCtrl, type: TextInputType.text),
-
           const SizedBox(height: 8),
-
           ElevatedButton.icon(
             onPressed: saving ? null : save,
             icon: const Icon(Icons.save),
             label: Text(saving ? "Saving..." : "Save Address"),
           ),
-
           const SizedBox(height: 18),
         ],
       ),

@@ -6,7 +6,8 @@ class ProfilePhotoPrivacyPage extends StatefulWidget {
   const ProfilePhotoPrivacyPage({super.key});
 
   @override
-  State<ProfilePhotoPrivacyPage> createState() => _ProfilePhotoPrivacyPageState();
+  State<ProfilePhotoPrivacyPage> createState() =>
+      _ProfilePhotoPrivacyPageState();
 }
 
 class _ProfilePhotoPrivacyPageState extends State<ProfilePhotoPrivacyPage> {
@@ -73,13 +74,14 @@ class _ProfilePhotoPrivacyPageState extends State<ProfilePhotoPrivacyPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Card(
+                const Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(14),
+                    padding: EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text("Privacy Control", style: TextStyle(fontWeight: FontWeight.w900)),
+                      children: [
+                        Text("Privacy Control",
+                            style: TextStyle(fontWeight: FontWeight.w900)),
                         SizedBox(height: 6),
                         Text(
                           "Public: anyone can see your profile photo.\n"
@@ -89,12 +91,11 @@ class _ProfilePhotoPrivacyPageState extends State<ProfilePhotoPrivacyPage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 Card(
                   child: SwitchListTile(
-                    title: const Text("Make profile photo public", style: TextStyle(fontWeight: FontWeight.w800)),
+                    title: const Text("Make profile photo public",
+                        style: TextStyle(fontWeight: FontWeight.w800)),
                     subtitle: Text(isPublic ? "Public ✅" : "Private 🔒"),
                     value: isPublic,
                     onChanged: saving
@@ -105,27 +106,28 @@ class _ProfilePhotoPrivacyPageState extends State<ProfilePhotoPrivacyPage> {
                           },
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Current setting", style: TextStyle(fontWeight: FontWeight.w900)),
+                        const Text("Current setting",
+                            style: TextStyle(fontWeight: FontWeight.w900)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Icon(isPublic ? Icons.public : Icons.lock, color: isPublic ? Colors.green : Colors.red),
+                            Icon(isPublic ? Icons.public : Icons.lock,
+                                color: isPublic ? Colors.green : Colors.red),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 isPublic
                                     ? "Your photo is visible to everyone."
                                     : "Your photo is private (will be visible only after acceptance).",
-                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700),
                               ),
                             ),
                           ],
@@ -134,7 +136,6 @@ class _ProfilePhotoPrivacyPageState extends State<ProfilePhotoPrivacyPage> {
                     ),
                   ),
                 ),
-
                 if (status != null) ...[
                   const SizedBox(height: 14),
                   Text(
@@ -142,7 +143,9 @@ class _ProfilePhotoPrivacyPageState extends State<ProfilePhotoPrivacyPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: status!.toLowerCase().contains("fail") ? Colors.red : null,
+                      color: status!.toLowerCase().contains("fail")
+                          ? Colors.red
+                          : null,
                     ),
                   ),
                 ],

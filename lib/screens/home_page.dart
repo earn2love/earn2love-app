@@ -205,13 +205,17 @@ class _HomePageState extends State<HomePage> {
 
   List<String> asStringList(dynamic v) {
     if (v is List) {
-      return v.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      return v
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
     }
     return [];
   }
 
   // ---------- UI HELPERS ----------
-  Widget _coinMini({required String emoji, required String label, required String value}) {
+  Widget _coinMini(
+      {required String emoji, required String label, required String value}) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
@@ -224,9 +228,17 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text(emoji, style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 4),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
+            Text(value,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    fontSize: 16)),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.w700, fontSize: 11)),
+            Text(label,
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11)),
           ],
         ),
       ),
@@ -401,12 +413,14 @@ class _HomePageState extends State<HomePage> {
                         Expanded(
                           child: Text(
                             title,
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 16),
                           ),
                         ),
                         if (locked)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(999),
                               color: Colors.red.shade50,
@@ -414,7 +428,8 @@ class _HomePageState extends State<HomePage> {
                             ),
                             child: const Text(
                               "Locked",
-                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w900, fontSize: 11),
                             ),
                           ),
                       ],
@@ -422,7 +437,9 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 6),
                     Text(
                       subtitle,
-                      style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -459,7 +476,8 @@ class _HomePageState extends State<HomePage> {
                     // 1) Casual
                     _featureCard(
                       title: "Casual",
-                      subtitle: "Free access • Chat with Casual users only • AI bot available",
+                      subtitle:
+                          "Free access • Chat with Casual users only • AI bot available",
                       emojiArt: "👩‍❤️‍👨",
                       a: Colors.indigo,
                       b: Colors.cyan,
@@ -476,7 +494,8 @@ class _HomePageState extends State<HomePage> {
                     // 2) Friendship
                     _featureCard(
                       title: "Friendship",
-                      subtitle: "£4.99 subscription • Chat with Casual + Friendship users",
+                      subtitle:
+                          "£4.99 subscription • Chat with Casual + Friendship users",
                       emojiArt: "🤝",
                       a: Colors.teal,
                       b: Colors.green,
@@ -484,12 +503,14 @@ class _HomePageState extends State<HomePage> {
                       locked: !_hasFriendship(tier),
                       onTap: () {
                         if (!_hasFriendship(tier)) {
-                          _showUpgradeSheet(need: "Friendship (£4.99)", current: tier);
+                          _showUpgradeSheet(
+                              need: "Friendship (£4.99)", current: tier);
                           return;
                         }
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const FriendshipPage()),
+                          MaterialPageRoute(
+                              builder: (_) => const FriendshipPage()),
                         );
                       },
                     ),
@@ -497,7 +518,8 @@ class _HomePageState extends State<HomePage> {
                     // 3) Love
                     _featureCard(
                       title: "Love",
-                      subtitle: "£9.99 subscription • Access Love + Friendship + Casual",
+                      subtitle:
+                          "£9.99 subscription • Access Love + Friendship + Casual",
                       emojiArt: "🫂",
                       a: Colors.pink,
                       b: Colors.deepPurple,
@@ -505,7 +527,8 @@ class _HomePageState extends State<HomePage> {
                       locked: !_hasLove(tier),
                       onTap: () {
                         if (!_hasLove(tier)) {
-                          _showUpgradeSheet(need: "Love (£9.99)", current: tier);
+                          _showUpgradeSheet(
+                              need: "Love (£9.99)", current: tier);
                           return;
                         }
                         Navigator.push(
@@ -518,7 +541,8 @@ class _HomePageState extends State<HomePage> {
                     // 4) Ads
                     _featureCard(
                       title: "Ads",
-                      subtitle: "Earn Silver coins • 30s / 60s / 90s / 120s / 180s ads",
+                      subtitle:
+                          "Earn Silver coins • 30s / 60s / 90s / 120s / 180s ads",
                       emojiArt: "🪙",
                       a: Colors.orange,
                       b: Colors.amber,
@@ -535,7 +559,8 @@ class _HomePageState extends State<HomePage> {
                     // 5) Tasks (Love only)
                     _featureCard(
                       title: "Tasks",
-                      subtitle: "Earn Gold coins • Offerwall tasks (Love plan only)",
+                      subtitle:
+                          "Earn Gold coins • Offerwall tasks (Love plan only)",
                       emojiArt: "🏆",
                       a: Colors.blueGrey,
                       b: Colors.blue,
@@ -543,12 +568,14 @@ class _HomePageState extends State<HomePage> {
                       locked: !_hasLove(tier),
                       onTap: () {
                         if (!_hasLove(tier)) {
-                          _showUpgradeSheet(need: "Love plan required", current: tier);
+                          _showUpgradeSheet(
+                              need: "Love plan required", current: tier);
                           return;
                         }
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const TasksHubPage()),
+                          MaterialPageRoute(
+                              builder: (_) => const TasksHubPage()),
                         );
                       },
                     ),
@@ -565,7 +592,9 @@ class _HomePageState extends State<HomePage> {
                       child: Text(
                         "Tip: Tap your profile picture (top) → Account Settings.\nLogout will be moved there.",
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            color: Colors.grey.shade800,
+                            fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
@@ -586,7 +615,7 @@ class CasualPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _UsersListPage(
+    return const _UsersListPage(
       title: "Casual",
       banner: "Free Subscription • Casual users only",
       badge: "CASUAL",
@@ -600,7 +629,7 @@ class FriendshipPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _UsersListPage(
+    return const _UsersListPage(
       title: "Friendship",
       banner: "£4.99 plan • Casual + Friendship users",
       badge: "FRIEND",
@@ -614,7 +643,7 @@ class LovePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _UsersListPage(
+    return const _UsersListPage(
       title: "Love",
       banner: "£9.99 plan • Love + Friendship + Casual users",
       badge: "LOVE",
@@ -654,22 +683,29 @@ class _UsersListPage extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(colors: [badgeColor.withOpacity(0.18), badgeColor.withOpacity(0.08)]),
+              gradient: LinearGradient(colors: [
+                badgeColor.withOpacity(0.18),
+                badgeColor.withOpacity(0.08)
+              ]),
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
                     color: badgeColor.withOpacity(0.15),
                     border: Border.all(color: badgeColor.withOpacity(0.35)),
                   ),
-                  child: Text(badge, style: const TextStyle(fontWeight: FontWeight.w900)),
+                  child: Text(badge,
+                      style: const TextStyle(fontWeight: FontWeight.w900)),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(banner, style: const TextStyle(fontWeight: FontWeight.w800))),
+                Expanded(
+                    child: Text(banner,
+                        style: const TextStyle(fontWeight: FontWeight.w800))),
               ],
             ),
           ),
@@ -677,18 +713,22 @@ class _UsersListPage extends StatelessWidget {
           ...users.map((u) {
             return Card(
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.grey.shade100,
                   child: const Icon(Icons.person),
                 ),
-                title: Text(u["name"]!, style: const TextStyle(fontWeight: FontWeight.w900)),
+                title: Text(u["name"]!,
+                    style: const TextStyle(fontWeight: FontWeight.w900)),
                 subtitle: Text(u["subtitle"]!),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Chat feature next ✅ (permission & structure next step)")),
+                    const SnackBar(
+                        content: Text(
+                            "Chat feature next ✅ (permission & structure next step)")),
                   );
                 },
               ),
@@ -712,7 +752,10 @@ class _AdsHubPageState extends State<AdsHubPage> {
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
   CollectionReference<Map<String, dynamic>> get historyRef =>
-      FirebaseFirestore.instance.collection('users').doc(uid).collection('walletHistory');
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('walletHistory');
 
   DateTimeRange range = DateTimeRange(
     start: DateTime.now().subtract(const Duration(days: 7)),
@@ -734,7 +777,7 @@ class _AdsHubPageState extends State<AdsHubPage> {
 
   @override
   Widget build(BuildContext context) {
-    final ads = const [30, 60, 90, 120, 180];
+    const ads = [30, 60, 90, 120, 180];
 
     return Scaffold(
       appBar: AppBar(title: const Text("Ads • Earn Silver")),
@@ -750,8 +793,10 @@ class _AdsHubPageState extends State<AdsHubPage> {
           double totalSilver = 0;
           int count = 0;
 
-          final start = DateTime(range.start.year, range.start.month, range.start.day);
-          final end = DateTime(range.end.year, range.end.month, range.end.day, 23, 59, 59);
+          final start =
+              DateTime(range.start.year, range.start.month, range.start.day);
+          final end = DateTime(
+              range.end.year, range.end.month, range.end.day, 23, 59, 59);
 
           for (final d in docs) {
             final data = d.data();
@@ -779,12 +824,16 @@ class _AdsHubPageState extends State<AdsHubPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text("Your Earnings", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    const Text("Your Earnings",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w900, fontSize: 16)),
                     const SizedBox(height: 6),
-                    Text("Range: ${_fmtDate(range.start)} → ${_fmtDate(range.end)}",
+                    Text(
+                        "Range: ${_fmtDate(range.start)} → ${_fmtDate(range.end)}",
                         style: const TextStyle(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 6),
-                    Text("Ads watched: $count", style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text("Ads watched: $count",
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
                     Text("Silver earned: 🥈 ${totalSilver.toStringAsFixed(0)}",
                         style: const TextStyle(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 10),
@@ -797,20 +846,25 @@ class _AdsHubPageState extends State<AdsHubPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text("Available Ads", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              const Text("Available Ads",
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               const SizedBox(height: 8),
               ...ads.map((sec) {
                 return Card(
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18)),
                   child: ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.play_arrow)),
-                    title: Text("$sec sec Ad", style: const TextStyle(fontWeight: FontWeight.w900)),
+                    title: Text("$sec sec Ad",
+                        style: const TextStyle(fontWeight: FontWeight.w900)),
                     subtitle: const Text("Coins allocation later (Phase-1)."),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Ad $sec sec clicked ✅ (integration later)")),
+                        SnackBar(
+                            content: Text(
+                                "Ad $sec sec clicked ✅ (integration later)")),
                       );
                     },
                   ),
@@ -836,7 +890,10 @@ class _TasksHubPageState extends State<TasksHubPage> {
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
   CollectionReference<Map<String, dynamic>> get historyRef =>
-      FirebaseFirestore.instance.collection('users').doc(uid).collection('walletHistory');
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('walletHistory');
 
   DateTimeRange range = DateTimeRange(
     start: DateTime.now().subtract(const Duration(days: 7)),
@@ -872,8 +929,10 @@ class _TasksHubPageState extends State<TasksHubPage> {
           double totalGold = 0;
           int count = 0;
 
-          final start = DateTime(range.start.year, range.start.month, range.start.day);
-          final end = DateTime(range.end.year, range.end.month, range.end.day, 23, 59, 59);
+          final start =
+              DateTime(range.start.year, range.start.month, range.start.day);
+          final end = DateTime(
+              range.end.year, range.end.month, range.end.day, 23, 59, 59);
 
           for (final d in docs) {
             final data = d.data();
@@ -901,12 +960,16 @@ class _TasksHubPageState extends State<TasksHubPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text("Your Task Earnings", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    const Text("Your Task Earnings",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w900, fontSize: 16)),
                     const SizedBox(height: 6),
-                    Text("Range: ${_fmtDate(range.start)} → ${_fmtDate(range.end)}",
+                    Text(
+                        "Range: ${_fmtDate(range.start)} → ${_fmtDate(range.end)}",
                         style: const TextStyle(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 6),
-                    Text("Tasks done: $count", style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text("Tasks done: $count",
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
                     Text("Gold earned: 🪙 ${totalGold.toStringAsFixed(0)}",
                         style: const TextStyle(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 10),
@@ -919,19 +982,24 @@ class _TasksHubPageState extends State<TasksHubPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text("Offerwall (Coming Soon)", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              const Text("Offerwall (Coming Soon)",
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               const SizedBox(height: 8),
               Card(
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
                 child: ListTile(
                   leading: const CircleAvatar(child: Icon(Icons.rocket_launch)),
-                  title: const Text("Connect Offerwall", style: TextStyle(fontWeight: FontWeight.w900)),
-                  subtitle: const Text("Here we will add tasks from offerwall provider."),
+                  title: const Text("Connect Offerwall",
+                      style: TextStyle(fontWeight: FontWeight.w900)),
+                  subtitle: const Text(
+                      "Here we will add tasks from offerwall provider."),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Offerwall integration next ✅")),
+                      const SnackBar(
+                          content: Text("Offerwall integration next ✅")),
                     );
                   },
                 ),

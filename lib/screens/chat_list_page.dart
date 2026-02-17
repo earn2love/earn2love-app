@@ -84,11 +84,15 @@ class ChatListPage extends StatelessWidget {
               }
 
               return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                future: FirebaseFirestore.instance.collection('users').doc(otherId).get(),
+                future: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(otherId)
+                    .get(),
                 builder: (context, userSnap) {
                   final userData = userSnap.data?.data();
 
-                  final rawName = (userData?['displayName'] ?? '').toString().trim();
+                  final rawName =
+                      (userData?['displayName'] ?? '').toString().trim();
                   final otherName = rawName.isEmpty ? 'User' : rawName;
 
                   final photoUrl = (() {
@@ -112,7 +116,9 @@ class ChatListPage extends StatelessWidget {
                           ),
                     trailing: timeText.isEmpty ? null : Text(timeText),
                     onTap: () {
-                      final chatId = doc.id.isNotEmpty ? doc.id : _chatIdFor(me.uid, otherId);
+                      final chatId = doc.id.isNotEmpty
+                          ? doc.id
+                          : _chatIdFor(me.uid, otherId);
 
                       Navigator.push(
                         context,

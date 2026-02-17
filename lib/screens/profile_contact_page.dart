@@ -43,7 +43,8 @@ class _ProfileContactPageState extends State<ProfileContactPage> {
       // Prefer auth values if Firestore empty
       final user = FirebaseAuth.instance.currentUser;
 
-      phoneCtrl.text = (d['contactPhone'] ?? user?.phoneNumber ?? '').toString();
+      phoneCtrl.text =
+          (d['contactPhone'] ?? user?.phoneNumber ?? '').toString();
       emailCtrl.text = (d['contactEmail'] ?? user?.email ?? '').toString();
 
       emergencyNameCtrl.text = (d['emergencyName'] ?? '').toString();
@@ -129,31 +130,36 @@ class _ProfileContactPageState extends State<ProfileContactPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Card(
+                const Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(14),
+                    padding: EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text("Keep contacts updated", style: TextStyle(fontWeight: FontWeight.w900)),
+                      children: [
+                        Text("Keep contacts updated",
+                            style: TextStyle(fontWeight: FontWeight.w900)),
                         SizedBox(height: 6),
-                        Text("Emergency contact helps safety & support features."),
+                        Text(
+                            "Emergency contact helps safety & support features."),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                _field(phoneCtrl, "Phone", hint: "+91XXXXXXXXXX / +44XXXX", type: TextInputType.phone),
-                _field(emailCtrl, "Email", hint: "example@gmail.com", type: TextInputType.emailAddress),
-
+                _field(phoneCtrl, "Phone",
+                    hint: "+91XXXXXXXXXX / +44XXXX", type: TextInputType.phone),
+                _field(emailCtrl, "Email",
+                    hint: "example@gmail.com",
+                    type: TextInputType.emailAddress),
                 const SizedBox(height: 8),
-                const Text("Emergency Contact", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                const Text("Emergency Contact",
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
-
-                _field(emergencyNameCtrl, "Emergency Contact Name", hint: "Mom / Friend"),
-                _field(emergencyPhoneCtrl, "Emergency Contact Phone", hint: "+91... / +44...", type: TextInputType.phone),
-
+                _field(emergencyNameCtrl, "Emergency Contact Name",
+                    hint: "Mom / Friend"),
+                _field(emergencyPhoneCtrl, "Emergency Contact Phone",
+                    hint: "+91... / +44...", type: TextInputType.phone),
                 if (status != null) ...[
                   const SizedBox(height: 8),
                   Text(
@@ -161,11 +167,12 @@ class _ProfileContactPageState extends State<ProfileContactPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: status!.toLowerCase().contains("fail") ? Colors.red : null,
+                      color: status!.toLowerCase().contains("fail")
+                          ? Colors.red
+                          : null,
                     ),
                   ),
                 ],
-
                 const SizedBox(height: 24),
               ],
             ),

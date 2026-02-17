@@ -62,7 +62,20 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
   String _two(int n) => n.toString().padLeft(2, '0');
 
   String _monthShort(int m) {
-    const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const names = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
     if (m < 1 || m > 12) return "";
     return names[m - 1];
   }
@@ -114,7 +127,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
   // (You can tweak logic anytime)
   Map<String, dynamic> _calcCompletion(Map<String, dynamic> data) {
     final nameOk = asString(data["displayName"]).trim().isNotEmpty;
-    final dobOk = _hasDob(asInt(data["dobDay"]), asInt(data["dobMonth"]), asInt(data["dobYear"]));
+    final dobOk = _hasDob(
+        asInt(data["dobDay"]), asInt(data["dobMonth"]), asInt(data["dobYear"]));
     final genderOk = asString(data["gender"]).trim().isNotEmpty;
 
     // Address fields (we assume ProfileAddressPage stores these)
@@ -122,7 +136,10 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
     final addrCity = asString(data["addrCity"]).trim();
     final addrPost = asString(data["addrPostcode"]).trim();
     final addrStreet = asString(data["addrStreet"]).trim();
-    final addrOk = addrCountry.isNotEmpty || addrCity.isNotEmpty || addrPost.isNotEmpty || addrStreet.isNotEmpty;
+    final addrOk = addrCountry.isNotEmpty ||
+        addrCity.isNotEmpty ||
+        addrPost.isNotEmpty ||
+        addrStreet.isNotEmpty;
 
     final appLangOk = asString(data["appLanguage"]).trim().isNotEmpty;
 
@@ -130,7 +147,7 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
     final hob = asString(data["hobbies"]).trim();
     final extraOk = edu.isNotEmpty || hob.isNotEmpty;
 
-    final total = 6;
+    const total = 6;
     int done = 0;
     if (nameOk) done++;
     if (dobOk) done++;
@@ -188,13 +205,17 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                    Text(title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900, fontSize: 15)),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -225,7 +246,9 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("Select Gender", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                  const Text("Select Gender",
+                      style:
+                          TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                   const SizedBox(height: 10),
                   RadioListTile(
                     value: "male",
@@ -284,7 +307,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
         final w = MediaQuery.of(context).size.width;
         final compact = w < 380; // small phones
         return Padding(
-          padding: EdgeInsets.fromLTRB(16, 10, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.fromLTRB(
+              16, 10, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
           child: StatefulBuilder(
             builder: (context, setLocal) {
               DateTime safeDob;
@@ -296,33 +320,47 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
               final age = _calcAgeParts(safeDob, DateTime.now());
 
               Widget dropDay() => DropdownButtonFormField<int>(
-                    value: day,
+                    initialValue: day,
                     isExpanded: true,
-                    decoration: const InputDecoration(border: OutlineInputBorder(), labelText: "Day"),
-                    items: days.map((d) => DropdownMenuItem(value: d, child: Text(d.toString()))).toList(),
+                    decoration: const InputDecoration(
+                        border: OutlineInputBorder(), labelText: "Day"),
+                    items: days
+                        .map((d) => DropdownMenuItem(
+                            value: d, child: Text(d.toString())))
+                        .toList(),
                     onChanged: (v) => setLocal(() => day = v ?? day),
                   );
 
               Widget dropMonth() => DropdownButtonFormField<int>(
-                    value: month,
+                    initialValue: month,
                     isExpanded: true,
-                    decoration: const InputDecoration(border: OutlineInputBorder(), labelText: "Month"),
-                    items: months.map((m) => DropdownMenuItem(value: m, child: Text(_monthShort(m)))).toList(),
+                    decoration: const InputDecoration(
+                        border: OutlineInputBorder(), labelText: "Month"),
+                    items: months
+                        .map((m) => DropdownMenuItem(
+                            value: m, child: Text(_monthShort(m))))
+                        .toList(),
                     onChanged: (v) => setLocal(() => month = v ?? month),
                   );
 
               Widget dropYear() => DropdownButtonFormField<int>(
-                    value: year,
+                    initialValue: year,
                     isExpanded: true,
-                    decoration: const InputDecoration(border: OutlineInputBorder(), labelText: "Year"),
-                    items: years.map((y) => DropdownMenuItem(value: y, child: Text(y.toString()))).toList(),
+                    decoration: const InputDecoration(
+                        border: OutlineInputBorder(), labelText: "Year"),
+                    items: years
+                        .map((y) => DropdownMenuItem(
+                            value: y, child: Text(y.toString())))
+                        .toList(),
                     onChanged: (v) => setLocal(() => year = v ?? year),
                   );
 
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("Date of Birth", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                  const Text("Date of Birth",
+                      style:
+                          TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                   const SizedBox(height: 10),
 
                   // ✅ overflow safe layout
@@ -356,7 +394,9 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                     ),
                     child: Text(
                       "Auto Age: ${_ageText(age["y"]!, age["m"]!, age["d"]!)}",
-                      style: TextStyle(fontWeight: FontWeight.w900, color: Colors.pink.shade800),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: Colors.pink.shade800),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -370,11 +410,14 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                         final _ = DateTime(year, month, day);
                       } catch (_) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Invalid date. Please select correct DOB.")),
+                          const SnackBar(
+                              content: Text(
+                                  "Invalid date. Please select correct DOB.")),
                         );
                         return;
                       }
-                      await _mergeUser({"dobDay": day, "dobMonth": month, "dobYear": year});
+                      await _mergeUser(
+                          {"dobDay": day, "dobMonth": month, "dobYear": year});
                       if (context.mounted) Navigator.pop(context);
                     },
                     icon: const Icon(Icons.save),
@@ -400,27 +443,30 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
       showDragHandle: true,
       builder: (_) {
         return Padding(
-          padding: EdgeInsets.fromLTRB(16, 10, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.fromLTRB(
+              16, 10, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
           child: StatefulBuilder(
             builder: (context, setLocal) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("App Language", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                  const Text("App Language",
+                      style:
+                          TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                   const SizedBox(height: 10),
-
                   DropdownButtonFormField<String>(
-                    value: a,
+                    initialValue: a,
                     isExpanded: true,
-                    decoration: const InputDecoration(border: OutlineInputBorder(), labelText: "Select language"),
+                    decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: "Select language"),
                     items: _languages
-                        .map((l) => DropdownMenuItem(value: l["code"], child: Text(l["name"]!)))
+                        .map((l) => DropdownMenuItem(
+                            value: l["code"], child: Text(l["name"]!)))
                         .toList(),
                     onChanged: (v) => setLocal(() => a = v ?? a),
                   ),
-
                   const SizedBox(height: 12),
-
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -431,13 +477,13 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                     ),
                     child: Text(
                       "This will update app language instantly.",
-                      style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                          color: Colors.blue.shade800,
+                          fontWeight: FontWeight.w700),
                       textAlign: TextAlign.center,
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   ElevatedButton.icon(
                     onPressed: () async {
                       // save to firestore + update locale immediately
@@ -448,7 +494,6 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                     icon: const Icon(Icons.language),
                     label: const Text("Apply Language"),
                   ),
-
                   const SizedBox(height: 10),
                 ],
               );
@@ -476,7 +521,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
       showDragHandle: true,
       builder: (_) {
         return Padding(
-          padding: EdgeInsets.fromLTRB(16, 10, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.fromLTRB(
+              16, 10, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -493,7 +539,9 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    child: Text(title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900, fontSize: 16)),
                   ),
                 ],
               ),
@@ -568,7 +616,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
               // ✅ Header progress
               Card(
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -584,7 +633,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(color: Colors.pink.shade200),
                             ),
-                            child: Icon(Icons.favorite, color: Colors.pink.shade700),
+                            child: Icon(Icons.favorite,
+                                color: Colors.pink.shade700),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -593,32 +643,40 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                               children: [
                                 const Text(
                                   "Profile Strength",
-                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   "$done / $total sections completed",
-                                  style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w700),
+                                  style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontWeight: FontWeight.w700),
                                 ),
                               ],
                             ),
                           ),
                           Text(
                             "${(pct * 100).round()}%",
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 18),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(value: pct, minHeight: 10),
+                        child:
+                            LinearProgressIndicator(value: pct, minHeight: 10),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         "Complete your profile for better matching & trust 💘",
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -649,14 +707,16 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                 title: "Date of Birth",
                 subtitle: "DOB: $dobPreview   •   Age: $agePreview",
                 done: comp["dobOk"] as bool,
-                onTap: () => _editDobSheet(curDay: dobDay, curMonth: dobMonth, curYear: dobYear),
+                onTap: () => _editDobSheet(
+                    curDay: dobDay, curMonth: dobMonth, curYear: dobYear),
               ),
 
               _sectionCard(
                 icon: Icons.wc,
                 color: Colors.deepPurple,
                 title: "Gender",
-                subtitle: gender.isEmpty ? "Select gender" : gender.toUpperCase(),
+                subtitle:
+                    gender.isEmpty ? "Select gender" : gender.toUpperCase(),
                 done: comp["genderOk"] as bool,
                 onTap: () => _editGenderSheet(gender),
               ),
@@ -670,7 +730,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                 onTap: () async {
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ProfileAddressPage()),
+                    MaterialPageRoute(
+                        builder: (_) => const ProfileAddressPage()),
                   );
                 },
               ),
@@ -691,7 +752,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                 subtitle: [
                   if (education.isNotEmpty) "🎓 $education",
                   if (hobbies.isNotEmpty) "🏀 $hobbies",
-                  if (education.isEmpty && hobbies.isEmpty) "Add education / hobbies (optional)",
+                  if (education.isEmpty && hobbies.isEmpty)
+                    "Add education / hobbies (optional)",
                 ].join("  •  "),
                 done: comp["extraOk"] as bool,
                 onTap: () async {
@@ -704,12 +766,14 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                       final eduCtrl = TextEditingController(text: education);
                       final hobCtrl = TextEditingController(text: hobbies);
                       return Padding(
-                        padding: EdgeInsets.fromLTRB(16, 10, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+                        padding: EdgeInsets.fromLTRB(16, 10, 16,
+                            16 + MediaQuery.of(context).viewInsets.bottom),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Text("Education & Hobbies",
-                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w900, fontSize: 16)),
                             const SizedBox(height: 12),
                             TextField(
                               controller: eduCtrl,
@@ -726,7 +790,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
                                 labelText: "Hobbies",
-                                hintText: "Example: Movies, gym, travel, music...",
+                                hintText:
+                                    "Example: Movies, gym, travel, music...",
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -761,7 +826,8 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
                 ),
                 child: Text(
                   "DOB based age updates automatically every day.\nLater: birthday wishes + chat language 🎉",
-                  style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                      color: Colors.grey.shade800, fontWeight: FontWeight.w700),
                   textAlign: TextAlign.center,
                 ),
               ),

@@ -31,7 +31,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String? msg;
 
-  String asString(dynamic v, {String def = ""}) => v == null ? def : v.toString();
+  String asString(dynamic v, {String def = ""}) =>
+      v == null ? def : v.toString();
 
   @override
   void initState() {
@@ -56,7 +57,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
       photoVisibility = asString(data["photoVisibility"], def: "public");
 
-      final urls = (data["photoUrls"] is List) ? (data["photoUrls"] as List) : [];
+      final urls =
+          (data["photoUrls"] is List) ? (data["photoUrls"] as List) : [];
       primaryPhotoUrl = urls.isNotEmpty ? urls.first.toString() : null;
 
       setState(() => loading = false);
@@ -115,7 +117,8 @@ class _ProfilePageState extends State<ProfilePage> {
       final file = File(x.path);
 
       // upload
-      final path = "users/$uid/profile_${DateTime.now().millisecondsSinceEpoch}.jpg";
+      final path =
+          "users/$uid/profile_${DateTime.now().millisecondsSinceEpoch}.jpg";
       final ref = FirebaseStorage.instance.ref().child(path);
 
       await ref.putFile(file);
@@ -199,7 +202,8 @@ class _ProfilePageState extends State<ProfilePage> {
             Expanded(
               child: Text(
                 "My Profile\nPhoto • Name • Bio • Privacy",
-                style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                    color: Colors.grey.shade800, fontWeight: FontWeight.w800),
               ),
             ),
           ],
@@ -221,8 +225,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 CircleAvatar(
                   radius: 34,
                   backgroundColor: Colors.grey.shade200,
-                  backgroundImage:
-                      (primaryPhotoUrl == null) ? null : NetworkImage(primaryPhotoUrl!),
+                  backgroundImage: (primaryPhotoUrl == null)
+                      ? null
+                      : NetworkImage(primaryPhotoUrl!),
                   child: primaryPhotoUrl == null
                       ? const Icon(Icons.person, size: 34)
                       : null,
@@ -250,11 +255,16 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Profile Photo", style: TextStyle(fontWeight: FontWeight.w900)),
+                  const Text("Profile Photo",
+                      style: TextStyle(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 4),
                   Text(
-                    primaryPhotoUrl == null ? "No photo uploaded" : "Photo is set ✅",
-                    style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                    primaryPhotoUrl == null
+                        ? "No photo uploaded"
+                        : "Photo is set ✅",
+                    style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
@@ -280,10 +290,11 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Privacy (Phase 1)", style: TextStyle(fontWeight: FontWeight.w900)),
+            const Text("Privacy (Phase 1)",
+                style: TextStyle(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: photoVisibility,
+              initialValue: photoVisibility,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: "Photo Visibility",
@@ -294,12 +305,16 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
               onChanged: saving
                   ? null
-                  : (v) => setState(() => photoVisibility = v ?? photoVisibility),
+                  : (v) =>
+                      setState(() => photoVisibility = v ?? photoVisibility),
             ),
             const SizedBox(height: 8),
             Text(
               "Later we’ll add advanced privacy: who can see, blur, request access, etc.",
-              style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 12),
+              style: TextStyle(
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12),
             ),
           ],
         ),
@@ -316,7 +331,8 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text("Display Name", style: TextStyle(fontWeight: FontWeight.w900)),
+            const Text("Display Name",
+                style: TextStyle(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             TextField(
               controller: nameCtrl,
@@ -360,7 +376,8 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: isErr ? Colors.red.shade50 : Colors.green.shade50,
-        border: Border.all(color: isErr ? Colors.red.shade200 : Colors.green.shade200),
+        border: Border.all(
+            color: isErr ? Colors.red.shade200 : Colors.green.shade200),
       ),
       child: Text(
         msg!,

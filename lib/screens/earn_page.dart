@@ -160,9 +160,12 @@ class _EarnPageState extends State<EarnPage> {
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+            Text(label,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            Text(hint, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+            Text(hint,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
           ],
         ),
       ),
@@ -216,7 +219,8 @@ class _EarnPageState extends State<EarnPage> {
 
   Widget ratesCard(String country) {
     final s2g = (country == 'UK') ? "3 Silver → 2.5 Gold" : "3 Silver → 2 Gold";
-    final g2d = (country == 'UK') ? "3 Gold → 2.5 Diamond" : "3 Gold → 2 Diamond";
+    final g2d =
+        (country == 'UK') ? "3 Gold → 2.5 Diamond" : "3 Gold → 2 Diamond";
     final cash = (country == 'UK')
         ? "1 Diamond = £0.01 (min £150)"
         : "1 Diamond = ₹0.01 (min ₹10,000)";
@@ -231,13 +235,15 @@ class _EarnPageState extends State<EarnPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Rates ($country)", style: const TextStyle(fontWeight: FontWeight.w900)),
+          Text("Rates ($country)",
+              style: const TextStyle(fontWeight: FontWeight.w900)),
           const SizedBox(height: 6),
           Text("• $s2g"),
           Text("• $g2d"),
           Text("• Withdraw: $cash"),
           const SizedBox(height: 6),
-          const Text("Note: Direct Silver → Diamond not allowed.", style: TextStyle(fontSize: 12)),
+          const Text("Note: Direct Silver → Diamond not allowed.",
+              style: TextStyle(fontSize: 12)),
         ],
       ),
     );
@@ -262,17 +268,18 @@ class _EarnPageState extends State<EarnPage> {
           children: [
             _sectionTitle("Conversion", icon: Icons.swap_horiz),
             const SizedBox(height: 8),
-
             Row(
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: fromCoin,
+                    initialValue: fromCoin,
                     decoration: const InputDecoration(
                       labelText: "From",
                       border: OutlineInputBorder(),
                     ),
-                    items: coinList.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                    items: coinList
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
                     onChanged: busy
                         ? null
                         : (v) {
@@ -288,20 +295,22 @@ class _EarnPageState extends State<EarnPage> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: toCoin,
+                    initialValue: toCoin,
                     decoration: const InputDecoration(
                       labelText: "To",
                       border: OutlineInputBorder(),
                     ),
-                    items: toOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                    onChanged: busy ? null : (v) => setState(() => toCoin = v ?? toCoin),
+                    items: toOptions
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: busy
+                        ? null
+                        : (v) => setState(() => toCoin = v ?? toCoin),
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 10),
-
             TextField(
               controller: amountCtrl,
               keyboardType: TextInputType.number,
@@ -311,9 +320,7 @@ class _EarnPageState extends State<EarnPage> {
                 hintText: "e.g. 30",
               ),
             ),
-
             const SizedBox(height: 10),
-
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -323,18 +330,16 @@ class _EarnPageState extends State<EarnPage> {
               ),
               child: Text(
                 "Streak: $streakDays days • Bonus (Silver→Gold): $bonusPct%",
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
               ),
             ),
-
             const SizedBox(height: 10),
-
             ElevatedButton.icon(
               onPressed: busy ? null : () => doConvert(bonusPct.toDouble()),
               icon: const Icon(Icons.swap_horiz),
               label: Text(busy ? "Please wait..." : "Convert"),
             ),
-
             const SizedBox(height: 10),
             ratesCard(country),
           ],
@@ -361,29 +366,29 @@ class _EarnPageState extends State<EarnPage> {
           children: [
             _sectionTitle("Streak System", icon: Icons.local_fire_department),
             const SizedBox(height: 8),
-
             Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Current: $days days", style: const TextStyle(fontWeight: FontWeight.w900)),
+                      Text("Current: $days days",
+                          style: const TextStyle(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 4),
-                      Text("Bonus: $bonus% (Silver→Gold)", style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Text("Bonus: $bonus% (Silver→Gold)",
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
                     ],
                   ),
                 ),
                 const SizedBox(width: 10),
                 SizedBox(
                   width: 120,
-                  child: LinearProgressIndicator(value: progress, minHeight: 10),
+                  child:
+                      LinearProgressIndicator(value: progress, minHeight: 10),
                 ),
               ],
             ),
-
             const SizedBox(height: 10),
-
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -402,7 +407,6 @@ class _EarnPageState extends State<EarnPage> {
                 style: TextStyle(fontSize: 12),
               ),
             ),
-
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: busy ? null : checkStreak,
@@ -418,12 +422,13 @@ class _EarnPageState extends State<EarnPage> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: const Padding(
+        padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text("Offers / Promotions", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          children: [
+            Text("Offers / Promotions",
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
             SizedBox(height: 8),
             Text("Coming soon: promos, bonus silver, subscriptions discounts."),
           ],
@@ -438,7 +443,8 @@ class _EarnPageState extends State<EarnPage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: ListTile(
         leading: const Icon(Icons.history),
-        title: const Text("Wallet History", style: TextStyle(fontWeight: FontWeight.w900)),
+        title: const Text("Wallet History",
+            style: TextStyle(fontWeight: FontWeight.w900)),
         subtitle: const Text("Filters: topup, ads, calls, conversion..."),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
@@ -538,7 +544,9 @@ class _EarnPageState extends State<EarnPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
-                      color: info.toLowerCase().contains("fail") ? Colors.red : Colors.green.shade800,
+                      color: info.toLowerCase().contains("fail")
+                          ? Colors.red
+                          : Colors.green.shade800,
                     ),
                   ),
                 ),

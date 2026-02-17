@@ -13,7 +13,10 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
   CollectionReference<Map<String, dynamic>> get historyRef =>
-      FirebaseFirestore.instance.collection('users').doc(uid).collection('walletHistory');
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('walletHistory');
 
   // type filter
   String filter = 'all';
@@ -45,7 +48,20 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
   String _two(int n) => n.toString().padLeft(2, '0');
 
   String _monthShort(int m) {
-    const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const names = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
     if (m < 1 || m > 12) return "";
     return names[m - 1];
   }
@@ -102,13 +118,17 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
   }
 
   DateTime _startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
-  DateTime _endOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
+  DateTime _endOfDay(DateTime d) =>
+      DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
 
   DateTime get _rangeStart {
     final now = DateTime.now();
-    if (rangeMode == 'custom' && fromDate != null) return _startOfDay(fromDate!);
-    if (rangeMode == '14d') return _startOfDay(now.subtract(const Duration(days: 14)));
-    if (rangeMode == '30d') return _startOfDay(now.subtract(const Duration(days: 30)));
+    if (rangeMode == 'custom' && fromDate != null)
+      return _startOfDay(fromDate!);
+    if (rangeMode == '14d')
+      return _startOfDay(now.subtract(const Duration(days: 14)));
+    if (rangeMode == '30d')
+      return _startOfDay(now.subtract(const Duration(days: 30)));
     return _startOfDay(now.subtract(const Duration(days: 7)));
   }
 
@@ -126,7 +146,7 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
     final t = toDate;
     if (f == null || t == null) return "Custom (pick dates)";
     return "${_two(f.day)} ${_monthShort(f.month)} ${f.year}  →  ${_two(t.day)} ${_monthShort(t.month)} ${t.year}";
-    }
+  }
 
   Future<void> _pickFrom() async {
     final now = DateTime.now();
@@ -186,7 +206,8 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
   Widget build(BuildContext context) {
     // Query with date range (fast)
     final q = historyRef
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(_rangeStart))
+        .where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(_rangeStart))
         .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(_rangeEnd))
         .orderBy('createdAt', descending: true)
         .limit(400);
@@ -201,7 +222,8 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Date Range", style: TextStyle(fontWeight: FontWeight.w900)),
+                const Text("Date Range",
+                    style: TextStyle(fontWeight: FontWeight.w900)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -215,12 +237,16 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                       OutlinedButton.icon(
                         onPressed: _pickFrom,
                         icon: const Icon(Icons.calendar_month),
-                        label: Text(fromDate == null ? "From" : "${_two(fromDate!.day)} ${_monthShort(fromDate!.month)}"),
+                        label: Text(fromDate == null
+                            ? "From"
+                            : "${_two(fromDate!.day)} ${_monthShort(fromDate!.month)}"),
                       ),
                       OutlinedButton.icon(
                         onPressed: _pickTo,
                         icon: const Icon(Icons.calendar_month),
-                        label: Text(toDate == null ? "To" : "${_two(toDate!.day)} ${_monthShort(toDate!.month)}"),
+                        label: Text(toDate == null
+                            ? "To"
+                            : "${_two(toDate!.day)} ${_monthShort(toDate!.month)}"),
                       ),
                     ],
                   ],
@@ -228,7 +254,10 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                 const SizedBox(height: 8),
                 Text(
                   _rangeLabel(),
-                  style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w700, fontSize: 12),
+                  style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12),
                 ),
               ],
             ),
@@ -280,7 +309,10 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                 final docs = snap.data?.docs ?? [];
                 final items = (filter == 'all')
                     ? docs
-                    : docs.where((d) => (d.data()['type'] ?? '').toString() == filter).toList();
+                    : docs
+                        .where((d) =>
+                            (d.data()['type'] ?? '').toString() == filter)
+                        .toList();
 
                 // Summary for current view
                 double totalIn = 0;
@@ -298,7 +330,8 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                 }
 
                 if (items.isEmpty) {
-                  return const Center(child: Text("No history in selected range"));
+                  return const Center(
+                      child: Text("No history in selected range"));
                 }
 
                 return ListView(
@@ -307,7 +340,8 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                     // Summary card
                     Card(
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Row(
@@ -318,12 +352,15 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(14),
                                   color: Colors.green.shade50,
-                                  border: Border.all(color: Colors.green.shade200),
+                                  border:
+                                      Border.all(color: Colors.green.shade200),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text("Total Earned", style: TextStyle(fontWeight: FontWeight.w900)),
+                                    const Text("Total Earned",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w900)),
                                     const SizedBox(height: 4),
                                     Text(
                                       "+${totalIn.toStringAsFixed(0)}",
@@ -344,12 +381,15 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(14),
                                   color: Colors.red.shade50,
-                                  border: Border.all(color: Colors.red.shade200),
+                                  border:
+                                      Border.all(color: Colors.red.shade200),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text("Total Spent", style: TextStyle(fontWeight: FontWeight.w900)),
+                                    const Text("Total Spent",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w900)),
                                     const SizedBox(height: 4),
                                     Text(
                                       "-${totalOut.toStringAsFixed(0)}",
@@ -381,24 +421,34 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Card(
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
                             leading: CircleAvatar(
                               backgroundColor: Colors.grey.shade100,
-                              child: Icon(_iconFor(type), color: Colors.black87),
+                              child:
+                                  Icon(_iconFor(type), color: Colors.black87),
                             ),
-                            title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                            title: Text(title,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w900)),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 if (line.isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  Text(line, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  Text(line,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700)),
                                 ],
                                 if (time.isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  Text(time, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+                                  Text(time,
+                                      style: TextStyle(
+                                          color: Colors.grey.shade700,
+                                          fontSize: 12)),
                                 ],
                               ],
                             ),

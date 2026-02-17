@@ -188,7 +188,9 @@ class CoinService {
       fromAmount: a,
       toCoin: to,
       toAmount: out,
-      bonusPct: (from == 'Silver' && to == 'Gold') ? _clampPct(_toDouble(bonusPct)) : 0,
+      bonusPct: (from == 'Silver' && to == 'Gold')
+          ? _clampPct(_toDouble(bonusPct))
+          : 0,
     );
   }
 }

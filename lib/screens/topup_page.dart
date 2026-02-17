@@ -54,9 +54,7 @@ class TopUpPage extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 10),
-
           ...packs.map((p) {
             final label = p['label'].toString();
             final silver = (p['silver'] as int);

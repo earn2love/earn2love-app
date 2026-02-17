@@ -14,7 +14,8 @@ class LoginPage extends StatefulWidget {
 
 enum _VerifyAnimState { none, verifying, success, fail }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   // 0=Phone, 1=Email
   int tabIndex = 0;
 
@@ -97,7 +98,12 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     for (final o in _dialOptions) {
       if (o["code"] == code) return o;
     }
-    return const {"flag": "🌍", "code": "+0", "short": "OTHER", "name": "Other"};
+    return const {
+      "flag": "🌍",
+      "code": "+0",
+      "short": "OTHER",
+      "name": "Other"
+    };
   }
 
   void _deriveCountryFromDial(String code) {
@@ -125,7 +131,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     final snap = await ref.get();
 
     if (!snap.exists) {
-      final defaultAppLang = "en";
+      const defaultAppLang = "en";
       final defaultMatchLang = (country == "IN") ? "te" : "en";
 
       await ref.set({
@@ -170,10 +176,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       'silverBalance': FieldValue.increment(0),
       'goldBalance': FieldValue.increment(0),
       'diamondBalance': FieldValue.increment(0),
-
       'streakDays': FieldValue.increment(0),
       'streakBonusPct': FieldValue.increment(0),
-
       'country': country,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -219,7 +223,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         phoneNumber: fullPhone,
         timeout: const Duration(seconds: 60),
         forceResendingToken: resendToken,
-
         verificationCompleted: (PhoneAuthCredential credential) async {
           // Auto verified
           await FirebaseAuth.instance.signInWithCredential(credential);
@@ -227,11 +230,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           if (!mounted) return;
           setState(() => status = "Verified automatically ✅");
         },
-
         verificationFailed: (FirebaseAuthException e) {
           setState(() => status = "OTP failed: ${e.code} ${e.message}");
         },
-
         codeSent: (String verId, int? token) {
           verificationId = verId;
           resendToken = token;
@@ -239,7 +240,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           if (!mounted) return;
           setState(() => status = "OTP sent ✅");
         },
-
         codeAutoRetrievalTimeout: (String verId) {
           verificationId = verId;
         },
@@ -314,15 +314,18 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
     try {
       if (emailIsLogin) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: pass);
+        await FirebaseAuth.instance
+            .signInWithEmailAndPassword(email: email, password: pass);
       } else {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: pass);
+        await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(email: email, password: pass);
       }
 
       await ensureUserDoc(country: country);
 
       if (!mounted) return;
-      setState(() => status = emailIsLogin ? "Email login success ✅" : "Account created ✅");
+      setState(() => status =
+          emailIsLogin ? "Email login success ✅" : "Account created ✅");
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => status = "Email error: ${e.code} ${e.message}");
@@ -337,8 +340,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   // ---------------- UI (PHONE) ----------------
   Widget _phoneRowCombined() {
     final o = _optForCode(dialCode);
-    final flag = o["flag"] ?? "🌍";
-    final code = o["code"] ?? dialCode;
+    final _flag = o["flag"] ?? "🌍";
+    final _code = o["code"] ?? dialCode;
 
     return Container(
       decoration: BoxDecoration(
@@ -411,14 +414,11 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       children: [
         _phoneRowCombined(),
         const SizedBox(height: 12),
-
         ElevatedButton(
           onPressed: sendingOtp ? null : sendOtp,
           child: Text(sendingOtp ? "Sending..." : "Send OTP"),
         ),
-
         const SizedBox(height: 12),
-
         TextField(
           controller: otpCtrl,
           keyboardType: TextInputType.number,
@@ -428,17 +428,19 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           ),
         ),
         const SizedBox(height: 10),
-
         ElevatedButton(
-          onPressed: (verifyingOtp || verificationId == null) ? null : verifyOtp,
+          onPressed:
+              (verifyingOtp || verificationId == null) ? null : verifyOtp,
           child: Text(verifyingOtp ? "Verifying..." : "Verify & Continue"),
         ),
-
         const SizedBox(height: 8),
         Text(
           "Selected: ${_optForCode(dialCode)['flag']} $dialCode",
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w700, fontSize: 12),
+          style: TextStyle(
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w700,
+              fontSize: 12),
         ),
       ],
     );
@@ -453,14 +455,18 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: emailLoading ? null : () => setState(() => emailIsLogin = true),
+                onPressed: emailLoading
+                    ? null
+                    : () => setState(() => emailIsLogin = true),
                 child: Text(emailIsLogin ? "Login ✅" : "Login"),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton(
-                onPressed: emailLoading ? null : () => setState(() => emailIsLogin = false),
+                onPressed: emailLoading
+                    ? null
+                    : () => setState(() => emailIsLogin = false),
                 child: Text(!emailIsLogin ? "Signup ✅" : "Signup"),
               ),
             ),
@@ -487,7 +493,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         const SizedBox(height: 12),
         ElevatedButton(
           onPressed: emailLoading ? null : emailSubmit,
-          child: Text(emailLoading ? "Please wait..." : (emailIsLogin ? "Login" : "Create account")),
+          child: Text(emailLoading
+              ? "Please wait..."
+              : (emailIsLogin ? "Login" : "Create account")),
         ),
       ],
     );
@@ -508,21 +516,23 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         },
       );
     } else if (_animState == _VerifyAnimState.success) {
-      content = Column(
+      content = const Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Text("🫶", style: TextStyle(fontSize: 92)),
           SizedBox(height: 10),
-          Text("Verified!", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Text("Verified!",
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         ],
       );
     } else {
-      content = Column(
+      content = const Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Text("💔", style: TextStyle(fontSize: 92)),
           SizedBox(height: 10),
-          Text("Retry", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Text("Retry",
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         ],
       );
     }
@@ -560,7 +570,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               const SizedBox(height: 16),
-
               SegmentedButton<int>(
                 segments: const [
                   ButtonSegment(value: 0, label: Text("Phone")),
@@ -574,11 +583,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   });
                 },
               ),
-
               const SizedBox(height: 16),
-
               if (tabIndex == 0) _phoneTab() else _emailTab(),
-
               if (status != null) ...[
                 const SizedBox(height: 14),
                 Container(
@@ -587,7 +593,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     borderRadius: BorderRadius.circular(14),
                     color: hasError ? Colors.red.shade50 : Colors.green.shade50,
                     border: Border.all(
-                      color: hasError ? Colors.red.shade200 : Colors.green.shade200,
+                      color: hasError
+                          ? Colors.red.shade200
+                          : Colors.green.shade200,
                     ),
                   ),
                   child: Text(

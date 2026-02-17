@@ -122,21 +122,22 @@ class _ProfileBioPageState extends State<ProfileBioPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Card(
+                const Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(14),
+                    padding: EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text("Your Bio", style: TextStyle(fontWeight: FontWeight.w900)),
+                      children: [
+                        Text("Your Bio",
+                            style: TextStyle(fontWeight: FontWeight.w900)),
                         SizedBox(height: 6),
-                        Text("Write something attractive. Keep it simple and honest."),
+                        Text(
+                            "Write something attractive. Keep it simple and honest."),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-
                 TextField(
                   controller: bioCtrl,
                   maxLines: 5,
@@ -146,11 +147,11 @@ class _ProfileBioPageState extends State<ProfileBioPage> {
                     hintText: "Tell about yourself...",
                   ),
                 ),
-
                 const SizedBox(height: 16),
-                const Text("Interests", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                const Text("Interests",
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 8),
-
                 Row(
                   children: [
                     Expanded(
@@ -170,9 +171,7 @@ class _ProfileBioPageState extends State<ProfileBioPage> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 12),
-
                 if (interests.isEmpty)
                   const Text("No interests added yet.")
                 else
@@ -187,7 +186,6 @@ class _ProfileBioPageState extends State<ProfileBioPage> {
                       );
                     }).toList(),
                   ),
-
                 if (status != null) ...[
                   const SizedBox(height: 14),
                   Text(
@@ -195,7 +193,9 @@ class _ProfileBioPageState extends State<ProfileBioPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: status!.toLowerCase().contains("fail") ? Colors.red : null,
+                      color: status!.toLowerCase().contains("fail")
+                          ? Colors.red
+                          : null,
                     ),
                   ),
                 ],

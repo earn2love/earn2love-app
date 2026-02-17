@@ -27,7 +27,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
   CollectionReference<Map<String, dynamic>> get _messagesRef =>
-      FirebaseFirestore.instance.collection('chats').doc(widget.chatId).collection('messages');
+      FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .collection('messages');
 
   DocumentReference<Map<String, dynamic>> get _chatRef =>
       FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
@@ -59,7 +62,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                     ),
                     Text(
                       "$minutes min",
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     IconButton(
                       onPressed: () => setStateDialog(() => minutes++),
@@ -94,7 +98,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     final totalCost = minutes * costPerMinute;
 
     final u = await CoinService.getUser();
-    final silver = (u['silverBalance'] is num) ? (u['silverBalance'] as num).toDouble() : 0.0;
+    final silver = (u['silverBalance'] is num)
+        ? (u['silverBalance'] as num).toDouble()
+        : 0.0;
 
     if (silver < totalCost) {
       if (!mounted) return;
@@ -102,9 +108,12 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         context: context,
         builder: (_) => AlertDialog(
           title: const Text("Not enough Silver"),
-          content: Text("Need $totalCost 🥈 Silver.\nYour Silver: ${silver.toStringAsFixed(0)}"),
+          content: Text(
+              "Need $totalCost 🥈 Silver.\nYour Silver: ${silver.toStringAsFixed(0)}"),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK")),
           ],
         ),
       );
@@ -121,9 +130,11 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text("$type Call Started"),
-        content: Text("$totalCost 🥈 Silver deducted ✅\n\nCall feature coming soon..."),
+        content: Text(
+            "$totalCost 🥈 Silver deducted ✅\n\nCall feature coming soon..."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text("OK")),
         ],
       ),
     );
@@ -193,7 +204,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         children: [
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: _messagesRef.orderBy('createdAt', descending: true).snapshots(),
+              stream: _messagesRef
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -218,13 +231,18 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                     final isMe = me != null && senderId == me.uid;
 
                     return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment:
+                          isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         constraints: const BoxConstraints(maxWidth: 280),
                         decoration: BoxDecoration(
-                          color: isMe ? Colors.purple.shade100 : Colors.grey.shade200,
+                          color: isMe
+                              ? Colors.purple.shade100
+                              : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(text),

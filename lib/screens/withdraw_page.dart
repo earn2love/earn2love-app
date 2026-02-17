@@ -16,7 +16,10 @@ class _WithdrawPageState extends State<WithdrawPage> {
       FirebaseFirestore.instance.collection('users').doc(uid);
 
   CollectionReference<Map<String, dynamic>> get historyRef =>
-      FirebaseFirestore.instance.collection('users').doc(uid).collection('walletHistory');
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('walletHistory');
 
   bool loading = true;
   bool saving = false;
@@ -103,13 +106,15 @@ class _WithdrawPageState extends State<WithdrawPage> {
     if (country == "IN") {
       // 1 diamond = 10000 INR, minimum withdraw not less (means need >=1 diamond)
       if (diamondBalance < 1) {
-        setState(() => status = "Need at least 1 💎 Diamond to withdraw (India).");
+        setState(
+            () => status = "Need at least 1 💎 Diamond to withdraw (India).");
         return;
       }
     } else if (country == "UK") {
       // 1 diamond = £0.01, minimum withdraw £150 => need 150/0.01 = 15000 diamonds
       if (diamondBalance < 15000) {
-        setState(() => status = "Need at least 15000 💎 Diamonds to withdraw (UK).");
+        setState(
+            () => status = "Need at least 15000 💎 Diamonds to withdraw (UK).");
         return;
       }
     }
@@ -156,7 +161,8 @@ class _WithdrawPageState extends State<WithdrawPage> {
         border: const OutlineInputBorder(),
       );
 
-  Widget _field(TextEditingController c, String label, {String? hint, TextInputType? type}) {
+  Widget _field(TextEditingController c, String label,
+      {String? hint, TextInputType? type}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
@@ -186,39 +192,41 @@ class _WithdrawPageState extends State<WithdrawPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text("Your Balance", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                        const Text("Your Balance",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 16)),
                         const SizedBox(height: 8),
                         Text("💎 ${diamondBalance.toStringAsFixed(2)} Diamonds",
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 22)),
                         const SizedBox(height: 6),
                         Text("Country: $country • $minText"),
                       ],
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-                const Text("Bank Details (Phase 1)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                const Text("Bank Details (Phase 1)",
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
-
-                _field(accountNameCtrl, "Account Holder Name", hint: "Your name"),
+                _field(accountNameCtrl, "Account Holder Name",
+                    hint: "Your name"),
                 _field(bankNameCtrl, "Bank Name", hint: "HDFC / Barclays"),
-                _field(accountNumberCtrl, "Account Number", type: TextInputType.number),
-
+                _field(accountNumberCtrl, "Account Number",
+                    type: TextInputType.number),
                 _field(
                   ifscOrSortCtrl,
                   country == "UK" ? "Sort Code" : "IFSC Code",
                   hint: country == "UK" ? "12-34-56" : "HDFC0001234",
                 ),
-
-                _field(upiCtrl, "UPI ID (optional)", hint: "name@upi", type: TextInputType.emailAddress),
-
+                _field(upiCtrl, "UPI ID (optional)",
+                    hint: "name@upi", type: TextInputType.emailAddress),
                 ElevatedButton.icon(
                   onPressed: saving ? null : saveBankDetails,
                   icon: const Icon(Icons.save),
                   label: Text(saving ? "Saving..." : "Save Bank Details"),
                 ),
-
                 const SizedBox(height: 16),
                 Card(
                   child: Padding(
@@ -226,7 +234,9 @@ class _WithdrawPageState extends State<WithdrawPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text("Withdraw Request", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                        const Text("Withdraw Request",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 16)),
                         const SizedBox(height: 8),
                         const Text(
                           "Phase 1: This will only submit a request.\n"
@@ -235,13 +245,13 @@ class _WithdrawPageState extends State<WithdrawPage> {
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: saving ? null : requestWithdraw,
-                          child: Text(saving ? "Please wait..." : "Request Withdraw"),
+                          child: Text(
+                              saving ? "Please wait..." : "Request Withdraw"),
                         ),
                       ],
                     ),
                   ),
                 ),
-
                 if (status != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -249,7 +259,9 @@ class _WithdrawPageState extends State<WithdrawPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: status!.toLowerCase().contains("fail") ? Colors.red : null,
+                      color: status!.toLowerCase().contains("fail")
+                          ? Colors.red
+                          : null,
                     ),
                   ),
                 ],

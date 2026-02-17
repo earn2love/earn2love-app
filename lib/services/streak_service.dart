@@ -10,8 +10,7 @@ class StreakService {
   static DateTime _startOfDay(DateTime now) =>
       DateTime(now.year, now.month, now.day);
 
-  static String _dateKey(DateTime d) =>
-      "${d.year.toString().padLeft(4, '0')}-"
+  static String _dateKey(DateTime d) => "${d.year.toString().padLeft(4, '0')}-"
       "${d.month.toString().padLeft(2, '0')}-"
       "${d.day.toString().padLeft(2, '0')}";
 
@@ -42,8 +41,7 @@ class StreakService {
           .doc(chatId)
           .collection('messages')
           .where('senderId', isEqualTo: uid)
-          .where('createdAt',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
           .limit(300)
           .get();
 
@@ -103,8 +101,7 @@ class StreakService {
           int.parse(parts[1]),
           int.parse(parts[2]),
         );
-        final diff =
-            _startOfDay(now).difference(_startOfDay(prev)).inDays;
+        final diff = _startOfDay(now).difference(_startOfDay(prev)).inDays;
 
         if (diff == 1) {
           newDays = oldDays + 1;
