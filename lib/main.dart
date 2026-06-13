@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
-import 'screens/auth_gate.dart';
+import 'screens/payment_test_page.dart';
 import 'services/locale_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  Stripe.publishableKey = 'pk_live_51ThgKF2Ls9hAd0787X0dHKkqeqwKIjzMwnJaayiC5tQ8EjYSAAtRhGejZQEeq0N464qst4lQBkgShjGqBsbjavXD00kQ21iQcY';
+  Stripe.publishableKey =
+      'pk_test_51ThgKF2Ls9hAd078zoddyW6NxKentLR3xxurjha6TATt2rxDhehHLoVuUR3DKGEugIzaGgfv7UWNOoRw7bbAR5U1008iyloMsR';
   await Stripe.instance.applySettings();
 
   runApp(const Earn2LoveApp());
@@ -31,7 +32,7 @@ class Earn2LoveApp extends StatelessWidget {
             useMaterial3: true,
           ),
           locale: loc,
-          home: const AuthGate(),
+          home: const PaymentTestPage(),
         );
       },
     );
