@@ -18,7 +18,6 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
           .doc(uid)
           .collection('walletHistory');
 
-  // type filter
   String filter = 'all';
   final filters = const [
     'all',
@@ -30,12 +29,10 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
     'conversion',
   ];
 
-  // range filter
-  String rangeMode = '7d'; // 7d,14d,30d,custom
-  DateTime? fromDate; // custom
-  DateTime? toDate; // custom
+  String rangeMode = '7d';
+  DateTime? fromDate;
+  DateTime? toDate;
 
-  // ---------- helpers ----------
   double asDouble(dynamic v, {double def = 0}) {
     if (v == null) return def;
     if (v is double) return v;
@@ -159,7 +156,6 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
     if (picked == null) return;
     setState(() {
       fromDate = picked;
-      // auto-fix toDate if needed
       if (toDate != null && toDate!.isBefore(picked)) {
         toDate = picked;
       }
@@ -204,7 +200,6 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Query with date range (fast)
     final q = historyRef
         .where('createdAt',
             isGreaterThanOrEqualTo: Timestamp.fromDate(_rangeStart))
@@ -216,7 +211,6 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
       appBar: AppBar(title: const Text("Wallet History")),
       body: Column(
         children: [
-          // -------- range selector --------
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
             child: Column(
@@ -262,8 +256,6 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
               ],
             ),
           ),
-
-          // -------- filter chips --------
           SizedBox(
             height: 54,
             child: ListView.separated(
@@ -291,10 +283,7 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
               },
             ),
           ),
-
           const Divider(height: 1),
-
-          // -------- list + summary --------
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: q.snapshots(),
@@ -314,7 +303,6 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                             (d.data()['type'] ?? '').toString() == filter)
                         .toList();
 
-                // Summary for current view
                 double totalIn = 0;
                 double totalOut = 0;
                 for (final d in items) {
@@ -324,7 +312,6 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                   final toAmt = asDouble(data['toAmount']);
                   final fromAmt = asDouble(data['fromAmount']);
 
-                  // for summary we just count any + as in, any - as out
                   if (toCoin.isNotEmpty && toAmt > 0) totalIn += toAmt;
                   if (fromCoin.isNotEmpty && fromAmt > 0) totalOut += fromAmt;
                 }
@@ -337,7 +324,6 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
                   children: [
-                    // Summary card
                     Card(
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -407,9 +393,7 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 10),
-
                     ...items.map((doc) {
                       final data = doc.data();
                       final type = (data['type'] ?? '').toString();

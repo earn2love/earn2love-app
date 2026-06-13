@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'screens/home_page.dart';
-import 'screens/chat_page.dart';
+import 'screens/chat_list_page.dart';
 import 'screens/earn_page.dart';
+import 'screens/wallet_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -15,7 +16,8 @@ class _AppShellState extends State<AppShell> {
 
   final List<Widget> _pages = const [
     HomePage(),
-    ChatPage(),
+    WalletPage(),
+    ChatListPage(),
     EarnPage(),
   ];
 
@@ -29,11 +31,19 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (value) => setState(() => _index = value),
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF7B4EFF),
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            activeIcon: Icon(Icons.account_balance_wallet),
+            label: 'Wallet',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline),

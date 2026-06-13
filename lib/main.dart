@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'screens/auth_gate.dart';
 import 'services/locale_service.dart';
@@ -7,6 +8,10 @@ import 'services/locale_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  Stripe.publishableKey = 'pk_live_51ThgKF2Ls9hAd0787X0dHKkqeqwKIjzMwnJaayiC5tQ8EjYSAAtRhGejZQEeq0N464qst4lQBkgShjGqBsbjavXD00kQ21iQcY';
+  await Stripe.instance.applySettings();
+
   runApp(const Earn2LoveApp());
 }
 
@@ -25,10 +30,7 @@ class Earn2LoveApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
             useMaterial3: true,
           ),
-
-          // ✅ Instant app language change (Foundation ready)
           locale: loc,
-
           home: const AuthGate(),
         );
       },

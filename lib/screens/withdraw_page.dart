@@ -25,15 +25,16 @@ class _WithdrawPageState extends State<WithdrawPage> {
   bool saving = false;
   String? status;
 
-  // Bank details (placeholder for Phase 1)
   final accountNameCtrl = TextEditingController();
   final bankNameCtrl = TextEditingController();
   final accountNumberCtrl = TextEditingController();
-  final ifscOrSortCtrl = TextEditingController(); // IFSC (IN) / Sort Code (UK)
-  final upiCtrl = TextEditingController(); // optional
+  final ifscOrSortCtrl = TextEditingController();
+  final upiCtrl = TextEditingController();
 
   double diamondBalance = 0;
   String country = "IN";
+  String currencySymbol = "₹";
+  String currencyCode = "INR";
 
   double _num(dynamic v) {
     if (v is int) return v.toDouble();
@@ -59,6 +60,8 @@ class _WithdrawPageState extends State<WithdrawPage> {
       final d = snap.data() ?? {};
 
       country = (d['country'] ?? "IN").toString();
+      currencySymbol = (d['currencySymbol'] ?? (country == 'IN' ? '₹' : '£')).toString();
+      currencyCode = (d['currencyCode'] ?? (country == 'IN' ? 'INR' : 'GBP')).toString();
       diamondBalance = _num(d['diamondBalance']);
 
       final bank = (d['bankDetails'] is Map) ? (d['bankDetails'] as Map) : {};
@@ -100,21 +103,20 @@ class _WithdrawPageState extends State<WithdrawPage> {
     }
   }
 
-  // Phase 1: just create a withdraw request entry (no real withdrawal yet)
   Future<void> requestWithdraw() async {
-    // Rules you decided (Phase 1 enforce basic)
     if (country == "IN") {
-      // 1 diamond = 10000 INR, minimum withdraw not less (means need >=1 diamond)
       if (diamondBalance < 1) {
-        setState(
-            () => status = "Need at least 1 💎 Diamond to withdraw (India).");
+        setState(() => status = "Need at least 1 💎 Diamond to withdraw (India).");
         return;
       }
     } else if (country == "UK") {
-      // 1 diamond = £0.01, minimum withdraw £150 => need 150/0.01 = 15000 diamonds
       if (diamondBalance < 15000) {
-        setState(
-            () => status = "Need at least 15000 💎 Diamonds to withdraw (UK).");
+        setState(() => status = "Need at least 15000 💎 Diamonds to withdraw (UK).");
+        return;
+      }
+    } else {
+      if (diamondBalance < 15000) {
+        setState(() => status = "Need at least 15000 💎 Diamonds to withdraw.");
         return;
       }
     }
@@ -129,10 +131,12 @@ class _WithdrawPageState extends State<WithdrawPage> {
         'type': 'withdraw',
         'title': 'Withdraw request',
         'fromCoin': 'Diamond',
-        'fromAmount': 0, // we will implement deduction later (phase 2)
+        'fromAmount': 0,
         'toCoin': 'Cash',
         'toAmount': 0,
         'country': country,
+        'currencyCode': currencyCode,
+        'currencySymbol': currencySymbol,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'requested',
       });
@@ -177,7 +181,9 @@ class _WithdrawPageState extends State<WithdrawPage> {
   Widget build(BuildContext context) {
     final minText = (country == "UK")
         ? "Minimum: £150 (needs 15000 Diamonds)"
-        : "Minimum: 1 Diamond (India rule)";
+        : (country == "IN")
+            ? "Minimum: 1 Diamond (India rule)"
+            : "Minimum: ${currencySymbol}150 equivalent";
 
     return Scaffold(
       appBar: AppBar(title: const Text("Withdrawals")),
