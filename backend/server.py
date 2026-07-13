@@ -92,17 +92,26 @@ async def write_audit(admin: dict, action: str, module: str, target: str = "", t
         "id": f"LOG-{uuid.uuid4().hex[:10]}", "admin": admin["name"], "role": admin["role"],
         "action": action, "module": module, "target": target, "target_id": target_id,
         "previous_value": prev, "new_value": new, "reason": reason or "",
-        "ip": request.client.host if request and request.client else "system",
+        "ip": client_ip(request) if request else "system",
         "device": (request.headers.get("user-agent", "")[:60] if request else "system"),
         "result": result, "timestamp": datetime.now(timezone.utc).isoformat(), "is_demo": True,
     }
     await db.audit_logs.insert_one(doc)
 
 
+def client_ip(request: Request) -> str:
+    if request is None:
+        return "system"
+    xff = request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
 @api.post("/auth/login")
 async def login(body: LoginBody, request: Request, response: Response):
     email = body.email.strip().lower()
-    ip = request.client.host if request.client else "?"
+    ip = client_ip(request)
     ident = f"{ip}:{email}"
     attempt = await db.login_attempts.find_one({"identifier": ident})
     if attempt and attempt.get("count", 0) >= MAX_ATTEMPTS:
