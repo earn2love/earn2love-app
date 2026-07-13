@@ -1,0 +1,117 @@
+{
+  "typography": {
+    "headings": {
+      "family": "Manrope",
+      "weights": ["600", "800"],
+      "description": "Authoritative, premium, and distinct geometric confidence for KPI numbers and headers."
+    },
+    "body": {
+      "family": "IBM Plex Sans",
+      "weights": ["400", "500", "600"],
+      "description": "Clean, highly readable humanist sans optimized for dense tabular data and UI text."
+    },
+    "mono": {
+      "family": "Fira Code",
+      "weights": ["400"],
+      "description": "For exact tabular alignment of wallet coins, IDs, and financial metrics."
+    },
+    "hierarchy": {
+      "h1_kpi": "text-4xl tracking-tighter font-extrabold",
+      "h2_section": "text-2xl tracking-tight font-bold",
+      "h3_card": "text-lg font-semibold tracking-tight",
+      "body": "text-sm leading-relaxed",
+      "labels": "text-xs uppercase tracking-[0.2em] font-medium"
+    }
+  },
+  "colors": {
+    "archetype": "Luxury Neumorphism & Glass (Dark-Mode First)",
+    "light_mode": {
+      "background": "#F8F9FA",
+      "surface": "#FFFFFF",
+      "border": "#E5E7EB",
+      "text_primary": "#111827",
+      "text_secondary": "#4B5563"
+    },
+    "dark_mode": {
+      "background": "#050509",
+      "surface": "#0d0d1a",
+      "border": "#1e1e30",
+      "text_primary": "#F3F4F6",
+      "text_secondary": "#9CA3AF"
+    },
+    "brand_accents": {
+      "pink": "#EC4899",
+      "purple": "#A855F7",
+      "violet": "#6D28D9",
+      "gradient_primary": "bg-gradient-to-br from-violet-600 to-pink-500",
+      "gradient_hover": "bg-gradient-to-br from-violet-500 to-pink-400"
+    },
+    "status": {
+      "active_green": "#10B981",
+      "warning_amber": "#F59E0B",
+      "danger_red": "#EF4444"
+    }
+  },
+  "visual_enhancers": {
+    "gradients": "Subtle, restricted to active states, chart fills (with opacity), and key CTAs. No full-screen gradients. Do not use dark colors as gradients.",
+    "borders": "1px solid strokes replacing heavy shadows. Light mode: border-gray-200. Dark mode: border-white/10.",
+    "radii": "rounded-lg (8px max) for outer cards, rounded-md (6px) for inner elements. Subtly rounded for a premium feel, avoiding childish 'bubble' shapes.",
+    "glassmorphism": "Used strictly for sticky headers, fixed navs, and floating modals. backdrop-blur-xl bg-white/70 (light) or bg-black/60 (dark). NEVER use completely transparent backgrounds over content."
+  },
+  "component_strategy": {
+    "sidebar": "Collapsible layout for 24 sections. Dark-themed or frosted glass in both modes to serve as a strong anchor. Active states use a left-border highlight + purple/pink gradient text. Include 'Earn2Love' Heart logo and Ram (RA) admin profile.",
+    "kpi_cards": "Flat surfaces with 1px borders. Inside: Label (xs uppercase), North Star Metric (4xl Manrope), Trend Indicator (green/red with subtle bg-opacity).",
+    "tables": "Dense rows (36-40px height). Fira Code for IDs/Currency. Sticky headers with backdrop blur. Actions on the right with hover-reveal. Use Shadcn Table.",
+    "charts": "Shadcn/Recharts. Use gradient fills under lines. Distinct accent lines (Pink/Violet). Hidden grid lines or 5% opacity.",
+    "badges": "Pill-shaped, text-xs, with subtle colored background (e.g. bg-green-500/10 text-green-500).",
+    "forms": "Crisp stacked layouts. Input backgrounds slightly darker than surface in dark mode, slightly lighter in light mode."
+  },
+  "grids": {
+    "dashboard_layout": "Bento-inspired. Top row: 4 KPI widgets (col-span-1). Middle row: Wide Chart (col-span-3) + Donut/Feed (col-span-1).",
+    "gap": "gap-4 to gap-6 for high-density correlation."
+  },
+  "layouts": {
+    "overall": "100vh flex. Left: Sidebar (w-64 expanded, w-16 collapsed). Right: flex-1 flex-col (Sticky Header + Scrollable Content p-6 to p-8).",
+    "alignment": "KPI numbers right-aligned if in list, left-aligned in cards. Text left-aligned."
+  },
+  "motion": {
+    "hover": "Subtle translations (-translate-y-[1px]) or border color shifts.",
+    "transitions": "transition-colors duration-200 ease-in-out, transition-transform duration-200 ease-in-out"
+  },
+  "accessibility": {
+    "contrast": "Ensure WCAG AA contrast. Never use pure #000 or pure #FFF exclusively without tinting.",
+    "focus": "focus:ring-2 focus:ring-violet-500 focus:outline-none focus:ring-offset-2",
+    "testing": "All interactive elements MUST include a `data-testid` attribute (e.g., data-testid='sidebar-users-link')."
+  },
+  "media": {
+    "icons": "Phosphor Icons (@phosphor-icons/react) for an elegant duotone look on premium dashboards."
+  },
+  "image_urls": {
+    "admin_avatar": {
+      "url": "https://images.pexels.com/photos/7580994/pexels-photo-7580994.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Ram (Owner) profile picture for the top right corner or sidebar bottom.",
+      "category": "user_avatar"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Install Phosphor Icons: yarn add @phosphor-icons/react",
+    "Implement light/dark mode toggle prioritizing next-themes.",
+    "For the heart logo, use a Phosphor Icon `<Heart weight='duotone' className='text-pink-500' />` combined with the text 'Earn2Love' instead of a placeholder image.",
+    "Build a collapsible sidebar encompassing all 24 required sections: Dashboard, Users, Reports, Verification, Subscriptions, Wallet, Conversions, Withdrawals, Calls, Tasks, Ads, Friends, Chats, Content, Pricing, Notifications, Roles, Logs, Settings, Analytics, Tickets.",
+    "Use standard Shadcn UI components but override the borders and radii according to these guidelines (max 8px radius)."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy and 1px borders instead of heavy drop shadows.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition. Eg: transition: all. Target specific properties.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; }.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER use AI assistant Emoji characters.",
+    "Every interaction needs micro-animations - hover states, transitions.",
+    "All interactive and key informational elements MUST include a data-testid attribute.",
+    "Use sonner for toasts. They are located in /app/frontend/src/components/ui/sonner.tsx."
+  ]
+}
