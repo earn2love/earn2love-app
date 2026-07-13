@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import api, { formatApiError } from "@/lib/api";
 import { MODULES } from "@/config/modules";
 import { Topbar } from "@/components/Topbar";
@@ -13,7 +13,7 @@ export default function ModulePage() {
   const { key } = useParams();
   const config = MODULES[key];
   const { can } = useAuth();
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, pages: 1 });
@@ -22,13 +22,13 @@ export default function ModulePage() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [filters, setFilters] = useState({});
-  const [dialog, setDialog] = useState(null); // { row, action }
+  const [dialog, setDialog] = useState(null); // { row, action } | { bulk, action }
+  const [selected, setSelected] = useState([]);
 
   const canWrite = config ? can(config.endpoint) : false;
 
   useEffect(() => {
-    // reset state on module change
-    setPage(1); setSearch(""); setDebounced(""); setFilters({});
+    setPage(1); setSearch(""); setDebounced(""); setFilters({}); setSelected([]);
   }, [key]);
 
   useEffect(() => {
@@ -56,6 +56,17 @@ export default function ModulePage() {
   const onFilter = (fkey, val) => { setFilters((f) => ({ ...f, [fkey]: val })); setPage(1); };
 
   const runAction = async (reason) => {
+    if (dialog.bulk) {
+      const { action } = dialog;
+      let ok = 0;
+      for (const id of selected) {
+        try { await api.post(`/resources/${config.endpoint}/${id}/action`, { action: action.key, reason }); ok++; }
+        catch { /* skip */ }
+      }
+      toast.success(`${action.label} applied to ${ok}/${selected.length}`);
+      setDialog(null); setSelected([]); fetchData();
+      return;
+    }
     const { row, action } = dialog;
     try {
       await api.post(`/resources/${config.endpoint}/${row.id}/action`, { action: action.key, reason });
@@ -69,6 +80,10 @@ export default function ModulePage() {
   };
 
   const actions = useMemo(() => (canWrite ? config?.actions || [] : []), [canWrite, config]);
+  const bulkActions = useMemo(
+    () => (canWrite ? (config?.actions || []).filter((a) => ["approve", "reject", "resolve", "escalate", "assign", "close", "activate", "pause"].includes(a.key)) : []),
+    [canWrite, config]);
+  const detailRoute = config?.detailRoute;
 
   if (!config) {
     return (
@@ -109,7 +124,13 @@ export default function ModulePage() {
           onFilter={onFilter}
           actions={actions}
           onAction={(row, action) => setDialog({ row, action })}
+          onRowClick={detailRoute ? (row) => navigate(detailRoute(row.id)) : undefined}
           exportName={config.endpoint}
+          selectable={bulkActions.length > 0}
+          selected={selected}
+          onSelectChange={setSelected}
+          bulkActions={bulkActions}
+          onBulkAction={(action) => setDialog({ bulk: true, action })}
         />
       </main>
 
@@ -117,8 +138,10 @@ export default function ModulePage() {
         <ActionDialog
           open={!!dialog}
           onOpenChange={(o) => !o && setDialog(null)}
-          title={`${dialog.action.label}?`}
-          description={`Apply "${dialog.action.label}" to ${dialog.row.id}. This will be recorded in the audit log.`}
+          title={dialog.bulk ? `${dialog.action.label} ${selected.length} items?` : `${dialog.action.label}?`}
+          description={dialog.bulk
+            ? `Apply "${dialog.action.label}" to ${selected.length} selected records. Recorded in the audit log.`
+            : `Apply "${dialog.action.label}" to ${dialog.row.id}. This will be recorded in the audit log.`}
           danger={dialog.action.danger}
           requireReason={dialog.action.danger}
           confirmLabel={dialog.action.label}

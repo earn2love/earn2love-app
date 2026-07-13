@@ -425,3 +425,25 @@ async def seed_settings(db):
     existing = await db.system_settings.find_one({"id": "system"})
     if existing is None:
         await db.system_settings.insert_one(dict(DEFAULT_SETTINGS))
+
+
+async def seed_ticket_messages(db):
+    if await db.ticket_messages.count_documents({}) > 0:
+        return
+    tickets = await db.support_tickets.find({}, {"_id": 0}).to_list(1000)
+    openers = [
+        "Hi, I've been trying to sort this for days and need help urgently.",
+        "Hello team, could you please look into my account? Something isn't right.",
+        "I raised this earlier but haven't heard back. Please assist.",
+        "This is affecting my ability to use the app. Kindly resolve.",
+        "Please check the details below and advise on next steps.",
+    ]
+    docs = []
+    for t in tickets:
+        docs.append({
+            "id": f"msg_{uuid.uuid4().hex[:8]}", "ticket_id": t["id"], "author": t.get("user", "User"),
+            "role": "User", "text": f"{t.get('subject', 'Issue')} — {random.choice(openers)}",
+            "visibility": "user", "created_at": t.get("created_date"), "is_demo": True,
+        })
+    if docs:
+        await db.ticket_messages.insert_many(docs)

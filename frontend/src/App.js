@@ -11,6 +11,9 @@ import Dashboard from "@/pages/Dashboard";
 import Users from "@/pages/Users";
 import UserDetail from "@/pages/UserDetail";
 import ModulePage from "@/pages/ModulePage";
+import ReportDetail from "@/pages/ReportDetail";
+import TicketDetail from "@/pages/TicketDetail";
+import Notifications from "@/pages/Notifications";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import Roles from "@/pages/Roles";
@@ -28,6 +31,9 @@ function App() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/users" element={<Users />} />
               <Route path="/users/:id" element={<UserDetail />} />
+              <Route path="/reports/:id" element={<ReportDetail />} />
+              <Route path="/tickets/:id" element={<TicketDetail />} />
+              <Route path="/notifications" element={<Notifications />} />
               <Route path="/m/:key" element={<ModulePage />} />
               <Route path="/countries" element={<Countries />} />
               <Route path="/settings" element={<Settings />} />

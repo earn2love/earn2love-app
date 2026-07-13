@@ -48,7 +48,7 @@ export const NAV_GROUPS = [
     group: "Configuration",
     items: [
       { label: "Countries & Pricing", icon: Globe, to: "/countries", key: "countries" },
-      { label: "Notifications", icon: Bell, to: "/m/notifications", key: "notifications" },
+      { label: "Notifications", icon: Bell, to: "/notifications", key: "notifications" },
       { label: "System Settings", icon: Settings, to: "/settings", key: "settings" },
     ],
   },
@@ -70,6 +70,7 @@ export const MODULES = {
     title: "Reports & Safety",
     subtitle: "Moderation queue for user reports and safety cases",
     endpoint: "reports",
+    detailRoute: (id) => `/reports/${id}`,
     search: "Search report ID, user, category…",
     columns: [
       { key: "id", label: "Report ID", mono: true },
@@ -450,6 +451,7 @@ export const MODULES = {
     title: "Support Tickets",
     subtitle: "User support and escalation queue",
     endpoint: "support-tickets",
+    detailRoute: (id) => `/tickets/${id}`,
     search: "Search ticket, user or subject…",
     columns: [
       { key: "id", label: "Ticket", mono: true },

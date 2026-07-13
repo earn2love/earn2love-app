@@ -4,6 +4,7 @@ import { fmtDate, fmtDateTime, fmtCurrency, exportCsv } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -29,11 +30,36 @@ export function DataTable({
   columns, rows, loading, total, page, pages, onPage,
   search, onSearch, filters = [], filterValues = {}, onFilter,
   actions = [], onAction, onRowClick, exportName = "export", rightSlot,
+  selectable = false, selected = [], onSelectChange, bulkActions = [], onBulkAction,
 }) {
   const hasActions = actions && actions.length > 0;
+  const allSelected = selectable && rows.length > 0 && rows.every((r) => selected.includes(r.id));
+  const toggleAll = () => {
+    if (!onSelectChange) return;
+    onSelectChange(allSelected ? [] : rows.map((r) => r.id));
+  };
+  const toggleOne = (id) => {
+    if (!onSelectChange) return;
+    onSelectChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  };
 
   return (
     <div className="rounded-lg border border-border bg-card">
+      {/* Bulk action bar */}
+      {selectable && selected.length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-accent/40" data-testid="bulk-bar">
+          <span className="text-sm font-medium">{selected.length} selected</span>
+          <div className="flex items-center gap-1.5">
+            {bulkActions.map((a) => (
+              <Button key={a.key} data-testid={`bulk-${a.key}`} size="sm" variant={a.danger ? "destructive" : "outline"}
+                className="h-8" onClick={() => onBulkAction(a)}>
+                {a.label}
+              </Button>
+            ))}
+          </div>
+          <button className="ml-auto text-xs text-muted-foreground hover:text-foreground" onClick={() => onSelectChange([])}>Clear</button>
+        </div>
+      )}
       {/* Toolbar */}
       <div className="flex flex-col lg:flex-row lg:items-center gap-3 p-3.5 border-b border-border">
         <div className="relative flex-1 min-w-[200px]">
@@ -78,6 +104,11 @@ export function DataTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
+              {selectable && (
+                <th className="px-4 py-3 w-10">
+                  <Checkbox checked={allSelected} onCheckedChange={toggleAll} data-testid="select-all" aria-label="Select all" />
+                </th>
+              )}
               {columns.map((c) => (
                 <th key={c.key} className="text-left font-semibold text-[11px] uppercase tracking-wider text-muted-foreground px-4 py-3 whitespace-nowrap">
                   {c.label}
@@ -90,6 +121,7 @@ export function DataTable({
             {loading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <tr key={i} className="border-b border-border/60">
+                  {selectable && <td className="px-4 py-3" />}
                   {columns.map((c) => (
                     <td key={c.key} className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                   ))}
@@ -98,7 +130,7 @@ export function DataTable({
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (hasActions ? 1 : 0)} className="px-4 py-16 text-center">
+                <td colSpan={columns.length + (hasActions ? 1 : 0) + (selectable ? 1 : 0)} className="px-4 py-16 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Inbox className="h-8 w-8 opacity-40" />
                     <p className="text-sm">No records found</p>
@@ -113,9 +145,15 @@ export function DataTable({
                   onClick={() => onRowClick?.(row)}
                   className={cn(
                     "border-b border-border/60 transition-colors",
-                    onRowClick && "cursor-pointer hover:bg-accent/40"
+                    (onRowClick) && "cursor-pointer hover:bg-accent/40",
+                    selected.includes(row.id) && "bg-accent/30"
                   )}
                 >
+                  {selectable && (
+                    <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox checked={selected.includes(row.id)} onCheckedChange={() => toggleOne(row.id)} data-testid={`select-${row.id}`} />
+                    </td>
+                  )}
                   {columns.map((c) => (
                     <td key={c.key} className="px-4 py-2.5 max-w-[220px]">{renderCell(row, c)}</td>
                   ))}

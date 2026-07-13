@@ -1,6 +1,7 @@
 import os
 import uuid
 import secrets
+import random
 import logging
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
@@ -553,6 +554,84 @@ async def root():
     return {"message": "Earn2Love Admin API", "status": "ok"}
 
 
+# ---------------- Reports detail ----------------
+@api.get("/reports/{report_id}/detail")
+async def report_detail(report_id: str, admin: dict = Depends(get_current_admin)):
+    report = await db.reports.find_one({"id": report_id}, {"_id": 0})
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    uid = report.get("reported_user_id")
+    user = await db.users.find_one({"id": uid}, {"_id": 0}) if uid else None
+    prev_reports = await db.reports.find(
+        {"reported_user_id": uid, "id": {"$ne": report_id}}, {"_id": 0}).sort("created_date", -1).to_list(20) if uid else []
+    notes = await db.admin_notes.find({"user_id": uid}, {"_id": 0}).to_list(30) if uid else []
+    audit = await db.audit_logs.find({"target_id": report_id}, {"_id": 0}).sort("timestamp", -1).to_list(30)
+    return {"report": report, "user": user, "previous_reports": prev_reports, "notes": notes, "audit": audit}
+
+
+# ---------------- Notifications composer ----------------
+class NotificationCreate(BaseModel):
+    title: str
+    type: str
+    channel: str
+    audience: str
+    send_mode: str = "now"  # now | schedule | draft
+    body: str | None = None
+
+
+@api.post("/notifications")
+async def create_notification(body: NotificationCreate, request: Request, admin: dict = Depends(get_current_admin)):
+    if not can_write(admin["role"], "notifications"):
+        raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot send notifications")
+    status = {"now": "Sent", "schedule": "Scheduled", "draft": "Draft"}.get(body.send_mode, "Draft")
+    audience_counts = {"All users": 250, "UK users": 112, "India users": 138, "Love tier": 37,
+                       "Friendship tier": 74, "Unverified": 96}
+    sent = audience_counts.get(body.audience, 100) if status == "Sent" else 0
+    doc = {"id": f"NTF-{uuid.uuid4().hex[:8]}", "title": body.title, "type": body.type,
+           "channel": body.channel, "audience": body.audience, "body": body.body or "",
+           "status": status, "sent_count": sent,
+           "open_rate": round(random.uniform(15, 55), 1) if status == "Sent" else 0,
+           "created_date": datetime.now(timezone.utc).isoformat(), "created_by": admin["name"], "is_demo": True}
+    await db.notifications.insert_one(dict(doc))
+    await write_audit(admin, f"Notification {status.lower()}", "notifications", body.title, doc["id"], request=request)
+    return {"ok": True, "notification": doc}
+
+
+# ---------------- Support ticket thread ----------------
+class TicketReply(BaseModel):
+    text: str
+    visibility: str = "internal"  # internal | user
+
+
+@api.get("/support-tickets/{ticket_id}/detail")
+async def ticket_detail(ticket_id: str, admin: dict = Depends(get_current_admin)):
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    messages = await db.ticket_messages.find({"ticket_id": ticket_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
+    user = await db.users.find_one({"id": ticket.get("user_id")}, {"_id": 0}) if ticket.get("user_id") else None
+    return {"ticket": ticket, "messages": messages, "user": user}
+
+
+@api.post("/support-tickets/{ticket_id}/reply")
+async def ticket_reply(ticket_id: str, body: TicketReply, request: Request, admin: dict = Depends(get_current_admin)):
+    if not can_write(admin["role"], "support-tickets"):
+        raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot reply to tickets")
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    msg = {"id": f"msg_{uuid.uuid4().hex[:8]}", "ticket_id": ticket_id, "author": admin["name"],
+           "role": admin["role"], "text": body.text, "visibility": body.visibility,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.ticket_messages.insert_one(dict(msg))
+    await db.support_tickets.update_one({"id": ticket_id}, {"$set": {
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+        "status": "Assigned" if ticket["status"] == "Open" else ticket["status"],
+        "assigned_admin": ticket.get("assigned_admin") if ticket.get("assigned_admin") not in (None, "Unassigned") else admin["name"]}})
+    await write_audit(admin, f"Ticket reply ({body.visibility})", "support-tickets", ticket.get("subject", ""), ticket_id, request=request)
+    return {"ok": True, "message": msg}
+
+
 app.include_router(api)
 
 app.add_middleware(
@@ -575,6 +654,7 @@ async def startup():
     await seeder.seed_admins(db)
     await seeder.seed_settings(db)
     await seeder.seed_all(db)
+    await seeder.seed_ticket_messages(db)
     logger.info("Startup: seeding complete")
 
 
