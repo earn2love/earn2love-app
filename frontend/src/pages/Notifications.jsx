@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
@@ -78,7 +78,9 @@ export default function Notifications() {
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild><Button data-testid="compose-btn" className="gradient-brand text-white border-0 gap-2"><Send className="h-4 w-4" /> Compose</Button></DialogTrigger>
               <DialogContent data-testid="compose-dialog" className="max-w-lg">
-                <DialogHeader><DialogTitle>Compose Notification</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Compose Notification</DialogTitle>
+                  <DialogDescription>Send an in-app, email, push or SMS notification to a target audience.</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-3">
                   <div><Label>Title</Label><Input data-testid="notif-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Weekend bonus is live!" /></div>
                   <div className="grid grid-cols-2 gap-3">

@@ -43,7 +43,7 @@ export default function ReportDetail() {
   };
 
   if (!data) return (<><Topbar title="Report" /><main className="flex-1 grid place-items-center text-muted-foreground">Loading…</main></>);
-  const { report, user, previous_reports, notes, audit } = data;
+  const { report, user, previous_reports = [], notes = [], audit = [] } = data;
 
   const reportActions = [
     { key: "assign", label: "Assign to me" },

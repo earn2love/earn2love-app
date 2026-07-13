@@ -30,7 +30,7 @@ export default function TicketDetail() {
     setBusy(true);
     try {
       await api.post(`/support-tickets/${id}/reply`, { text, visibility });
-      setText(""); await load();
+      setText(""); setVisibility("user"); await load();
       toast.success(visibility === "user" ? "Reply sent to user" : "Internal note added");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setBusy(false); }
