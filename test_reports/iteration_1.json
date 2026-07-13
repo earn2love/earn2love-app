@@ -1,0 +1,54 @@
+{
+  "summary": "Full end-to-end backend + frontend testing of Earn2Love Admin panel. 46/47 pytest cases pass. Frontend flows (login, dashboard, users, user detail with tabs, generic module pages, reports, analytics, settings, roles, countries, theme toggle, sidebar collapse, logout) all render and integrate correctly. Two backend defects found; one (analytics 500) was auto-fixed by testing agent, one (login rate-limit lockout) remains and needs main-agent fix.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/login",
+        "issue": "Brute-force lockout does not trigger through the ingress. Rate-limit key uses `request.client.host` which equals the ingress pod IP and rotates per request (10.208.128.9 vs 10.208.128.10 observed in backend logs), so the (ip:email) counter never crosses the 5-attempt threshold. Six wrong-password attempts all return 401 instead of a 429 on the 6th. Fix: use the first IP in `X-Forwarded-For` (or `X-Real-IP`) as the client IP, or key rate-limiting on email only (with a small per-email delay to avoid enumeration DoS)."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Platform Analytics page",
+        "issue": "Before the analytics 500 fix, the Analytics page showed dashes (—) for every KPI and empty growth/country charts because /api/analytics failed. After the local fix (renaming the `range` query param), the page now renders. Main agent should confirm they want the fix or apply their own.",
+        "affected_selectors": ["[data-testid='analytics-range']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix login brute-force lockout so it works behind the ingress: read forwarded IP from X-Forwarded-For header (or key the rate-limit dictionary on email alone).",
+    "Confirm/keep the analytics `range` param rename fix applied to /app/backend/server.py (parameter renamed to `days_range` with alias='range').",
+    "Optional: the ROLES page permission matrix shows 'Verification Admin' but the login test list only includes 5 seeded admins — Verification Admin has no seeded account, which is fine but worth documenting."
+  ],
+  "critical_code_review_comments": [
+    "server.py line 405 (pre-fix): using `range` as a FastAPI query parameter name shadowed Python's built-in `range()` and caused a 500 in the endpoint. Never use `range`, `id`, `type`, `list`, `dict` as parameter names — always alias or rename.",
+    "Rate-limit implementation trusts `request.client.host` which is the immediate peer IP; behind a K8s ingress this is not the real client IP and rotates across pods. This breaks brute-force protection and also means logging `last_ip`/audit `ip` fields are ingress IPs, not user IPs.",
+    "server.py has 500+ lines and mixes auth, RBAC-lite, resource listing, audit logging, and per-module custom actions. Consider splitting into routers (auth.py already exists; add resources.py, users.py, dashboard.py, admin_mgmt.py) as the codebase grows.",
+    "In /api/resources/{module} the arbitrary query-param → Mongo query conversion (booleans + equality) accepts any key from the client, including things like `is_demo=false`. This is fine for an internal admin panel but worth documenting/whitelisting per resource in future.",
+    "MongoDB `_id` is correctly excluded via projection `{\"_id\": 0}` everywhere — good.",
+    "seed_admin() correctly re-hashes/updates existing admins with the current seeded password (idempotent password rotation on restart), matching the playbook requirement."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (renamed analytics query param `range` -> `days_range` with alias='range' to fix 500 error)",
+    "/app/backend/tests/backend_test.py (new pytest suite with 47 tests)"
+  ],
+  "success_rate": {"backend": "97.9% (46/47)", "frontend": "100% of tested flows"},
+  "test_credentials": "See /app/memory/test_credentials.md — ram@earn2love.com / Owner@2026 used as primary; RBAC tested with david@earn2love.com (Analyst, expects 403) and james@earn2love.com (Finance).",
+  "seed_data_creation": "None manually. Tests exercise seeded data (250 users, 60 reports, etc.) plus create 1 TEST_ admin per full run (test_owner_creates_admin_and_actions) and modify one seeded user (freeze/unfreeze) — safely reverted.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend base URL is https://control-center-148.preview.emergentagent.com. All pytest tests live at /app/backend/tests/backend_test.py and can be re-run with `pytest /app/backend/tests -v --junitxml=/app/test_reports/pytest/pytest_results.xml`. The single expected failure is TestAuth::test_login_rate_limit_after_5_failures — it will keep failing until rate-limit uses X-Forwarded-For. Frontend data-testids are consistent (kpi-total-users, nav-<key>, row-<id>, admin-menu-trigger, logout-btn, theme-toggle, sidebar-collapse-btn, analytics-range, create-admin-btn, edit-country-<id>).",
+  "rca of the issue": {
+    "analytics_500": "Root cause: parameter named `range: str = '30'` in async def analytics(...) shadowed Python's built-in range() at server.py:421. Reproduction: authenticated GET /api/analytics -> 500 with 'TypeError: str object is not callable'. Mitigation applied: renamed the parameter to `days_range` with `Query('30', alias='range')` so the public contract is unchanged.",
+    "rate_limit_not_triggering": "Root cause: rate-limit identifier is `f'{request.client.host}:{email}'`, but behind the K8s ingress `request.client.host` is the ingress pod IP (10.208.128.9 / 10.208.128.10 seen alternating in backend logs). Each attempt from the same user maps to a different identifier so `count` never reaches 5. Reproduction: 6 x POST /api/auth/login with wrong password for the same email → 6x 401, never 429. Mitigation: parse the first IP from `X-Forwarded-For` header (fall back to `request.client.host`) or drop the IP from the key entirely."
+  }
+}
