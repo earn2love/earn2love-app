@@ -674,6 +674,22 @@ async def global_search(admin: dict = Depends(get_current_admin), q: str = ""):
     return {"results": results}
 
 
+@api.get("/pending-counts")
+async def pending_counts(admin: dict = Depends(get_current_admin)):
+    reports = await db.reports.count_documents({"status": {"$in": ["Open", "Assigned", "Investigating"]}})
+    withdrawals = await db.withdrawals.count_documents({"status": {"$in": ["Pending", "Under Review"]}})
+    liveness = await db.liveness_verifications.count_documents({"status": {"$in": ["Pending", "Needs Review"]}})
+    identity = await db.identity_verifications.count_documents({"status": {"$in": ["Pending", "Needs Review"]}})
+    moderation = await db.moderation_items.count_documents({"status": "Pending"})
+    tickets = await db.support_tickets.count_documents({"status": {"$in": ["Open", "Assigned"]}})
+    conversions = await db.coin_conversions.count_documents({"status": "Under Review"})
+    payments = await db.payments.count_documents({"status": "Disputed"})
+    counts = {"reports": reports, "withdrawals": withdrawals, "liveness": liveness,
+              "identity": identity, "moderation": moderation, "support-tickets": tickets,
+              "conversions": conversions, "payments": payments}
+    return {"counts": counts, "total": sum(counts.values())}
+
+
 app.include_router(api)
 
 app.add_middleware(

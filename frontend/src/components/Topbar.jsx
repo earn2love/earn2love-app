@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Menu, Heart, Search } from "lucide-react";
+import { LogOut, Menu, Heart, Search, Bell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { usePendingCounts } from "@/context/PendingCountsContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NAV_GROUPS } from "@/config/modules";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -13,6 +14,18 @@ export function Topbar({ title, subtitle }) {
   const { admin, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { counts, total } = usePendingCounts();
+
+  const PENDING_ITEMS = [
+    { key: "reports", label: "Open reports", to: "/m/reports" },
+    { key: "withdrawals", label: "Withdrawals to review", to: "/m/withdrawals" },
+    { key: "liveness", label: "Liveness checks", to: "/m/liveness" },
+    { key: "identity", label: "Identity checks", to: "/m/identity" },
+    { key: "moderation", label: "Moderation queue", to: "/m/moderation" },
+    { key: "support-tickets", label: "Open tickets", to: "/m/support-tickets" },
+    { key: "conversions", label: "Conversions under review", to: "/m/conversions" },
+    { key: "payments", label: "Disputed payments", to: "/m/payments" },
+  ].filter((i) => (counts[i.key] || 0) > 0);
 
   const doLogout = async () => {
     await logout();
@@ -74,6 +87,33 @@ export function Topbar({ title, subtitle }) {
           <span>Search…</span>
           <kbd className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono">⌘K</kbd>
         </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button data-testid="notif-bell" className="relative grid place-items-center h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <Bell className="h-[18px] w-[18px]" />
+              {total > 0 && (
+                <span data-testid="notif-bell-count" className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 grid place-items-center rounded-full bg-pink-500 text-white text-[9px] font-bold tabular-nums">
+                  {total > 99 ? "99+" : total}
+                </span>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>Pending items</span>
+              <span className="text-xs text-muted-foreground font-normal">{total} total</span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {PENDING_ITEMS.length === 0 ? (
+              <div className="px-2 py-6 text-center text-sm text-muted-foreground">All caught up 🎉</div>
+            ) : PENDING_ITEMS.map((i) => (
+              <DropdownMenuItem key={i.key} data-testid={`notif-item-${i.key}`} onClick={() => navigate(i.to)} className="flex items-center justify-between">
+                <span>{i.label}</span>
+                <span className="min-w-[20px] h-5 px-1.5 grid place-items-center rounded-full bg-pink-500/15 text-pink-500 text-[11px] font-semibold">{counts[i.key]}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <ThemeToggle />
         <div className="h-6 w-px bg-border mx-0.5 hidden sm:block" />
         <DropdownMenu>

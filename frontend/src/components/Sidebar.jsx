@@ -2,10 +2,12 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Heart, ChevronLeft, PanelLeftClose, PanelLeft } from "lucide-react";
 import { NAV_GROUPS } from "@/config/modules";
+import { usePendingCounts } from "@/context/PendingCountsContext";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
+  const { counts } = usePendingCounts();
 
   return (
     <aside
@@ -41,6 +43,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
                 const active = item.to === "/"
                   ? location.pathname === "/"
                   : location.pathname.startsWith(item.to);
+                const badge = counts[item.key] || 0;
                 return (
                   <NavLink
                     key={item.to}
@@ -58,7 +61,16 @@ export function Sidebar({ collapsed, setCollapsed }) {
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full gradient-brand" />
                     )}
                     <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-pink-400")} />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
+                    {!collapsed && <span className="truncate flex-1">{item.label}</span>}
+                    {badge > 0 && (
+                      collapsed ? (
+                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-pink-500" data-testid={`nav-dot-${item.key}`} />
+                      ) : (
+                        <span data-testid={`nav-badge-${item.key}`} className="ml-auto min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full bg-pink-500/20 text-pink-300 text-[10px] font-semibold tabular-nums">
+                          {badge > 99 ? "99+" : badge}
+                        </span>
+                      )
+                    )}
                   </NavLink>
                 );
               })}
