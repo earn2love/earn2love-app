@@ -13,6 +13,7 @@ import UserDetail from "@/pages/UserDetail";
 import ModulePage from "@/pages/ModulePage";
 import ReportDetail from "@/pages/ReportDetail";
 import TicketDetail from "@/pages/TicketDetail";
+import VerificationDetail from "@/pages/VerificationDetail";
 import Notifications from "@/pages/Notifications";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
@@ -33,6 +34,7 @@ function App() {
               <Route path="/users/:id" element={<UserDetail />} />
               <Route path="/reports/:id" element={<ReportDetail />} />
               <Route path="/tickets/:id" element={<TicketDetail />} />
+              <Route path="/verification/:kind/:id" element={<VerificationDetail />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/m/:key" element={<ModulePage />} />
               <Route path="/countries" element={<Countries />} />

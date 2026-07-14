@@ -632,6 +632,48 @@ async def ticket_reply(ticket_id: str, body: TicketReply, request: Request, admi
     return {"ok": True, "message": msg}
 
 
+# ---------------- Verification detail ----------------
+@api.get("/verification/{kind}/{item_id}/detail")
+async def verification_detail(kind: str, item_id: str, admin: dict = Depends(get_current_admin)):
+    if kind not in ("liveness", "identity"):
+        raise HTTPException(status_code=404, detail="Unknown verification type")
+    coll = "liveness_verifications" if kind == "liveness" else "identity_verifications"
+    item = await db[coll].find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Verification not found")
+    uid = item.get("user_id")
+    user = await db.users.find_one({"id": uid}, {"_id": 0}) if uid else None
+    other_liveness = await db.liveness_verifications.find({"user_id": uid}, {"_id": 0}).to_list(20) if uid else []
+    other_identity = await db.identity_verifications.find({"user_id": uid}, {"_id": 0}).to_list(20) if uid else []
+    audit = await db.audit_logs.find({"target_id": item_id}, {"_id": 0}).sort("timestamp", -1).to_list(30)
+    can_view_documents = admin["role"] in ("Owner", "Super Admin") or can_write(admin["role"], kind)
+    return {"kind": kind, "item": item, "user": user, "history": {"liveness": other_liveness, "identity": other_identity},
+            "audit": audit, "can_view_documents": can_view_documents}
+
+
+# ---------------- Global search ----------------
+@api.get("/search")
+async def global_search(admin: dict = Depends(get_current_admin), q: str = ""):
+    q = (q or "").strip()
+    if len(q) < 2:
+        return {"results": []}
+    rx = {"$regex": q, "$options": "i"}
+    results = []
+    users = await db.users.find({"$or": [{"name": rx}, {"id": rx}, {"email": rx}]}, {"_id": 0}).limit(6).to_list(6)
+    for u in users:
+        results.append({"type": "User", "id": u["id"], "title": u["name"],
+                        "subtitle": f"{u['country']} · {u['tier']} · {u['account_status']}", "route": f"/users/{u['id']}"})
+    reports = await db.reports.find({"$or": [{"id": rx}, {"reported_user": rx}, {"category": rx}]}, {"_id": 0}).limit(4).to_list(4)
+    for r in reports:
+        results.append({"type": "Report", "id": r["id"], "title": r["id"],
+                        "subtitle": f"{r['reported_user']} · {r['category']} · {r['status']}", "route": f"/reports/{r['id']}"})
+    tickets = await db.support_tickets.find({"$or": [{"id": rx}, {"subject": rx}, {"user": rx}]}, {"_id": 0}).limit(4).to_list(4)
+    for t in tickets:
+        results.append({"type": "Ticket", "id": t["id"], "title": t["id"],
+                        "subtitle": f"{t['subject']} · {t['status']}", "route": f"/tickets/{t['id']}"})
+    return {"results": results}
+
+
 app.include_router(api)
 
 app.add_middleware(

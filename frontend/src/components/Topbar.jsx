@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Menu, Heart } from "lucide-react";
+import { LogOut, Menu, Heart, Search } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NAV_GROUPS } from "@/config/modules";
@@ -65,6 +65,15 @@ export function Topbar({ title, subtitle }) {
       </div>
 
       <div className="flex items-center gap-1.5 md:gap-2.5">
+        <button
+          data-testid="command-trigger"
+          onClick={() => window.dispatchEvent(new Event("open-command"))}
+          className="hidden sm:flex items-center gap-2 h-9 pl-3 pr-2 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors text-xs"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span>Search…</span>
+          <kbd className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono">⌘K</kbd>
+        </button>
         <ThemeToggle />
         <div className="h-6 w-px bg-border mx-0.5 hidden sm:block" />
         <DropdownMenu>

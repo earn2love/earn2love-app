@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export function Layout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -10,6 +11,7 @@ export function Layout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Outlet />
       </div>
+      <CommandPalette />
     </div>
   );
 }

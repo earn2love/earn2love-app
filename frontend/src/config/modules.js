@@ -122,6 +122,7 @@ export const MODULES = {
     title: "Liveness Verification",
     subtitle: "Selfie/video liveness verification queue",
     endpoint: "liveness",
+    detailRoute: (id) => `/verification/liveness/${id}`,
     search: "Search liveness ID or user…",
     columns: [
       { key: "id", label: "ID", mono: true },
@@ -148,6 +149,7 @@ export const MODULES = {
     title: "Identity Verification",
     subtitle: "Government ID & document verification",
     endpoint: "identity",
+    detailRoute: (id) => `/verification/identity/${id}`,
     search: "Search ID or user…",
     columns: [
       { key: "id", label: "ID", mono: true },

@@ -1,6 +1,7 @@
-import { Search, Download, MoreHorizontal, ChevronLeft, ChevronRight, Inbox } from "lucide-react";
+import { useState } from "react";
+import { Search, Download, MoreHorizontal, ChevronLeft, ChevronRight, Inbox, SlidersHorizontal } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
-import { fmtDate, fmtDateTime, fmtCurrency, exportCsv } from "@/lib/format";
+import { fmtDate, fmtDateTime, fmtCurrency, exportCsv, exportExcel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,7 +10,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +35,9 @@ export function DataTable({
   selectable = false, selected = [], onSelectChange, bulkActions = [], onBulkAction,
 }) {
   const hasActions = actions && actions.length > 0;
+  const [hidden, setHidden] = useState([]);
+  const visibleColumns = columns.filter((c) => !hidden.includes(c.key));
+  const toggleCol = (k) => setHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]));
   const allSelected = selectable && rows.length > 0 && rows.every((r) => selected.includes(r.id));
   const toggleAll = () => {
     if (!onSelectChange) return;
@@ -87,15 +92,39 @@ export function DataTable({
             </Select>
           ))}
           {rightSlot}
-          <Button
-            data-testid="export-csv-btn"
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5"
-            onClick={() => exportCsv(rows, columns, exportName)}
-          >
-            <Download className="h-4 w-4" /> Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button data-testid="columns-btn" variant="outline" size="sm" className="h-9 gap-1.5">
+                <SlidersHorizontal className="h-4 w-4" /> Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {columns.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c.key}
+                  checked={!hidden.includes(c.key)}
+                  onCheckedChange={() => toggleCol(c.key)}
+                  onSelect={(e) => e.preventDefault()}
+                  data-testid={`col-toggle-${c.key}`}
+                >
+                  {c.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button data-testid="export-btn" variant="outline" size="sm" className="h-9 gap-1.5">
+                <Download className="h-4 w-4" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem data-testid="export-csv" onClick={() => exportCsv(rows, visibleColumns, exportName)}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem data-testid="export-excel" onClick={() => exportExcel(rows, visibleColumns, exportName)}>Export as Excel</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -109,7 +138,7 @@ export function DataTable({
                   <Checkbox checked={allSelected} onCheckedChange={toggleAll} data-testid="select-all" aria-label="Select all" />
                 </th>
               )}
-              {columns.map((c) => (
+              {visibleColumns.map((c) => (
                 <th key={c.key} className="text-left font-semibold text-[11px] uppercase tracking-wider text-muted-foreground px-4 py-3 whitespace-nowrap">
                   {c.label}
                 </th>
@@ -122,7 +151,7 @@ export function DataTable({
               Array.from({ length: 8 }).map((_, i) => (
                 <tr key={i} className="border-b border-border/60">
                   {selectable && <td className="px-4 py-3" />}
-                  {columns.map((c) => (
+                  {visibleColumns.map((c) => (
                     <td key={c.key} className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                   ))}
                   {hasActions && <td className="px-4 py-3" />}
@@ -130,7 +159,7 @@ export function DataTable({
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (hasActions ? 1 : 0) + (selectable ? 1 : 0)} className="px-4 py-16 text-center">
+                <td colSpan={visibleColumns.length + (hasActions ? 1 : 0) + (selectable ? 1 : 0)} className="px-4 py-16 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Inbox className="h-8 w-8 opacity-40" />
                     <p className="text-sm">No records found</p>
@@ -154,7 +183,7 @@ export function DataTable({
                       <Checkbox checked={selected.includes(row.id)} onCheckedChange={() => toggleOne(row.id)} data-testid={`select-${row.id}`} />
                     </td>
                   )}
-                  {columns.map((c) => (
+                  {visibleColumns.map((c) => (
                     <td key={c.key} className="px-4 py-2.5 max-w-[220px]">{renderCell(row, c)}</td>
                   ))}
                   {hasActions && (
