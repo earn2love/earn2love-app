@@ -200,17 +200,23 @@ async def user_action(uid: str, body: ActionBody, request: Request, admin: dict 
         prev = user.get("accountStatus"); update = {"accountStatus": "Active", "frozen": False}; new = "Active"
     elif action == "ban":
         prev = user.get("accountStatus"); update = {"accountStatus": "Banned", "banned": True}; new = "Banned"
-        try: auth_sdk.update_user(uid, disabled=True); auth_sdk.revoke_refresh_tokens(uid)
-        except Exception: pass
+        try:
+            auth_sdk.update_user(uid, disabled=True); auth_sdk.revoke_refresh_tokens(uid)
+        except Exception as e:
+            logger.warning(f"ban: Firebase Auth update failed for {uid}: {type(e).__name__}: {e}")
     elif action == "unban":
         prev = user.get("accountStatus"); update = {"accountStatus": "Active", "banned": False}; new = "Active"
-        try: auth_sdk.update_user(uid, disabled=False)
-        except Exception: pass
+        try:
+            auth_sdk.update_user(uid, disabled=False)
+        except Exception as e:
+            logger.warning(f"unban: Firebase Auth update failed for {uid}: {type(e).__name__}: {e}")
     elif action == "under-review":
         prev = user.get("accountStatus"); update = {"accountStatus": "Under Review"}; new = "Under Review"
     elif action == "force-logout":
-        try: auth_sdk.revoke_refresh_tokens(uid)
-        except Exception: pass
+        try:
+            auth_sdk.revoke_refresh_tokens(uid)
+        except Exception as e:
+            logger.warning(f"force-logout: token revoke failed for {uid}: {type(e).__name__}: {e}")
         update = {"activeSessionId": "", "forceLogoutAt": datetime.now(timezone.utc)}; new = "force-logged-out"
     elif action == "reset-reports":
         prev = user.get("reportsCount"); update = {"reportsCount": 0}; new = 0

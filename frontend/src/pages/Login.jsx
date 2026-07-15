@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -10,13 +10,18 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export default function Login() {
-  const { loginEmail, loginGoogle } = useAuth();
+  const { loginEmail, loginGoogle, admin } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState("login"); // login | forgot
+
+  // Redirect only once AuthContext has committed the admin (avoids race with onAuthStateChanged).
+  useEffect(() => {
+    if (admin) navigate("/", { replace: true });
+  }, [admin, navigate]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -35,8 +40,7 @@ export default function Login() {
     }
     const res = await loginEmail(email, password);
     setBusy(false);
-    if (res.ok) navigate("/");
-    else setError(res.error);
+    if (!res.ok) setError(res.error);
   };
 
   const googleLogin = async () => {
@@ -44,8 +48,7 @@ export default function Login() {
     setBusy(true);
     const res = await loginGoogle();
     setBusy(false);
-    if (res.ok) navigate("/");
-    else setError(res.error);
+    if (!res.ok) setError(res.error);
   };
 
   return (

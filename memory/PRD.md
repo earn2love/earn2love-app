@@ -48,6 +48,14 @@ See /app/memory/test_credentials.md (primary: ram@earn2love.com / Owner@2026).
   Agora call metadata webhook, KYC/liveness provider; export to Excel; real-time updates.
 - P2: Split server.py into routers (resources/users/dashboard/admin) as it grows.
 
+## 2026-06 — Admin panel integration completed & verified (23/23 backend)
+Every admin action mapped to EXACT Flutter fields (freeze/ban/force-logout/liveness/
+verification/report/withdrawal-state-machine/subscription/wallet/audit). Withdrawals
+use users/{uid}/walletHistory type=withdraw (no separate collection) with secure
+atomic diamond unlock + transition validation. Fixed post-login redirect race and
+removed silent exception swallowing (now logged). Deliverables: /app/e2l_production_hardening/
+ADMIN_INTEGRATION.md. Download via Save to GitHub (no direct file download on platform).
+
 ## Next Tasks
 1. Report/Verification detail pages with evidence & full action set.
 2. Notifications composer + ticket threads.
