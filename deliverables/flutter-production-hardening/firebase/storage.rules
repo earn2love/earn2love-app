@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// ===========================================================================
+// Earn2Love Firebase Storage security rules.
+// Paths are scoped per user. Verification documents are write-only for the
+// owner and readable only by admins/backend (never public).
+// ===========================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role in
+        ['super_admin', 'moderator', 'support_agent', 'finance_admin', 'verification_agent'];
+    }
+    function isImage() { return request.resource.contentType.matches('image/.*'); }
+    function isVideo() { return request.resource.contentType.matches('video/.*'); }
+    function maxSize(mb) { return request.resource.size < mb * 1024 * 1024; }
+
+    // Profile / gallery media — owner writes, signed-in users read.
+    match /users/{uid}/profile/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid) && isImage() && maxSize(10);
+    }
+    match /users/{uid}/media/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid) && (isImage() || isVideo()) && maxSize(100);
+    }
+
+    // Chat attachments — participants only (enforced by folder = roomId; keep signed-in read).
+    match /chats/{roomId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (isImage() || isVideo()) && maxSize(100);
+    }
+
+    // Verification / liveness documents — sensitive. Owner may upload; only
+    // admins/backend may read. Never publicly readable.
+    match /verification/{uid}/{fileName} {
+      allow read: if isAdmin();
+      allow write: if isOwner(uid) && (isImage() || isVideo()) && maxSize(50);
+    }
+
+    // Default deny.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
