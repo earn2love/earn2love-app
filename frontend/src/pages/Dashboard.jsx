@@ -53,7 +53,7 @@ export default function Dashboard() {
       <main className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6">
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live · Demo data
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live data · Firestore
           </span>
         </div>
 

@@ -5,17 +5,13 @@ The admin backend deliberately **fetches with single-field constraints and sorts
 (e.g. legacy `users` without `createdAt`) and to avoid mandatory composite indexes for the current data volume.
 
 ## Currently required indexes
-None beyond Firestore's automatic single-field indexes. The following queries all rely on
-auto-created single-field indexes:
-
-- `users` — equality filters on `country`, `tier`, `gender`, `accountStatus`
-- `reports` — `where(status == ...)`, `where(targetUid == ...)`
-- `supportTickets` — `where(status == ...)`, `where(uid == ...)`
-- `friendRequests` — `where(status == ...)`
-- collection group `walletHistory` — `where(type == ...)` (withdraw/topup/conversion) and `where(ownerUid ...)`
-- collection group `notifications`
-- collection group `media` — `where(flagged == true)`
-- Count aggregations (`.count()`) on the single-field equality queries above
+**None.** The repository (`firestore_repo._fetch`) fetches each collection/collection-group with a
+single unfiltered `.limit(CAP)` read and then applies all equality filters, search and sorting in
+Python. This is intentional: `collection_group('walletHistory').where('type','==',...)` would
+otherwise require an explicit **collection-group index** (single-field indexes do NOT cover
+collection-group filters). By filtering in memory we avoid every composite/collection-group index
+for the current data volume, and `_fetch` also catches `FailedPrecondition`/`InvalidArgument` and
+degrades to an empty list if a query ever does need one.
 
 ## Recommended composite indexes (enable when data grows large, >2–3k docs)
 If you later switch the repository to server-side `order_by` + range pagination for performance,

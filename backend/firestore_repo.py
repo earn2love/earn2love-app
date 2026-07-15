@@ -69,22 +69,40 @@ MODULE_MAP = {
 def _base_query(cfg):
     db = get_db()
     if cfg.get("group"):
-        q = db.collection_group(cfg["coll"])
-    else:
-        q = db.collection(cfg["coll"])
-    if cfg.get("filter"):
-        field, val = cfg["filter"]
-        q = q.where(filter=FieldFilter(field, "==", val))
-    return q
+        return db.collection_group(cfg["coll"])
+    return db.collection(cfg["coll"])
+
+
+def _passes(item, filters):
+    for f, v in (filters or {}).items():
+        if v in (None, "", "All"):
+            continue
+        iv = item.get(f)
+        if isinstance(v, bool):
+            if bool(iv) != v:
+                return False
+        elif str(iv) != str(v):
+            return False
+    return True
 
 
 def _fetch(cfg, extra_filters=None):
-    q = _base_query(cfg)
-    for f, v in (extra_filters or {}).items():
-        if v and v != "All":
-            q = q.where(filter=FieldFilter(f, "==", v))
-    docs = list(q.limit(CAP).stream())
+    # NOTE: filtering is done in Python (not Firestore where) so that collection-group
+    # queries do NOT require explicit composite/collection-group indexes.
+    try:
+        docs = list(_base_query(cfg).limit(CAP).stream())
+    except (FailedPrecondition, InvalidArgument) as e:
+        # missing index or bad query — degrade gracefully
+        import logging
+        logging.getLogger(__name__).warning(f"Firestore query fallback for {cfg.get('coll')}: {e}")
+        docs = []
     items = [normalise(d) for d in docs]
+    filters = {}
+    if cfg.get("filter"):
+        field, val = cfg["filter"]
+        filters[field] = val
+    filters.update(extra_filters or {})
+    items = [it for it in items if _passes(it, filters)]
     order = cfg.get("order")
     if order:
         items.sort(key=lambda x: str(x.get(order) or ""), reverse=True)
@@ -114,14 +132,16 @@ def get_module_doc(module, item_id):
         cfg = MODULE_MAP["users"]
     if not cfg:
         return None
-    if cfg.get("group"):
-        # search across group by id
-        for d in _base_query(cfg).limit(CAP).stream():
-            if d.id == item_id:
-                return normalise(d)
+    try:
+        if cfg.get("group"):
+            for d in _base_query(cfg).limit(CAP).stream():
+                if d.id == item_id:
+                    return normalise(d)
+            return None
+        doc = get_db().collection(cfg["coll"]).document(item_id).get()
+        return normalise(doc) if doc.exists else None
+    except (FailedPrecondition, InvalidArgument):
         return None
-    doc = get_db().collection(cfg["coll"]).document(item_id).get()
-    return normalise(doc) if doc.exists else None
 
 
 # ---- Users ----
