@@ -80,7 +80,7 @@ export const MODULES = {
       { key: "assign", label: "Mark reviewing", value: { status: "reviewing" } },
       { key: "escalate", label: "Escalate" },
       { key: "resolve", label: "Resolve" },
-      { key: "reject", label: "Reject", danger: true },
+      { key: "dismiss", label: "Dismiss", danger: true },
     ],
   },
   moderation: {
@@ -199,12 +199,15 @@ export const MODULES = {
       { key: "status", label: "Status", badge: true },
       { key: "createdAt", label: "Requested", type: "datetime" },
     ],
-    filters: [{ key: "status", label: "Status", options: ["requested", "under_review", "approved", "processing", "paid", "rejected"] }],
+    filters: [{ key: "status", label: "Status", options: ["requested", "under_review", "approved", "processing", "paid", "rejected", "cancelled", "failed"] }],
     actions: [
+      { key: "under-review", label: "Mark reviewing" },
       { key: "approve", label: "Approve" },
       { key: "mark-processing", label: "Mark processing" },
       { key: "mark-paid", label: "Mark paid" },
       { key: "reject", label: "Reject", danger: true },
+      { key: "mark-failed", label: "Mark failed", danger: true },
+      { key: "cancel", label: "Cancel", danger: true },
     ],
   },
   calls: {

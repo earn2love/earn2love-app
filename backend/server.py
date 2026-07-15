@@ -132,12 +132,14 @@ async def get_resource(module: str, item_id: str, admin: dict = Depends(get_curr
 
 
 STATUS_MAP = {
-    "approve": "approved", "reject": "rejected", "resolve": "resolved", "escalate": "escalated",
-    "assign": "assigned", "mark-paid": "paid", "mark-processing": "processing", "mark-failed": "failed",
-    "under-review": "under_review", "reverse": "reversed", "close": "closed", "activate": "active",
-    "pause": "paused", "disable": "disabled", "remove": "removed", "cancel": "cancelled", "flag": "flagged",
-    "refund": "refunded",
+    "approve": "approved", "reject": "rejected", "resolve": "resolved", "dismiss": "dismissed",
+    "escalate": "escalated", "assign": "assigned", "mark-paid": "paid", "mark-processing": "processing",
+    "mark-failed": "failed", "under-review": "under_review", "reverse": "reversed", "close": "closed",
+    "activate": "active", "pause": "paused", "disable": "disabled", "remove": "removed",
+    "cancel": "cancelled", "flag": "flagged", "refund": "refunded",
 }
+
+VERIFICATION_MODULES = {"verification", "liveness", "identity"}
 
 
 @api.post("/resources/{module}/{item_id}/action")
@@ -147,14 +149,35 @@ async def resource_action(module: str, item_id: str, body: ActionBody, request: 
     current = repo.get_module_doc(module, item_id)
     if not current:
         raise HTTPException(status_code=404, detail="Not found")
+    action = body.action
+    target_status = STATUS_MAP.get(action)
+
+    # Withdrawals: validated state machine + secure diamond unlock (never touch balances loosely)
+    if module == "withdrawals":
+        if not target_status:
+            raise HTTPException(status_code=400, detail=f"Unknown withdrawal action '{action}'")
+        owner = current.get("ownerUid") or current.get("uid")
+        try:
+            res = repo.transition_withdrawal(owner, item_id, target_status, admin["email"], body.reason or "")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        if res is None:
+            raise HTTPException(status_code=404, detail="Withdrawal not found")
+        prev, new = res
+        audit(admin, action, module, owner, item_id, prev, new, body.reason, request)
+        return {"ok": True, "item": repo.get_module_doc(module, item_id)}
+
     update = {}
-    if body.action in STATUS_MAP:
-        update["status"] = STATUS_MAP[body.action]
+    if target_status:
+        update["status"] = target_status
     if body.value:
         update.update(body.value)
     if update:
         repo.update_module_doc(module, item_id, update)
-    audit(admin, body.action, module, current.get("uid") or item_id, item_id,
+    # Verification decisions mirror onto the user profile (verificationStatus/livenessVerifiedAt).
+    if module in VERIFICATION_MODULES and target_status:
+        repo.mirror_verification_to_user(current.get("uid"), target_status)
+    audit(admin, action, module, current.get("uid") or item_id, item_id,
           current.get("status"), update.get("status"), body.reason, request)
     return {"ok": True, "item": repo.get_module_doc(module, item_id)}
 
@@ -201,6 +224,8 @@ async def user_action(uid: str, body: ActionBody, request: Request, admin: dict 
         update = {"verificationStatus": "Needs Review", "livenessRequired": True}; new = "Needs Review"
     elif action == "change-tier" and body.value:
         prev = user.get("tier"); update = {"tier": body.value.get("tier")}; new = body.value.get("tier")
+    elif action == "cancel-subscription":
+        prev = user.get("subscriptionStatus"); update = {"subscriptionStatus": "cancelled"}; new = "cancelled"
     else:
         raise HTTPException(status_code=400, detail="Unknown action")
 
@@ -230,13 +255,15 @@ async def get_related(uid: str, admin: dict = Depends(get_current_admin)):
 async def withdrawal_review(owner_uid: str, wh_id: str, body: WithdrawalReview,
                             request: Request, admin: dict = Depends(get_current_admin)):
     require_write(admin, "withdrawals")
+    target = {"approve": "approved", "reject": "rejected"}.get(body.decision, body.decision)
     try:
-        ok = repo.review_withdrawal(owner_uid, wh_id, body.decision, admin["email"], body.reason or "")
+        res = repo.transition_withdrawal(owner_uid, wh_id, target, admin["email"], body.reason or "")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    if not ok:
+    if res is None:
         raise HTTPException(status_code=404, detail="Withdrawal not found")
-    audit(admin, f"withdrawal-{body.decision}", "withdrawals", owner_uid, wh_id, reason=body.reason, request=request)
+    prev, new = res
+    audit(admin, f"withdrawal-{body.decision}", "withdrawals", owner_uid, wh_id, prev, new, body.reason, request)
     return {"ok": True}
 
 

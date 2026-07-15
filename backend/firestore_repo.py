@@ -3,10 +3,13 @@ All Firestore access goes through here — never inside routes/components.
 Maps admin module keys to the EXACT collections/fields used by the Earn2Love Flutter app.
 """
 from datetime import datetime, timezone, timedelta
+import logging
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.api_core.exceptions import FailedPrecondition, InvalidArgument
 from firebase_service import get_db
+
+logger = logging.getLogger(__name__)
 
 CAP = 400  # max docs scanned for search/grouping windows
 
@@ -141,7 +144,8 @@ def get_module_doc(module, item_id):
             return None
         doc = get_db().collection(cfg["coll"]).document(item_id).get()
         return normalise(doc) if doc.exists else None
-    except (FailedPrecondition, InvalidArgument):
+    except (FailedPrecondition, InvalidArgument) as e:
+        logger.warning(f"get_module_doc({module},{item_id}) query error: {e}")
         return None
 
 
@@ -203,7 +207,8 @@ def user_related(uid):
     def sub(name, limit=50):
         try:
             return [normalise(d) for d in db.collection("users").document(uid).collection(name).limit(limit).stream()]
-        except Exception:
+        except (FailedPrecondition, InvalidArgument) as e:
+            logger.warning(f"user_related sub '{name}' for {uid} degraded: {e}")
             return []
     wallet = sub("walletHistory")
     notifs = sub("notifications")
@@ -220,8 +225,28 @@ def user_related(uid):
             "tickets": tickets, "withdrawals": withdrawals, "payments": payments, "audit": audit}
 
 
-# ---- Withdrawals (approve/reject with diamond unlock) ----
-def review_withdrawal(owner_uid, wh_id, decision, reviewer_email, reason=""):
+# ---- Withdrawals (state machine + secure diamond unlock) ----
+# Source of truth = users/{uid}/walletHistory docs where type == 'withdraw'
+# (matches the Flutter app + requestWithdrawal Cloud Function). No separate
+# 'withdrawals' collection exists in the app.
+WITHDRAWAL_TRANSITIONS = {
+    "requested": {"under_review", "approved", "rejected", "cancelled"},
+    "under_review": {"approved", "rejected", "cancelled"},
+    "approved": {"processing", "paid", "rejected", "failed"},
+    "processing": {"paid", "failed"},
+    "paid": set(),
+    "rejected": set(),
+    "cancelled": set(),
+    "failed": set(),
+}
+WITHDRAWAL_REFUND_STATES = {"rejected", "cancelled", "failed"}
+
+
+def transition_withdrawal(owner_uid, wh_id, target_status, reviewer_email, reason=""):
+    """Validated status transition. Refunds locked diamonds on refund states,
+    consumes locked diamonds on 'paid'. Returns (prev_status, target_status)."""
+    if not owner_uid:
+        raise ValueError("Missing owner UID for withdrawal")
     db = get_db()
     wh_ref = db.collection("users").document(owner_uid).collection("walletHistory").document(wh_id)
     user_ref = db.collection("users").document(owner_uid)
@@ -232,26 +257,62 @@ def review_withdrawal(owner_uid, wh_id, decision, reviewer_email, reason=""):
         if not snap.exists:
             return None
         wh = snap.to_dict() or {}
-        status = (wh.get("status") or "").lower()
-        if status not in ("requested", "under_review", ""):
-            raise ValueError(f"Cannot review a '{status}' withdrawal")
+        if wh.get("type") != "withdraw":
+            raise ValueError("Not a withdrawal record")
+        prev = (wh.get("status") or "requested").lower()
+        if prev not in WITHDRAWAL_TRANSITIONS:
+            prev = "requested"
+        if target_status not in WITHDRAWAL_TRANSITIONS.get(prev, set()):
+            raise ValueError(f"Illegal transition '{prev}' → '{target_status}'")
+
+        amt = float(wh.get("fromAmount") or 0)
         now = datetime.now(timezone.utc)
-        if decision == "approve":
-            tx.update(wh_ref, {"status": "approved", "reviewedAt": now, "reviewedBy": reviewer_email})
-        elif decision == "reject":
-            amt = float(wh.get("fromAmount") or 0)
+        wh_update = {"status": target_status, "reviewedAt": now, "reviewedBy": reviewer_email}
+        if reason:
+            wh_update["rejectionReason" if target_status in WITHDRAWAL_REFUND_STATES else "reviewNote"] = reason
+
+        if target_status in WITHDRAWAL_REFUND_STATES:
             tx.update(user_ref, {
                 "diamondBalance": firestore.Increment(amt),
                 "lockedDiamond": firestore.Increment(-amt),
                 "pendingWithdrawalId": firestore.DELETE_FIELD,
                 "updatedAt": now,
             })
-            tx.update(wh_ref, {"status": "rejected", "rejectionReason": reason, "reviewedAt": now, "reviewedBy": reviewer_email})
-        else:
-            raise ValueError("decision must be 'approve' or 'reject'")
-        return True
+        elif target_status == "paid":
+            tx.update(user_ref, {
+                "lockedDiamond": firestore.Increment(-amt),
+                "pendingWithdrawalId": firestore.DELETE_FIELD,
+                "paidAt": now,
+                "updatedAt": now,
+            })
+        tx.update(wh_ref, wh_update)
+        return prev
 
-    return _txn(db.transaction())
+    prev = _txn(db.transaction())
+    if prev is None:
+        return None
+    return (prev, target_status)
+
+
+# ---- Verification decision mirrored to the user profile ----
+VERIFICATION_USER_STATE = {
+    "approved": {"verificationStatus": "Verified", "verified": True, "livenessRequired": False},
+    "rejected": {"verificationStatus": "Rejected"},
+    "under_review": {"verificationStatus": "Needs Review", "livenessRequired": True},
+}
+
+
+def mirror_verification_to_user(uid, target_status):
+    if not uid:
+        return
+    update = dict(VERIFICATION_USER_STATE.get(target_status, {}))
+    if not update:
+        return
+    now = datetime.now(timezone.utc)
+    if target_status == "approved":
+        update["livenessVerifiedAt"] = now
+    update["updatedAt"] = now
+    get_db().collection("users").document(uid).set(update, merge=True)
 
 
 # ---- Audit logs ----
@@ -298,7 +359,8 @@ def dashboard():
     wallet = []
     try:
         wallet = [normalise(d) for d in db.collection_group("walletHistory").limit(CAP).stream()]
-    except Exception:
+    except (FailedPrecondition, InvalidArgument) as e:
+        logger.warning(f"dashboard walletHistory query degraded: {e}")
         wallet = []
     withdrawals_pending = sum(1 for w in wallet if w.get("type") == "withdraw" and str(w.get("status", "")).lower() in ("requested", "pending", ""))
     revenue = sum(float(w.get("toAmount") or w.get("price") or 0) for w in wallet if w.get("type") == "topup")
@@ -349,13 +411,15 @@ def pending_counts():
     counts["support-tickets"] = _count(db.collection("supportTickets").where(filter=FieldFilter("status", "==", "open")))
     try:
         wallet = [normalise(d) for d in db.collection_group("walletHistory").limit(CAP).stream()]
-    except Exception:
+    except (FailedPrecondition, InvalidArgument) as e:
+        logger.warning(f"pending_counts walletHistory query degraded: {e}")
         wallet = []
     counts["withdrawals"] = sum(1 for w in wallet if w.get("type") == "withdraw" and str(w.get("status", "")).lower() in ("requested", "pending", ""))
     counts["friend-requests"] = _count(db.collection("friendRequests").where(filter=FieldFilter("status", "==", "pending")))
     try:
         counts["moderation"] = _count(db.collection_group("media").where(filter=FieldFilter("flagged", "==", True)))
-    except Exception:
+    except (FailedPrecondition, InvalidArgument) as e:
+        logger.warning(f"pending_counts moderation index missing (collectionGroup media.flagged): {e}")
         counts["moderation"] = 0
     return {"counts": counts, "total": sum(counts.values())}
 
