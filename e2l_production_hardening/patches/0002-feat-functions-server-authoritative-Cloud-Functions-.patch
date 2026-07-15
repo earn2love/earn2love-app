@@ -1,0 +1,1095 @@
+From 83014e36dcc3d77de0fc43f11daff96779c3ccbb Mon Sep 17 00:00:00 2001
+From: Emergent E1 <e1@emergent.local>
+Date: Wed, 15 Jul 2026 13:02:22 +0000
+Subject: [PATCH 2/4] feat(functions): server-authoritative Cloud Functions
+ (v2, modular)
+
+- config.js: central business rules (packs, plans, coin rates, call costs,
+  withdrawal minimums, admin roles/action map, feature flags)
+- util.js: auth/admin guards, account-state enforcement, audit log,
+  canonical walletHistory ledger writes
+- payments.js: createStripePaymentIntent (topup+subscription), stripeWebhook
+  with signature verification + idempotency (only place that credits Silver /
+  activates a plan); confirmStripeTopupDev now gated behind ALLOW_DEV flag
+- wallet.js: convertCoins (atomic, region rates, cooldown, whole-coin, streak clamp)
+- calls.js: generateAgoraToken (disabled until secrets set), startCall, endCall
+  (server computes charge + receiver reward, idempotent)
+- withdrawals.js: requestWithdrawal (Love+verified, min-balance, diamond lock,
+  state machine) + adminReviewWithdrawal (finance role, returns funds on reject)
+- admin.js: adminSetAccountState (freeze/ban/force-logout/liveness/wallet + audit),
+  setAdminRole (super_admin), onReportCreated (auto 24h freeze at 3 reports)
+- Fix field drift: silverBalance (not silverCoins); walletHistory (not walletTransactions)
+- Add agora-token dependency
+---
+ functions/admin.js       | 120 ++++++++++++++++++++++++++++
+ functions/calls.js       | 133 +++++++++++++++++++++++++++++++
+ functions/config.js      | 115 +++++++++++++++++++++++++++
+ functions/index.js       | 151 +++++++++--------------------------
+ functions/package.json   |   1 +
+ functions/payments.js    | 168 +++++++++++++++++++++++++++++++++++++++
+ functions/util.js        |  98 +++++++++++++++++++++++
+ functions/wallet.js      |  92 +++++++++++++++++++++
+ functions/withdrawals.js | 111 ++++++++++++++++++++++++++
+ 9 files changed, 876 insertions(+), 113 deletions(-)
+ create mode 100644 functions/admin.js
+ create mode 100644 functions/calls.js
+ create mode 100644 functions/config.js
+ create mode 100644 functions/payments.js
+ create mode 100644 functions/util.js
+ create mode 100644 functions/wallet.js
+ create mode 100644 functions/withdrawals.js
+
+diff --git a/functions/admin.js b/functions/admin.js
+new file mode 100644
+index 0000000..ef4f72c
+--- /dev/null
++++ b/functions/admin.js
+@@ -0,0 +1,120 @@
++"use strict";
++
++const {onCall, HttpsError} = require("firebase-functions/v2/https");
++const {onDocumentCreated} = require("firebase-functions/v2/firestore");
++const admin = require("firebase-admin");
++
++const {ADMIN_ROLES, REPORTS_FREEZE_THRESHOLD} = require("./config");
++const {db, ts, assertAdmin, writeAudit} = require("./util");
++
++// Maps an admin action to the users/{uid} field mutations (mirrors admin panel).
++function stateUpdateFor(action, value) {
++  switch (action) {
++    case "freeze": return {accountStatus: "Frozen", frozen: true};
++    case "unfreeze": return {accountStatus: "Active", frozen: false};
++    case "ban": return {accountStatus: "Banned", banned: true};
++    case "unban": return {accountStatus: "Active", banned: false};
++    case "reset_reports": return {reportsCount: 0};
++    case "freeze_wallet": return {walletFrozen: true};
++    case "unfreeze_wallet": return {walletFrozen: false};
++    case "request_liveness": return {verificationStatus: "Pending", livenessRequired: true};
++    case "reset_liveness": return {verificationStatus: "Needs Review", livenessRequired: true};
++    case "set_verification": return {verificationStatus: value || "Pending"};
++    case "force_logout": return {activeSessionId: admin.firestore.FieldValue.delete(), forceLogoutAt: ts()};
++    default: return null;
++  }
++}
++
++// --------------------------------------------------------------------------
++// adminSetAccountState — single authoritative entry for account actions.
++// Requires the right admin role and writes an audit-log entry.
++// --------------------------------------------------------------------------
++exports.adminSetAccountState = onCall(async (request) => {
++  const {action, targetUid, value, reason} = request.data || {};
++  if (!action || !targetUid) throw new HttpsError("invalid-argument", "action and targetUid required");
++  const adminCtx = assertAdmin(request, action);
++
++  const update = stateUpdateFor(action, value);
++  if (!update) throw new HttpsError("invalid-argument", `Unknown action '${action}'`);
++
++  const userRef = db().collection("users").doc(targetUid);
++  const before = (await userRef.get()).data() || {};
++  await userRef.set(Object.assign({updatedAt: ts()}, update), {merge: true});
++
++  // Auth-level enforcement.
++  const auth = admin.auth();
++  try {
++    if (action === "ban") {
++      await auth.updateUser(targetUid, {disabled: true});
++      await auth.revokeRefreshTokens(targetUid);
++    } else if (action === "unban") {
++      await auth.updateUser(targetUid, {disabled: false});
++    } else if (action === "force_logout") {
++      await auth.revokeRefreshTokens(targetUid);
++    }
++  } catch (e) {
++    console.warn("auth enforcement failed", action, e.message);
++  }
++
++  await writeAudit({
++    adminUid: adminCtx.uid, adminEmail: adminCtx.email, adminRole: adminCtx.role,
++    action, module: "users", targetId: targetUid, reason: reason || "",
++    prev: before.accountStatus || null, new: update.accountStatus || value || true,
++  });
++  return {ok: true, action, targetUid};
++});
++
++// --------------------------------------------------------------------------
++// setAdminRole — super_admin only; assigns an admin custom claim to a user.
++// --------------------------------------------------------------------------
++exports.setAdminRole = onCall(async (request) => {
++  const adminCtx = assertAdmin(request);
++  if (adminCtx.role !== "super_admin") {
++    throw new HttpsError("permission-denied", "Only super_admin can assign roles");
++  }
++  const {targetUid, role} = request.data || {};
++  if (!targetUid || (role && !ADMIN_ROLES.includes(role))) {
++    throw new HttpsError("invalid-argument", "Valid targetUid and role required");
++  }
++  await admin.auth().setCustomUserClaims(targetUid, role ? {role} : {});
++  await writeAudit({
++    adminUid: adminCtx.uid, adminEmail: adminCtx.email, adminRole: adminCtx.role,
++    action: "set_role", module: "admins", targetId: targetUid, new: role || "revoked",
++  });
++  return {ok: true};
++});
++
++// --------------------------------------------------------------------------
++// onReportCreated — auto-moderation. After REPORTS_FREEZE_THRESHOLD distinct
++// reports against a user, apply a 24h freeze + liveness review (admin can undo).
++// --------------------------------------------------------------------------
++exports.onReportCreated = onDocumentCreated("reports/{reportId}", async (event) => {
++  const report = event.data && event.data.data();
++  if (!report) return;
++  const targetUid = report.targetUid || report.reportedUid || report.reported_user;
++  if (!targetUid) return;
++
++  const snap = await db().collection("reports")
++      .where("targetUid", "==", targetUid).get();
++  const count = snap.size;
++
++  const userRef = db().collection("users").doc(targetUid);
++  await userRef.set({reportsCount: count, updatedAt: ts()}, {merge: true});
++
++  if (count >= REPORTS_FREEZE_THRESHOLD) {
++    const u = (await userRef.get()).data() || {};
++    if (u.banned === true || (u.accountStatus === "Frozen")) return; // already actioned
++    await userRef.set({
++      accountStatus: "Frozen",
++      frozen: true,
++      verificationStatus: "Needs Review",
++      livenessRequired: true,
++      autoFrozenAt: ts(),
++      updatedAt: ts(),
++    }, {merge: true});
++    await writeAudit({
++      action: "auto_freeze", module: "users", targetId: targetUid,
++      reason: `Auto freeze after ${count} reports`, new: "Frozen",
++    });
++  }
++});
+diff --git a/functions/calls.js b/functions/calls.js
+new file mode 100644
+index 0000000..053df98
+--- /dev/null
++++ b/functions/calls.js
+@@ -0,0 +1,133 @@
++"use strict";
++
++const {onCall, HttpsError} = require("firebase-functions/v2/https");
++const {defineSecret} = require("firebase-functions/params");
++
++const {CALL_COSTS} = require("./config");
++const {db, ts, inc, assertAuth, assertAccountUsable, walletHistoryEntry} = require("./util");
++
++const AGORA_APP_ID = defineSecret("AGORA_APP_ID");
++const AGORA_APP_CERTIFICATE = defineSecret("AGORA_APP_CERTIFICATE");
++
++// --------------------------------------------------------------------------
++// generateAgoraToken — mints a short-lived Agora RTC token server-side.
++// DISABLED (failed-precondition) until AGORA_APP_ID + AGORA_APP_CERTIFICATE
++// secrets are configured. The certificate must NEVER ship in the client.
++// --------------------------------------------------------------------------
++exports.generateAgoraToken = onCall(
++    {secrets: [AGORA_APP_ID, AGORA_APP_CERTIFICATE]},
++    async (request) => {
++      assertAuth(request);
++      const appId = AGORA_APP_ID.value();
++      const appCert = AGORA_APP_CERTIFICATE.value();
++      if (!appId || !appCert) {
++        throw new HttpsError("failed-precondition",
++            "Calls are not available yet (Agora not configured).");
++      }
++      const {channelName, agoraUid} = request.data || {};
++      if (!channelName) throw new HttpsError("invalid-argument", "channelName required");
++
++      // Lazy require so the function still deploys before the dep is installed.
++      let RtcTokenBuilder; let RtcRole;
++      try {
++        ({RtcTokenBuilder, RtcRole} = require("agora-token"));
++      } catch (e) {
++        throw new HttpsError("failed-precondition", "agora-token package not installed");
++      }
++
++      const numericUid = Number(agoraUid) || 0;
++      const expireSeconds = 3600;
++      const privilegeExpire = Math.floor(Date.now() / 1000) + expireSeconds;
++      const token = RtcTokenBuilder.buildTokenWithUid(
++          appId, appCert, channelName, numericUid,
++          RtcRole.PUBLISHER, privilegeExpire, privilegeExpire);
++
++      return {token, appId, channelName, uid: numericUid, expiresAt: privilegeExpire};
++    });
++
++// --------------------------------------------------------------------------
++// startCall — validates eligibility & balance, creates the call record.
++// --------------------------------------------------------------------------
++exports.startCall = onCall(async (request) => {
++  const callerUid = assertAuth(request);
++  const {calleeUid, type} = request.data || {};
++  if (!calleeUid || !["audio", "video"].includes(type)) {
++    throw new HttpsError("invalid-argument", "calleeUid and valid type required");
++  }
++  if (calleeUid === callerUid) throw new HttpsError("invalid-argument", "Cannot call yourself");
++
++  const caller = await assertAccountUsable(callerUid, {requireWallet: true});
++  await assertAccountUsable(calleeUid); // callee must not be banned/frozen
++
++  const cost = CALL_COSTS[type];
++  const balance = Number(caller.silverBalance || 0);
++  if (balance < cost.callerPerMin) {
++    throw new HttpsError("failed-precondition", "Insufficient Silver to start this call");
++  }
++
++  const channelName = `call_${callerUid}_${Date.now()}`;
++  const ref = await db().collection("calls").add({
++    callerUid, calleeUid, type, channelName,
++    status: "ringing", charged: false,
++    createdAt: ts(),
++  });
++  return {callId: ref.id, channelName, type, ratePerMin: cost.callerPerMin};
++});
++
++// --------------------------------------------------------------------------
++// endCall — server computes final charge & receiver reward, applies atomically.
++// Idempotent: a call can be charged only once.
++// --------------------------------------------------------------------------
++exports.endCall = onCall(async (request) => {
++  const uid = assertAuth(request);
++  const {callId, durationSeconds} = request.data || {};
++  if (!callId) throw new HttpsError("invalid-argument", "callId required");
++  const secs = Math.max(0, Number(durationSeconds) || 0);
++  const minutes = Math.ceil(secs / 60);
++
++  const callRef = db().collection("calls").doc(callId);
++
++  return db().runTransaction(async (tx) => {
++    const snap = await tx.get(callRef);
++    if (!snap.exists) throw new HttpsError("not-found", "Call not found");
++    const call = snap.data();
++    if (call.callerUid !== uid && call.calleeUid !== uid) {
++      throw new HttpsError("permission-denied", "Not a participant");
++    }
++    if (call.charged === true) {
++      return {ok: true, alreadyCharged: true};
++    }
++
++    const cost = CALL_COSTS[call.type] || CALL_COSTS.audio;
++    const callerRef = db().collection("users").doc(call.callerUid);
++    const calleeRef = db().collection("users").doc(call.calleeUid);
++    const callerSnap = await tx.get(callerRef);
++    const callerBal = Number((callerSnap.data() || {}).silverBalance || 0);
++
++    // Charge only what the caller can afford (never negative balance).
++    const wantCharge = cost.callerPerMin * minutes;
++    const charge = Math.min(wantCharge, callerBal);
++    const billedMinutes = Math.floor(charge / cost.callerPerMin);
++    const reward = cost.receiverPerMin * billedMinutes;
++
++    if (charge > 0) {
++      tx.update(callerRef, {silverBalance: inc(-charge), updatedAt: ts()});
++      walletHistoryEntry(tx, call.callerUid, {
++        type: "call_spend", title: `${call.type} call`,
++        fromCoin: "Silver", fromAmount: charge, callId, minutes: billedMinutes,
++      });
++    }
++    if (reward > 0) {
++      tx.update(calleeRef, {silverBalance: inc(reward), updatedAt: ts()});
++      walletHistoryEntry(tx, call.calleeUid, {
++        type: "call_earning", title: `${call.type} call reward`,
++        toCoin: "Silver", toAmount: reward, callId, minutes: billedMinutes,
++      });
++    }
++    tx.update(callRef, {
++      status: "ended", charged: true, durationSeconds: secs,
++      billedMinutes, charge, reward, endedAt: ts(),
++    });
++    return {ok: true, charge, reward, billedMinutes};
++  });
++});
+diff --git a/functions/config.js b/functions/config.js
+new file mode 100644
+index 0000000..7af774e
+--- /dev/null
++++ b/functions/config.js
+@@ -0,0 +1,115 @@
++"use strict";
++
++// ---------------------------------------------------------------------------
++// Central server-side configuration for Earn2Love Cloud Functions.
++// Business rules live here so they are defined ONCE and enforced server-side.
++// Do NOT duplicate these values in the Flutter client for security decisions.
++// ---------------------------------------------------------------------------
++
++const REGION = "us-central1";
++
++// Canonical coin balance fields on users/{uid} (matches the Flutter app + admin panel).
++const COIN_FIELDS = {
++  Silver: "silverBalance",
++  Gold: "goldBalance",
++  Diamond: "diamondBalance",
++};
++
++// Silver top-up packs (real money -> Silver). amount is in the smallest
++// currency unit (pence / paise). Silver credited only after verified payment.
++const TOPUP_PACKS = {
++  uk_199: {amount: 199, currency: "gbp", silver: 100, region: "UK", label: "£1.99 Silver Pack"},
++  uk_499: {amount: 499, currency: "gbp", silver: 280, region: "UK", label: "£4.99 Silver Pack"},
++  uk_999: {amount: 999, currency: "gbp", silver: 620, region: "UK", label: "£9.99 Silver Pack"},
++  in_99: {amount: 9900, currency: "inr", silver: 100, region: "IN", label: "₹99 Silver Pack"},
++  in_299: {amount: 29900, currency: "inr", silver: 280, region: "IN", label: "₹299 Silver Pack"},
++  in_499: {amount: 49900, currency: "inr", silver: 620, region: "IN", label: "₹499 Silver Pack"},
++};
++
++// Membership / subscription plans. Prices come from here, never hardcoded per screen.
++const SUBSCRIPTION_PLANS = {
++  friendship_uk: {tier: "friendship", amount: 499, currency: "gbp", region: "UK", label: "Friendship (UK)"},
++  friendship_in: {tier: "friendship", amount: 9900, currency: "inr", region: "IN", label: "Friendship (India)"},
++  love_uk: {tier: "love", amount: 999, currency: "gbp", region: "UK", label: "Love (UK)"},
++  love_in: {tier: "love", amount: 49900, currency: "inr", region: "IN", label: "Love (India)"},
++};
++
++// Coin conversion rates by region.
++//  IN: 3 Silver -> 2 Gold, 3 Gold -> 2 Diamond
++//  UK: 3 Silver -> 2.5 Gold, 3 Gold -> 2.5 Diamond
++const CONVERSION_RATES = {
++  IN: {silverToGold: 2 / 3, goldToDiamond: 2 / 3, diamondCashUnit: 0.01, currency: "inr"},
++  UK: {silverToGold: 2.5 / 3, goldToDiamond: 2.5 / 3, diamondCashUnit: 0.01, currency: "gbp"},
++};
++
++// Cooldown between conversions (seconds). Configurable; 0 disables.
++const CONVERSION_COOLDOWN_SECONDS = 60;
++
++// Call pricing (Silver per minute) — server is the source of truth.
++const CALL_COSTS = {
++  audio: {callerPerMin: 10, receiverPerMin: 2},
++  video: {callerPerMin: 25, receiverPerMin: 5},
++};
++
++// Withdrawal minimums (in local currency units, NOT smallest unit).
++const WITHDRAWAL_MIN = {
++  UK: {currency: "gbp", min: 150},
++  IN: {currency: "inr", min: 10000},
++};
++
++// Withdrawal state machine.
++const WITHDRAWAL_STATES = [
++  "requested", "under_review", "approved", "processing", "paid", "rejected", "cancelled", "failed",
++];
++
++// Admin roles (mirror the admin panel custom claims).
++const ADMIN_ROLES = ["super_admin", "moderator", "support_agent", "finance_admin", "verification_agent"];
++
++// Which roles may perform which admin account action.
++const ADMIN_ACTION_ROLES = {
++  freeze: ["super_admin", "moderator"],
++  unfreeze: ["super_admin", "moderator"],
++  ban: ["super_admin", "moderator"],
++  unban: ["super_admin", "moderator"],
++  force_logout: ["super_admin", "moderator"],
++  request_liveness: ["super_admin", "moderator", "verification_agent"],
++  reset_liveness: ["super_admin", "verification_agent"],
++  set_verification: ["super_admin", "verification_agent"],
++  freeze_wallet: ["super_admin", "finance_admin"],
++  unfreeze_wallet: ["super_admin", "finance_admin"],
++  reset_reports: ["super_admin", "moderator"],
++  approve_withdrawal: ["super_admin", "finance_admin"],
++  reject_withdrawal: ["super_admin", "finance_admin"],
++};
++
++// Reports threshold that triggers auto 24h freeze + liveness review.
++const REPORTS_FREEZE_THRESHOLD = 3;
++const AUTO_FREEZE_HOURS = 24;
++
++// Feature flags — external-dependent features stay OFF until keys/console are configured.
++// Read from env so ops can enable per environment without code changes.
++const FLAGS = {
++  // Dev-only Stripe confirm (credits without webhook). NEVER true in production.
++  allowDevStripeConfirm: process.env.ALLOW_DEV_STRIPE_CONFIRM === "true",
++  // Ads reward crediting requires a verified ad-network callback.
++  adsRewardEnabled: process.env.ADS_REWARD_ENABLED === "true",
++  // Real-money withdrawal payout provider (manual admin payout until true).
++  autoPayoutEnabled: process.env.AUTO_PAYOUT_ENABLED === "true",
++};
++
++module.exports = {
++  REGION,
++  COIN_FIELDS,
++  TOPUP_PACKS,
++  SUBSCRIPTION_PLANS,
++  CONVERSION_RATES,
++  CONVERSION_COOLDOWN_SECONDS,
++  CALL_COSTS,
++  WITHDRAWAL_MIN,
++  WITHDRAWAL_STATES,
++  ADMIN_ROLES,
++  ADMIN_ACTION_ROLES,
++  REPORTS_FREEZE_THRESHOLD,
++  AUTO_FREEZE_HOURS,
++  FLAGS,
++};
+diff --git a/functions/index.js b/functions/index.js
+index a3ba4a9..7ad37f9 100644
+--- a/functions/index.js
++++ b/functions/index.js
+@@ -1,116 +1,41 @@
+-const {setGlobalOptions} = require("firebase-functions");
+-const {onCall, HttpsError} = require("firebase-functions/v2/https");
+-const admin = require("firebase-admin");
+-const Stripe = require("stripe");
+-
+-admin.initializeApp();
+-setGlobalOptions({maxInstances: 10});
+-
+-const db = admin.firestore();
+-
+-const TOPUP_PACKS = {
+-  uk_199: {amount: 199, currency: "gbp", silver: 100, label: "£1.99 Silver Pack"},
+-  uk_499: {amount: 499, currency: "gbp", silver: 280, label: "£4.99 Silver Pack"},
+-  uk_999: {amount: 999, currency: "gbp", silver: 620, label: "£9.99 Silver Pack"},
+-  in_99: {amount: 9900, currency: "inr", silver: 100, label: "₹99 Silver Pack"},
+-  in_299: {amount: 29900, currency: "inr", silver: 280, label: "₹299 Silver Pack"},
+-  in_499: {amount: 49900, currency: "inr", silver: 620, label: "₹499 Silver Pack"},
+-};
+-
+-exports.createStripePaymentIntent = onCall({secrets: ["STRIPE_SECRET_KEY"]}, async (request) => {
+-  if (!request.auth) {
+-    throw new HttpsError("unauthenticated", "Login required");
+-  }
+-
+-  const {packId} = request.data || {};
+-  const pack = TOPUP_PACKS[packId];
+-
+-  if (!pack) {
+-    throw new HttpsError("invalid-argument", "Invalid packId");
+-  }
+-
+-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+-
+-  const paymentIntent = await stripe.paymentIntents.create({
+-    amount: pack.amount,
+-    currency: pack.currency,
+-    automatic_payment_methods: {enabled: true},
+-    metadata: {
+-      uid: request.auth.uid,
+-      packId,
+-      silver: String(pack.silver),
+-      type: "silver_topup",
+-    },
+-  });
+-
+-  await db.collection("paymentIntents").doc(paymentIntent.id).set({
+-    uid: request.auth.uid,
+-    packId,
+-    amount: pack.amount,
+-    currency: pack.currency,
+-    silver: pack.silver,
+-    status: "created",
+-    provider: "stripe",
+-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+-  });
+-
+-  return {
+-    clientSecret: paymentIntent.client_secret,
+-    paymentIntentId: paymentIntent.id,
+-  };
+-});
++"use strict";
+ 
+-exports.confirmStripeTopupDev = onCall(async (request) => {
+-  if (!request.auth) {
+-    throw new HttpsError("unauthenticated", "Login required");
+-  }
++// ---------------------------------------------------------------------------
++// Earn2Love Cloud Functions — entrypoint.
++// All secure, server-authoritative logic is grouped by domain and re-exported
++// here. The Flutter client must NEVER perform value operations directly.
++// ---------------------------------------------------------------------------
+ 
+-  const {paymentIntentId} = request.data || {};
+-  if (!paymentIntentId) {
+-    throw new HttpsError("invalid-argument", "paymentIntentId required");
+-  }
+-
+-  const piRef = db.collection("paymentIntents").doc(paymentIntentId);
+-  const piSnap = await piRef.get();
+-
+-  if (!piSnap.exists) {
+-    throw new HttpsError("not-found", "Payment not found");
+-  }
+-
+-  const pi = piSnap.data();
+-
+-  if (pi.uid !== request.auth.uid) {
+-    throw new HttpsError("permission-denied", "Not your payment");
+-  }
+-
+-  if (pi.status === "credited") {
+-    return {ok: true, alreadyCredited: true};
+-  }
+-
+-  const userRef = db.collection("users").doc(request.auth.uid);
+-
+-  await db.runTransaction(async (tx) => {
+-    tx.update(userRef, {
+-      silverCoins: admin.firestore.FieldValue.increment(pi.silver),
+-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+-    });
+-
+-    tx.update(piRef, {
+-      status: "credited",
+-      creditedAt: admin.firestore.FieldValue.serverTimestamp(),
+-    });
+-
+-    tx.set(db.collection("walletTransactions").doc(), {
+-      uid: request.auth.uid,
+-      type: "silver_topup",
+-      provider: "stripe",
+-      paymentIntentId,
+-      silver: pi.silver,
+-      amount: pi.amount,
+-      currency: pi.currency,
+-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+-    });
+-  });
++const {setGlobalOptions} = require("firebase-functions/v2");
++const admin = require("firebase-admin");
+ 
+-  return {ok: true, silverAdded: pi.silver};
+-});
+\ No newline at end of file
++admin.initializeApp();
++setGlobalOptions({maxInstances: 10, region: "us-central1"});
++
++const payments = require("./payments");
++const wallet = require("./wallet");
++const calls = require("./calls");
++const withdrawals = require("./withdrawals");
++const adminActions = require("./admin");
++
++// Payments & subscriptions
++exports.createStripePaymentIntent = payments.createStripePaymentIntent;
++exports.stripeWebhook = payments.stripeWebhook;
++exports.confirmStripeTopupDev = payments.confirmStripeTopupDev; // dev-flag gated
++
++// Wallet
++exports.convertCoins = wallet.convertCoins;
++
++// Calls
++exports.generateAgoraToken = calls.generateAgoraToken;
++exports.startCall = calls.startCall;
++exports.endCall = calls.endCall;
++
++// Withdrawals
++exports.requestWithdrawal = withdrawals.requestWithdrawal;
++exports.adminReviewWithdrawal = withdrawals.adminReviewWithdrawal;
++
++// Admin & moderation
++exports.adminSetAccountState = adminActions.adminSetAccountState;
++exports.setAdminRole = adminActions.setAdminRole;
++exports.onReportCreated = adminActions.onReportCreated;
+diff --git a/functions/package.json b/functions/package.json
+index b3d26b1..33fc57a 100644
+--- a/functions/package.json
++++ b/functions/package.json
+@@ -14,6 +14,7 @@
+   },
+   "main": "index.js",
+   "dependencies": {
++    "agora-token": "^2.0.5",
+     "cors": "^2.8.6",
+     "firebase-admin": "^13.6.0",
+     "firebase-functions": "^7.0.0",
+diff --git a/functions/payments.js b/functions/payments.js
+new file mode 100644
+index 0000000..4bb0566
+--- /dev/null
++++ b/functions/payments.js
+@@ -0,0 +1,168 @@
++"use strict";
++
++const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
++const {defineSecret} = require("firebase-functions/params");
++const Stripe = require("stripe");
++
++const {TOPUP_PACKS, SUBSCRIPTION_PLANS, FLAGS} = require("./config");
++const {db, ts, inc, assertAuth, walletHistoryEntry} = require("./util");
++
++const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
++const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
++
++// --------------------------------------------------------------------------
++// createStripePaymentIntent — creates a real PaymentIntent for a Silver pack
++// OR a subscription plan. Records a pending paymentIntents doc for reconcile.
++// Coins/subscription are credited ONLY by the verified webhook, never here.
++// --------------------------------------------------------------------------
++exports.createStripePaymentIntent = onCall({secrets: [STRIPE_SECRET_KEY]}, async (request) => {
++  const uid = assertAuth(request);
++  const {packId, planId} = request.data || {};
++
++  let intentMeta;
++  if (packId) {
++    const pack = TOPUP_PACKS[packId];
++    if (!pack) throw new HttpsError("invalid-argument", "Invalid packId");
++    intentMeta = {
++      kind: "silver_topup", amount: pack.amount, currency: pack.currency,
++      silver: pack.silver, packId, region: pack.region,
++    };
++  } else if (planId) {
++    const plan = SUBSCRIPTION_PLANS[planId];
++    if (!plan) throw new HttpsError("invalid-argument", "Invalid planId");
++    intentMeta = {
++      kind: "subscription", amount: plan.amount, currency: plan.currency,
++      tier: plan.tier, planId, region: plan.region,
++    };
++  } else {
++    throw new HttpsError("invalid-argument", "packId or planId required");
++  }
++
++  const stripe = new Stripe(STRIPE_SECRET_KEY.value());
++  const paymentIntent = await stripe.paymentIntents.create({
++    amount: intentMeta.amount,
++    currency: intentMeta.currency,
++    automatic_payment_methods: {enabled: true},
++    metadata: Object.assign({uid, type: intentMeta.kind}, intentMeta.silver ?
++      {packId: intentMeta.packId, silver: String(intentMeta.silver)} :
++      {planId: intentMeta.planId, tier: intentMeta.tier}),
++  });
++
++  await db().collection("paymentIntents").doc(paymentIntent.id).set({
++    uid,
++    provider: "stripe",
++    status: "created",
++    createdAt: ts(),
++    ...intentMeta,
++  });
++
++  return {clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id};
++});
++
++// --------------------------------------------------------------------------
++// stripeWebhook — the ONLY place that credits Silver / activates a plan.
++// Verifies the Stripe signature and processes each event exactly once.
++// --------------------------------------------------------------------------
++exports.stripeWebhook = onRequest(
++    {secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET]},
++    async (req, res) => {
++      const sig = req.headers["stripe-signature"];
++      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
++      let event;
++      try {
++        event = stripe.webhooks.constructEvent(
++            req.rawBody, sig, STRIPE_WEBHOOK_SECRET.value());
++      } catch (err) {
++        console.error("Webhook signature verification failed", err.message);
++        res.status(400).send(`Webhook Error: ${err.message}`);
++        return;
++      }
++
++      // Idempotency: record processed event ids.
++      const evtRef = db().collection("stripeEvents").doc(event.id);
++      const evtSnap = await evtRef.get();
++      if (evtSnap.exists) {
++        res.json({received: true, duplicate: true});
++        return;
++      }
++
++      try {
++        if (event.type === "payment_intent.succeeded") {
++          await handlePaymentSucceeded(event.data.object);
++        } else if (event.type === "payment_intent.payment_failed") {
++          await markIntent(event.data.object.id, "failed");
++        } else if (event.type === "charge.refunded") {
++          await markIntent(event.data.object.payment_intent, "refunded");
++        }
++        await evtRef.set({type: event.type, processedAt: ts()});
++        res.json({received: true});
++      } catch (err) {
++        console.error("Webhook handler error", err);
++        res.status(500).send("handler_error");
++      }
++    });
++
++async function markIntent(paymentIntentId, status) {
++  if (!paymentIntentId) return;
++  await db().collection("paymentIntents").doc(paymentIntentId)
++      .set({status, updatedAt: ts()}, {merge: true});
++}
++
++async function handlePaymentSucceeded(pi) {
++  const piRef = db().collection("paymentIntents").doc(pi.id);
++
++  await db().runTransaction(async (tx) => {
++    const snap = await tx.get(piRef);
++    if (!snap.exists) return; // unknown intent, ignore
++    const rec = snap.data();
++    if (rec.status === "credited") return; // already processed
++    const uid = rec.uid;
++    const userRef = db().collection("users").doc(uid);
++
++    if (rec.kind === "silver_topup") {
++      tx.update(userRef, {silverBalance: inc(rec.silver), updatedAt: ts()});
++      walletHistoryEntry(tx, uid, {
++        type: "topup", title: "Silver top-up", provider: "stripe",
++        paymentIntentId: pi.id, toCoin: "Silver", toAmount: rec.silver,
++        amount: rec.amount, currency: rec.currency, status: "paid",
++      });
++    } else if (rec.kind === "subscription") {
++      tx.update(userRef, {
++        tier: rec.tier,
++        subscriptionPlan: rec.planId,
++        subscriptionStatus: "active",
++        subscriptionActivatedAt: ts(),
++        updatedAt: ts(),
++      });
++      walletHistoryEntry(tx, uid, {
++        type: "subscription", title: `Subscription: ${rec.tier}`, provider: "stripe",
++        paymentIntentId: pi.id, amount: rec.amount, currency: rec.currency, status: "paid",
++      });
++    }
++    tx.update(piRef, {status: "credited", creditedAt: ts()});
++  });
++}
++
++// --------------------------------------------------------------------------
++// confirmStripeTopupDev — DEV ONLY. Disabled unless ALLOW_DEV_STRIPE_CONFIRM
++// env flag is "true". Never enable in production; the webhook is authoritative.
++// --------------------------------------------------------------------------
++exports.confirmStripeTopupDev = onCall(async (request) => {
++  if (!FLAGS.allowDevStripeConfirm) {
++    throw new HttpsError("failed-precondition",
++        "Dev confirm disabled. Payments are credited by the Stripe webhook.");
++  }
++  const uid = assertAuth(request);
++  const {paymentIntentId} = request.data || {};
++  if (!paymentIntentId) throw new HttpsError("invalid-argument", "paymentIntentId required");
++
++  const piRef = db().collection("paymentIntents").doc(paymentIntentId);
++  const piSnap = await piRef.get();
++  if (!piSnap.exists) throw new HttpsError("not-found", "Payment not found");
++  const pi = piSnap.data();
++  if (pi.uid !== uid) throw new HttpsError("permission-denied", "Not your payment");
++  if (pi.status === "credited") return {ok: true, alreadyCredited: true};
++
++  await handlePaymentSucceeded({id: paymentIntentId});
++  return {ok: true, dev: true};
++});
+diff --git a/functions/util.js b/functions/util.js
+new file mode 100644
+index 0000000..742514e
+--- /dev/null
++++ b/functions/util.js
+@@ -0,0 +1,98 @@
++"use strict";
++
++const {HttpsError} = require("firebase-functions/v2/https");
++const admin = require("firebase-admin");
++const {ADMIN_ROLES, ADMIN_ACTION_ROLES} = require("./config");
++
++const db = () => admin.firestore();
++const ts = () => admin.firestore.FieldValue.serverTimestamp();
++const inc = (n) => admin.firestore.FieldValue.increment(n);
++
++// ---- Auth guards ----------------------------------------------------------
++
++function assertAuth(request) {
++  if (!request.auth || !request.auth.uid) {
++    throw new HttpsError("unauthenticated", "Login required");
++  }
++  return request.auth.uid;
++}
++
++// Requires an admin custom-claim role. Optionally gate by a specific action.
++function assertAdmin(request, action) {
++  assertAuth(request);
++  const role = request.auth.token && request.auth.token.role;
++  if (!ADMIN_ROLES.includes(role)) {
++    throw new HttpsError("permission-denied", "Admin role required");
++  }
++  if (action) {
++    const allowed = ADMIN_ACTION_ROLES[action] || [];
++    if (!allowed.includes(role)) {
++      throw new HttpsError("permission-denied", `Role '${role}' cannot perform '${action}'`);
++    }
++  }
++  return {uid: request.auth.uid, role, email: request.auth.token.email || ""};
++}
++
++// ---- Account-state enforcement -------------------------------------------
++
++// Reads users/{uid} and throws if the account cannot perform value actions
++// (spend coins, call, convert, withdraw, message). Server is the source of truth.
++async function assertAccountUsable(uid, {requireWallet = false} = {}) {
++  const snap = await db().collection("users").doc(uid).get();
++  if (!snap.exists) throw new HttpsError("not-found", "User profile not found");
++  const u = snap.data() || {};
++  const status = (u.accountStatus || u.status || "Active").toString().toLowerCase();
++  if (u.banned === true || status === "banned") {
++    throw new HttpsError("permission-denied", "Account banned");
++  }
++  if (u.frozen === true || status === "frozen") {
++    throw new HttpsError("permission-denied", "Account frozen");
++  }
++  if (status === "deleted" || u.deleted === true) {
++    throw new HttpsError("permission-denied", "Account deleted");
++  }
++  if (requireWallet && u.walletFrozen === true) {
++    throw new HttpsError("permission-denied", "Wallet is frozen");
++  }
++  return u;
++}
++
++// ---- Audit logging (mirrors admin panel adminAuditLogs schema) ------------
++
++async function writeAudit(entry) {
++  await db().collection("adminAuditLogs").add({
++    adminUid: entry.adminUid || "system",
++    adminEmail: entry.adminEmail || "system",
++    adminRole: entry.adminRole || "system",
++    action: entry.action,
++    module: entry.module || "",
++    target: entry.target || "",
++    targetId: entry.targetId || "",
++    prev: entry.prev === undefined ? null : entry.prev,
++    new: entry.new === undefined ? null : entry.new,
++    reason: entry.reason || "",
++    source: entry.source || "cloud_function",
++    timestamp: ts(),
++  });
++}
++
++// ---- Wallet history (users/{uid}/walletHistory) ---------------------------
++// Single canonical transaction store used by the app AND the admin panel
++// (admin reads it via the walletHistory collectionGroup).
++
++function walletHistoryEntry(tx, uid, data) {
++  const ref = db().collection("users").doc(uid).collection("walletHistory").doc();
++  tx.set(ref, Object.assign({createdAt: ts()}, data));
++  return ref.id;
++}
++
++module.exports = {
++  db,
++  ts,
++  inc,
++  assertAuth,
++  assertAdmin,
++  assertAccountUsable,
++  writeAudit,
++  walletHistoryEntry,
++};
+diff --git a/functions/wallet.js b/functions/wallet.js
+new file mode 100644
+index 0000000..a6cc35d
+--- /dev/null
++++ b/functions/wallet.js
+@@ -0,0 +1,92 @@
++"use strict";
++
++const {onCall, HttpsError} = require("firebase-functions/v2/https");
++
++const {COIN_FIELDS, CONVERSION_RATES, CONVERSION_COOLDOWN_SECONDS} = require("./config");
++const {db, ts, inc, assertAuth, assertAccountUsable, walletHistoryEntry} = require("./util");
++
++// Allowed conversion pairs. Direct Silver -> Diamond is NOT allowed.
++const PAIRS = {
++  "Silver>Gold": (r) => r.silverToGold,
++  "Gold>Diamond": (r) => r.goldToDiamond,
++  "Gold>Silver": (r) => 1 / r.silverToGold,
++  "Diamond>Gold": (r) => 1 / r.goldToDiamond,
++};
++
++// --------------------------------------------------------------------------
++// convertCoins — atomic, server-authoritative coin conversion.
++// Client can NEVER change balances directly; this is the only path.
++// --------------------------------------------------------------------------
++exports.convertCoins = onCall(async (request) => {
++  const uid = assertAuth(request);
++  const {from, to, amount, bonusPct} = request.data || {};
++
++  const amt = Number(amount);
++  if (!Number.isFinite(amt) || amt <= 0) {
++    throw new HttpsError("invalid-argument", "Enter a valid amount");
++  }
++  if (from === to) throw new HttpsError("invalid-argument", "From and To cannot be same");
++  const key = `${from}>${to}`;
++  if (!PAIRS[key]) {
++    throw new HttpsError("failed-precondition", "Conversion pair not allowed");
++  }
++
++  await assertAccountUsable(uid, {requireWallet: true});
++
++  const userRef = db().collection("users").doc(uid);
++  const result = await db().runTransaction(async (tx) => {
++    const snap = await tx.get(userRef);
++    const u = snap.data() || {};
++
++    // Cooldown check (server-enforced).
++    if (CONVERSION_COOLDOWN_SECONDS > 0) {
++      const last = u.lastConversionAt;
++      if (last && last.toMillis) {
++        const elapsed = (Date.now() - last.toMillis()) / 1000;
++        if (elapsed < CONVERSION_COOLDOWN_SECONDS) {
++          throw new HttpsError("resource-exhausted",
++              `Please wait ${Math.ceil(CONVERSION_COOLDOWN_SECONDS - elapsed)}s before converting again`);
++        }
++      }
++    }
++
++    const region = (u.country === "UK" || u.pricingRegion === "UK") ? "UK" : "IN";
++    const rates = CONVERSION_RATES[region];
++
++    const fromField = COIN_FIELDS[from];
++    const toField = COIN_FIELDS[to];
++    if (!fromField || !toField) throw new HttpsError("invalid-argument", "Unknown coin");
++
++    const fromBal = Number(u[fromField] || 0);
++    if (fromBal < amt) throw new HttpsError("failed-precondition", `Not enough ${from}`);
++
++    let out = amt * PAIRS[key](rates);
++
++    // Streak bonus applies only to Silver -> Gold; clamp to server-stored value.
++    if (key === "Silver>Gold") {
++      const serverBonus = Math.max(0, Math.min(10, Number(u.streakBonusPct || 0)));
++      const requested = Math.max(0, Math.min(10, Number(bonusPct || 0)));
++      const applied = Math.min(serverBonus, requested || serverBonus);
++      out = out + out * (applied / 100);
++    }
++
++    // Store whole coins only to avoid floating-point drift.
++    out = Math.floor(out);
++    if (out <= 0) throw new HttpsError("failed-precondition", "Amount too small to convert");
++
++    tx.update(userRef, {
++      [fromField]: inc(-amt),
++      [toField]: inc(out),
++      lastConversionAt: ts(),
++      updatedAt: ts(),
++    });
++    walletHistoryEntry(tx, uid, {
++      type: "conversion", title: "Conversion",
++      fromCoin: from, fromAmount: amt, toCoin: to, toAmount: out,
++      region, status: "completed",
++    });
++    return {out};
++  });
++
++  return {ok: true, from, to, spent: amt, received: result.out};
++});
+diff --git a/functions/withdrawals.js b/functions/withdrawals.js
+new file mode 100644
+index 0000000..e12a52f
+--- /dev/null
++++ b/functions/withdrawals.js
+@@ -0,0 +1,111 @@
++"use strict";
++
++const {onCall, HttpsError} = require("firebase-functions/v2/https");
++const admin = require("firebase-admin");
++
++const {WITHDRAWAL_MIN, CONVERSION_RATES} = require("./config");
++const {db, ts, inc, assertAuth, assertAccountUsable, assertAdmin, writeAudit, walletHistoryEntry} = require("./util");
++
++// --------------------------------------------------------------------------
++// requestWithdrawal — user submits a withdrawal. Locks the diamond amount and
++// creates a walletHistory record with status 'requested'. No money moves here;
++// a finance admin must approve, and a real payout provider must confirm 'paid'.
++// --------------------------------------------------------------------------
++exports.requestWithdrawal = onCall(async (request) => {
++  const uid = assertAuth(request);
++  const {diamondAmount} = request.data || {};
++  const amt = Number(diamondAmount);
++  if (!Number.isFinite(amt) || amt <= 0) {
++    throw new HttpsError("invalid-argument", "Enter a valid diamond amount");
++  }
++
++  const u = await assertAccountUsable(uid, {requireWallet: true});
++
++  // Love tier + verified identity required.
++  if ((u.tier || "casual") !== "love") {
++    throw new HttpsError("failed-precondition", "Withdrawals require the Love membership");
++  }
++  const vs = (u.verificationStatus || "").toString().toLowerCase();
++  if (!["approved", "verified"].includes(vs) && u.livenessVerifiedAt == null) {
++    throw new HttpsError("failed-precondition", "Identity/liveness verification required");
++  }
++
++  const region = (u.country === "UK" || u.pricingRegion === "UK") ? "UK" : "IN";
++  const rates = CONVERSION_RATES[region];
++  const minCfg = WITHDRAWAL_MIN[region];
++  const cashValue = amt * rates.diamondCashUnit; // diamonds -> local currency
++  if (cashValue < minCfg.min) {
++    throw new HttpsError("failed-precondition",
++        `Minimum withdrawal is ${minCfg.min} ${minCfg.currency.toUpperCase()}`);
++  }
++
++  const userRef = db().collection("users").doc(uid);
++  const result = await db().runTransaction(async (tx) => {
++    const snap = await tx.get(userRef);
++    const cur = snap.data() || {};
++    const bal = Number(cur.diamondBalance || 0);
++    if (bal < amt) throw new HttpsError("failed-precondition", "Not enough Diamonds");
++
++    // One pending withdrawal at a time.
++    if (cur.pendingWithdrawalId) {
++      throw new HttpsError("failed-precondition", "You already have a pending withdrawal");
++    }
++
++    // Lock the diamonds (move to locked balance).
++    tx.update(userRef, {
++      diamondBalance: inc(-amt),
++      lockedDiamond: inc(amt),
++      updatedAt: ts(),
++    });
++    const id = walletHistoryEntry(tx, uid, {
++      type: "withdraw", title: "Withdraw request",
++      fromCoin: "Diamond", fromAmount: amt, toCoin: "Cash", toAmount: cashValue,
++      country: region, currencyCode: rates.currency, cashValue,
++      status: "requested",
++    });
++    tx.update(userRef, {pendingWithdrawalId: id});
++    return {id, cashValue};
++  });
++
++  return {ok: true, withdrawalId: result.id, cashValue: result.cashValue, currency: rates.currency};
++});
++
++// --------------------------------------------------------------------------
++// adminReviewWithdrawal — finance admin approves/rejects. On reject the locked
++// diamonds are returned. 'paid' must be set only after a real payout confirms.
++// --------------------------------------------------------------------------
++exports.adminReviewWithdrawal = onCall(async (request) => {
++  const {decision, uid, withdrawalId, reason} = request.data || {};
++  const action = decision === "approve" ? "approve_withdrawal" : "reject_withdrawal";
++  const adminCtx = assertAdmin(request, action);
++  if (!uid || !withdrawalId) throw new HttpsError("invalid-argument", "uid and withdrawalId required");
++
++  const userRef = db().collection("users").doc(uid);
++  const whRef = userRef.collection("walletHistory").doc(withdrawalId);
++
++  await db().runTransaction(async (tx) => {
++    const whSnap = await tx.get(whRef);
++    if (!whSnap.exists) throw new HttpsError("not-found", "Withdrawal not found");
++    const wh = whSnap.data();
++    if (!["requested", "under_review"].includes(wh.status)) {
++      throw new HttpsError("failed-precondition", `Cannot review a '${wh.status}' withdrawal`);
++    }
++    const amt = Number(wh.fromAmount || 0);
++
++    if (decision === "approve") {
++      tx.update(whRef, {status: "approved", reviewedAt: ts(), reviewedBy: adminCtx.email});
++      // locked diamonds stay locked until payout marks it 'paid'.
++    } else {
++      // reject -> return locked diamonds
++      tx.update(userRef, {diamondBalance: inc(amt), lockedDiamond: inc(-amt), pendingWithdrawalId: admin.firestore.FieldValue.delete(), updatedAt: ts()});
++      tx.update(whRef, {status: "rejected", rejectionReason: reason || "", reviewedAt: ts(), reviewedBy: adminCtx.email});
++    }
++  });
++
++  await writeAudit({
++    adminUid: adminCtx.uid, adminEmail: adminCtx.email, adminRole: adminCtx.role,
++    action, module: "withdrawals", targetId: uid, reason: reason || "",
++    new: decision === "approve" ? "approved" : "rejected",
++  });
++  return {ok: true};
++});
+-- 
+2.39.5
+

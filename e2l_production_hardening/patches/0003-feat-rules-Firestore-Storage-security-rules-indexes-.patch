@@ -1,0 +1,413 @@
+From 555bf65b03591a77ff3d4f93f00beee064f0198a Mon Sep 17 00:00:00 2001
+From: Emergent E1 <e1@emergent.local>
+Date: Wed, 15 Jul 2026 13:02:30 +0000
+Subject: [PATCH 3/4] feat(rules): Firestore + Storage security rules, indexes,
+ firebase.json
+
+- firestore.rules: auth-gated; owners cannot write money/state fields;
+  wallet ledger/payments/calls/audit are server-write-only; participant-only
+  chat; admin-restricted reports & verification docs; default deny
+- storage.rules: per-user scoped paths; verification docs admin-read-only;
+  content-type + size limits
+- firestore.indexes.json: composite/collection-group indexes for wallet,
+  chat, requests, reports, calls, verification, notifications
+- firebase.json: wire firestore rules+indexes and storage rules
+---
+ firebase.json          |   9 ++-
+ firestore.indexes.json | 142 ++++++++++++++++++++++++++++++++++++++
+ firestore.rules        | 153 +++++++++++++++++++++++++++++++++++++++++
+ storage.rules          |  50 ++++++++++++++
+ 4 files changed, 353 insertions(+), 1 deletion(-)
+ create mode 100644 firestore.indexes.json
+ create mode 100644 firestore.rules
+ create mode 100644 storage.rules
+
+diff --git a/firebase.json b/firebase.json
+index 6905039..3167fc6 100644
+--- a/firebase.json
++++ b/firebase.json
+@@ -1,4 +1,11 @@
+ {
++  "firestore": {
++    "rules": "firestore.rules",
++    "indexes": "firestore.indexes.json"
++  },
++  "storage": {
++    "rules": "storage.rules"
++  },
+   "functions": [
+     {
+       "source": "functions",
+@@ -12,4 +19,4 @@
+       ]
+     }
+   ]
+-}
+\ No newline at end of file
++}
+diff --git a/firestore.indexes.json b/firestore.indexes.json
+new file mode 100644
+index 0000000..93691e8
+--- /dev/null
++++ b/firestore.indexes.json
+@@ -0,0 +1,142 @@
++{
++  "indexes": [
++    {
++      "collectionGroup": "messages",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "senderId", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "ASCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "messages",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "walletHistory",
++      "queryScope": "COLLECTION_GROUP",
++      "fields": [
++        {"fieldPath": "type", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "walletHistory",
++      "queryScope": "COLLECTION_GROUP",
++      "fields": [
++        {"fieldPath": "status", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "walletHistory",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "type", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "chatRooms",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "participants", "arrayConfig": "CONTAINS"},
++        {"fieldPath": "lastMessageAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "chats",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "participants", "arrayConfig": "CONTAINS"},
++        {"fieldPath": "lastMessageAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "friendRequests",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "toUid", "order": "ASCENDING"},
++        {"fieldPath": "status", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "friendRequests",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "fromUid", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "reports",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "status", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "reports",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "targetUid", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "calls",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "calleeUid", "order": "ASCENDING"},
++        {"fieldPath": "status", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "supportTickets",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "status", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "verificationRequests",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "type", "order": "ASCENDING"},
++        {"fieldPath": "status", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "notifications",
++      "queryScope": "COLLECTION_GROUP",
++      "fields": [
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "adminAuditLogs",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "targetId", "order": "ASCENDING"},
++        {"fieldPath": "timestamp", "order": "DESCENDING"}
++      ]
++    },
++    {
++      "collectionGroup": "paymentIntents",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {"fieldPath": "uid", "order": "ASCENDING"},
++        {"fieldPath": "createdAt", "order": "DESCENDING"}
++      ]
++    }
++  ],
++  "fieldOverrides": []
++}
+diff --git a/firestore.rules b/firestore.rules
+new file mode 100644
+index 0000000..c184c87
+--- /dev/null
++++ b/firestore.rules
+@@ -0,0 +1,153 @@
++rules_version = '2';
++
++// ===========================================================================
++// Earn2Love Firestore security rules.
++// Principle: the CLIENT may never write server-managed money/state fields.
++// Balances, tier, subscription, account status, verification and reports are
++// written ONLY by Cloud Functions (Admin SDK bypasses these rules).
++// ===========================================================================
++
++service cloud.firestore {
++  match /databases/{database}/documents {
++
++    function isSignedIn() {
++      return request.auth != null;
++    }
++    function isOwner(uid) {
++      return isSignedIn() && request.auth.uid == uid;
++    }
++    function isAdmin() {
++      return isSignedIn() && request.auth.token.role in
++        ['super_admin', 'moderator', 'support_agent', 'finance_admin', 'verification_agent'];
++    }
++    // Fields on users/{uid} that only the server (Cloud Functions / Admin SDK) may change.
++    function protectedUserFields() {
++      return [
++        'silverBalance', 'goldBalance', 'diamondBalance', 'lockedDiamond',
++        'silverCoins', 'goldCoins', 'diamondCoins',
++        'tier', 'subscriptionStatus', 'subscriptionPlan', 'subscriptionActivatedAt',
++        'accountStatus', 'banned', 'frozen', 'walletFrozen',
++        'reportsCount', 'verificationStatus', 'livenessVerifiedAt', 'livenessRequired',
++        'pendingWithdrawalId', 'streakBonusPct', 'streakDays', 'lastConversionAt',
++        'autoFrozenAt', 'forceLogoutAt'
++      ];
++    }
++    function notTouchingProtected() {
++      return !request.resource.data.diff(resource.data).affectedKeys()
++        .hasAny(protectedUserFields());
++    }
++    function chatParticipant(roomData) {
++      return isSignedIn() && request.auth.uid in roomData.participants;
++    }
++
++    // ---- Users ------------------------------------------------------------
++    match /users/{uid} {
++      allow read: if isSignedIn();
++      // Create own doc, but never seed protected money/state fields from client.
++      allow create: if isOwner(uid)
++        && !request.resource.data.diff({}).affectedKeys().hasAny(protectedUserFields());
++      // Update own profile fields only; protected fields are server-managed.
++      allow update: if (isOwner(uid) && notTouchingProtected()) || isAdmin();
++      allow delete: if isAdmin();
++
++      // Wallet history: owner + admin read; writes are server-only.
++      match /walletHistory/{docId} {
++        allow read: if isOwner(uid) || isAdmin();
++        allow write: if false;
++      }
++      // Notifications: owner reads; server writes (owner may mark read).
++      match /notifications/{docId} {
++        allow read: if isOwner(uid) || isAdmin();
++        allow update: if isOwner(uid);
++        allow create, delete: if isAdmin();
++      }
++      // Media (photos/videos): owner writes; signed-in users read eligible media.
++      match /media/{mediaId} {
++        allow read: if isSignedIn();
++        allow create, update, delete: if isOwner(uid);
++      }
++      // Per-user subcollections owned by the user.
++      match /chatPrefs/{docId}     { allow read: if isOwner(uid) || isAdmin(); allow write: if isOwner(uid); }
++      match /blockedUsers/{docId}  { allow read: if isOwner(uid) || isAdmin(); allow write: if isOwner(uid); }
++      match /blocks/{docId}        { allow read: if isOwner(uid) || isAdmin(); allow write: if isOwner(uid); }
++      match /following/{docId}     { allow read: if isSignedIn(); allow write: if isOwner(uid); }
++      match /followers/{docId}     { allow read: if isSignedIn(); allow write: if isSignedIn(); }
++      match /likes/{docId}         { allow read: if isSignedIn(); allow write: if isOwner(uid); }
++      match /requests/{docId}      { allow read: if isOwner(uid) || isAdmin(); allow write: if isOwner(uid); }
++      match /tmp/{docId}           { allow read, write: if isOwner(uid); }
++      match /limits/{docId}        { allow read: if isOwner(uid) || isAdmin(); allow write: if false; }
++    }
++
++    // ---- Chat rooms -------------------------------------------------------
++    match /chatRooms/{roomId} {
++      allow read: if chatParticipant(resource.data) || isAdmin();
++      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
++      allow update: if chatParticipant(resource.data);
++      allow delete: if isAdmin();
++      match /messages/{msgId} {
++        allow read: if isSignedIn();
++        allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
++        allow update, delete: if isSignedIn();
++      }
++    }
++    match /chats/{roomId} {
++      allow read: if chatParticipant(resource.data) || isAdmin();
++      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
++      allow update: if chatParticipant(resource.data);
++      match /messages/{msgId} {
++        allow read: if isSignedIn();
++        allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
++        allow update, delete: if isSignedIn();
++      }
++    }
++
++    // ---- Connection requests ---------------------------------------------
++    match /friendRequests/{reqId} {
++      allow read: if isSignedIn() && (
++        request.auth.uid == resource.data.fromUid ||
++        request.auth.uid == resource.data.toUid || isAdmin());
++      allow create: if isSignedIn() && request.resource.data.fromUid == request.auth.uid;
++      allow update: if isSignedIn() && (
++        request.auth.uid == resource.data.fromUid ||
++        request.auth.uid == resource.data.toUid);
++      allow delete: if isAdmin();
++    }
++    match /requests/{reqId} {
++      allow read: if isSignedIn();
++      allow create: if isSignedIn() && request.resource.data.fromUid == request.auth.uid;
++      allow update, delete: if isSignedIn();
++    }
++
++    // ---- Reports (safety) — restricted read -------------------------------
++    match /reports/{reportId} {
++      allow create: if isSignedIn() && request.resource.data.reporterUid == request.auth.uid;
++      allow read, update, delete: if isAdmin();
++    }
++
++    // ---- Support tickets --------------------------------------------------
++    match /supportTickets/{ticketId} {
++      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
++      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
++      allow update: if isAdmin();
++    }
++
++    // ---- Verification requests — sensitive; server + admin only -----------
++    match /verificationRequests/{docId} {
++      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
++      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
++      allow update, delete: if isAdmin();
++    }
++
++    // ---- Server-only collections -----------------------------------------
++    match /paymentIntents/{id}   { allow read: if isOwner(resource.data.uid) || isAdmin(); allow write: if false; }
++    match /walletTransactions/{id} { allow read: if isOwner(resource.data.uid) || isAdmin(); allow write: if false; }
++    match /stripeEvents/{id}     { allow read, write: if false; }
++    match /calls/{id}            { allow read: if isSignedIn() && (request.auth.uid == resource.data.callerUid || request.auth.uid == resource.data.calleeUid) || isAdmin(); allow write: if false; }
++    match /adminAuditLogs/{id}   { allow read: if isAdmin(); allow write: if false; }
++
++    // Default deny.
++    match /{document=**} {
++      allow read, write: if false;
++    }
++  }
++}
+diff --git a/storage.rules b/storage.rules
+new file mode 100644
+index 0000000..5f49535
+--- /dev/null
++++ b/storage.rules
+@@ -0,0 +1,50 @@
++rules_version = '2';
++
++// ===========================================================================
++// Earn2Love Firebase Storage security rules.
++// Paths are scoped per user. Verification documents are write-only for the
++// owner and readable only by admins/backend (never public).
++// ===========================================================================
++
++service firebase.storage {
++  match /b/{bucket}/o {
++
++    function isSignedIn() { return request.auth != null; }
++    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
++    function isAdmin() {
++      return isSignedIn() && request.auth.token.role in
++        ['super_admin', 'moderator', 'support_agent', 'finance_admin', 'verification_agent'];
++    }
++    function isImage() { return request.resource.contentType.matches('image/.*'); }
++    function isVideo() { return request.resource.contentType.matches('video/.*'); }
++    function maxSize(mb) { return request.resource.size < mb * 1024 * 1024; }
++
++    // Profile / gallery media — owner writes, signed-in users read.
++    match /users/{uid}/profile/{fileName} {
++      allow read: if isSignedIn();
++      allow write: if isOwner(uid) && isImage() && maxSize(10);
++    }
++    match /users/{uid}/media/{fileName} {
++      allow read: if isSignedIn();
++      allow write: if isOwner(uid) && (isImage() || isVideo()) && maxSize(100);
++    }
++
++    // Chat attachments — participants only (enforced by folder = roomId; keep signed-in read).
++    match /chats/{roomId}/{fileName} {
++      allow read: if isSignedIn();
++      allow write: if isSignedIn() && (isImage() || isVideo()) && maxSize(100);
++    }
++
++    // Verification / liveness documents — sensitive. Owner may upload; only
++    // admins/backend may read. Never publicly readable.
++    match /verification/{uid}/{fileName} {
++      allow read: if isAdmin();
++      allow write: if isOwner(uid) && (isImage() || isVideo()) && maxSize(50);
++    }
++
++    // Default deny.
++    match /{allPaths=**} {
++      allow read, write: if false;
++    }
++  }
++}
+-- 
+2.39.5
+

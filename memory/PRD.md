@@ -52,3 +52,19 @@ See /app/memory/test_credentials.md (primary: ram@earn2love.com / Owner@2026).
 1. Report/Verification detail pages with evidence & full action set.
 2. Notifications composer + ticket threads.
 3. Bulk actions, saved filters, Excel export.
+
+## 2026-06 — Flutter app production-hardening (cross-repo, server-side only)
+Worked on `github.com/earn2love/earn2love-app` (Flutter) — this Emergent env cannot
+build/run Flutter. Delivered as branch `feature/production-hardening` (bundle+patches
+in `/app/e2l_production_hardening/`, audit in `PRODUCTION_AUDIT.md`):
+- Firestore + Storage security rules, composite indexes, firebase.json wiring.
+- Modular v2 Cloud Functions: Stripe webhook (idempotent, only crediting path),
+  createStripePaymentIntent (topup+subscription), convertCoins, startCall/endCall +
+  generateAgoraToken (disabled until secrets), requestWithdrawal + admin review,
+  adminSetAccountState/setAdminRole, onReportCreated auto-freeze; audit logging.
+- Fixed field drift (silverBalance vs silverCoins; walletHistory vs walletTransactions),
+  removed leaked dotfiles, hardened .gitignore.
+- Validated: node --check + full require() graph load (real deps) + ESLint 0 errors.
+  NOT verified (needs live Firebase+secrets+devices): Stripe webhook credit, Agora,
+  Android/iOS builds. Flutter UI/branding/entrypoint fixes remain (see spec §11).
+
