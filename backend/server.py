@@ -44,6 +44,11 @@ class TicketReply(BaseModel):
     visibility: str = "internal"
 
 
+class WithdrawalReview(BaseModel):
+    decision: str
+    reason: str | None = None
+
+
 class NotifyBody(BaseModel):
     text: str | None = None
     value: dict | None = None
@@ -183,6 +188,7 @@ async def user_action(uid: str, body: ActionBody, request: Request, admin: dict 
     elif action == "force-logout":
         try: auth_sdk.revoke_refresh_tokens(uid)
         except Exception: pass
+        update = {"activeSessionId": "", "forceLogoutAt": datetime.now(timezone.utc)}; new = "force-logged-out"
     elif action == "reset-reports":
         prev = user.get("reportsCount"); update = {"reportsCount": 0}; new = 0
     elif action == "freeze-wallet":
@@ -190,9 +196,9 @@ async def user_action(uid: str, body: ActionBody, request: Request, admin: dict 
     elif action == "unfreeze-wallet":
         update = {"walletFrozen": False}; new = False
     elif action == "request-verification":
-        update = {"verificationStatus": "Pending"}; new = "Pending"
+        update = {"verificationStatus": "Pending", "livenessRequired": True}; new = "Pending"
     elif action == "reset-liveness":
-        update = {"verificationStatus": "Needs Review"}; new = "Needs Review"
+        update = {"verificationStatus": "Needs Review", "livenessRequired": True}; new = "Needs Review"
     elif action == "change-tier" and body.value:
         prev = user.get("tier"); update = {"tier": body.value.get("tier")}; new = body.value.get("tier")
     else:
@@ -218,6 +224,20 @@ async def add_note(uid: str, body: ActionBody, request: Request, admin: dict = D
 @api.get("/users/{uid}/related")
 async def get_related(uid: str, admin: dict = Depends(get_current_admin)):
     return repo.user_related(uid)
+
+
+@api.post("/withdrawals/{owner_uid}/{wh_id}/review")
+async def withdrawal_review(owner_uid: str, wh_id: str, body: WithdrawalReview,
+                            request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "withdrawals")
+    try:
+        ok = repo.review_withdrawal(owner_uid, wh_id, body.decision, admin["email"], body.reason or "")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not ok:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    audit(admin, f"withdrawal-{body.decision}", "withdrawals", owner_uid, wh_id, reason=body.reason, request=request)
+    return {"ok": True}
 
 
 # ---------------- Dashboard / analytics ----------------

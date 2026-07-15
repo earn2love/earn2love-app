@@ -23,7 +23,7 @@ export default function Analytics() {
       <Topbar title="Platform Analytics" subtitle="Growth, revenue and platform health metrics" />
       <main className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6">
         <div className="flex items-center justify-between">
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-full px-2.5 py-1">Demo data</span>
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-full px-2.5 py-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live data</span>
           <Select value={range} onValueChange={setRange}>
             <SelectTrigger data-testid="analytics-range" className="h-9 w-[160px] bg-card"><SelectValue /></SelectTrigger>
             <SelectContent>{RANGES.map((r) => <SelectItem key={r.v} value={r.v}>{r.l}</SelectItem>)}</SelectContent>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Heart, ChevronLeft, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Heart, ChevronLeft, PanelLeftClose, PanelLeft, ExternalLink } from "lucide-react";
 import { NAV_GROUPS } from "@/config/modules";
 import { usePendingCounts } from "@/context/PendingCountsContext";
 import { cn } from "@/lib/utils";
@@ -78,6 +78,17 @@ export function Sidebar({ collapsed, setCollapsed }) {
           </div>
         ))}
       </nav>
+
+      <a
+        data-testid="sidebar-website-link"
+        href={process.env.REACT_APP_WEBSITE_URL || "https://earn2love.com"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 h-11 px-4 border-t border-white/5 text-white/55 hover:text-white text-xs transition-colors"
+      >
+        <ExternalLink className="h-4 w-4 shrink-0" />
+        {!collapsed && <span className="truncate">Visit Website</span>}
+      </a>
 
       <button
         data-testid="sidebar-collapse-btn"

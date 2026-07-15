@@ -3,6 +3,7 @@ All Firestore access goes through here — never inside routes/components.
 Maps admin module keys to the EXACT collections/fields used by the Earn2Love Flutter app.
 """
 from datetime import datetime, timezone, timedelta
+from google.cloud import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.api_core.exceptions import FailedPrecondition, InvalidArgument
 from firebase_service import get_db
@@ -217,6 +218,40 @@ def user_related(uid):
     payments = [w for w in wallet if w.get("type") == "topup"]
     return {"transactions": wallet, "notifications": notifs, "notes": notes, "reports": reports,
             "tickets": tickets, "withdrawals": withdrawals, "payments": payments, "audit": audit}
+
+
+# ---- Withdrawals (approve/reject with diamond unlock) ----
+def review_withdrawal(owner_uid, wh_id, decision, reviewer_email, reason=""):
+    db = get_db()
+    wh_ref = db.collection("users").document(owner_uid).collection("walletHistory").document(wh_id)
+    user_ref = db.collection("users").document(owner_uid)
+
+    @firestore.transactional
+    def _txn(tx):
+        snap = wh_ref.get(transaction=tx)
+        if not snap.exists:
+            return None
+        wh = snap.to_dict() or {}
+        status = (wh.get("status") or "").lower()
+        if status not in ("requested", "under_review", ""):
+            raise ValueError(f"Cannot review a '{status}' withdrawal")
+        now = datetime.now(timezone.utc)
+        if decision == "approve":
+            tx.update(wh_ref, {"status": "approved", "reviewedAt": now, "reviewedBy": reviewer_email})
+        elif decision == "reject":
+            amt = float(wh.get("fromAmount") or 0)
+            tx.update(user_ref, {
+                "diamondBalance": firestore.Increment(amt),
+                "lockedDiamond": firestore.Increment(-amt),
+                "pendingWithdrawalId": firestore.DELETE_FIELD,
+                "updatedAt": now,
+            })
+            tx.update(wh_ref, {"status": "rejected", "rejectionReason": reason, "reviewedAt": now, "reviewedBy": reviewer_email})
+        else:
+            raise ValueError("decision must be 'approve' or 'reject'")
+        return True
+
+    return _txn(db.transaction())
 
 
 # ---- Audit logs ----
