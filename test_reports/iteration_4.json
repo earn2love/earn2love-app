@@ -1,0 +1,69 @@
+{
+  "summary": "Iteration-4 (Firebase swap). Backend tests were rewritten from scratch for the LIVE Firebase/Firestore backend. Real Firebase ID token minted via Google Identity Toolkit signInWithPassword using the seeded super_admin. 24 pytest cases run: 21 PASSED, 2 SKIPPED (no supportTickets / liveness data in Firestore yet - expected empty), 3 FAILED (all same root cause: missing walletHistory collection-group index on field `type` -> FailedPrecondition 500 on /api/resources/payments|conversions|withdrawals). /auth/me works (200 valid, 401 no-token, 401 garbage). Dashboard KPIs are LIVE (total_users=8 matching Firestore). Users listing returns 8 real users with UIDs (users w/o createdAt still returned). Admin action + audit flow verified end-to-end (freeze user -> new adminAuditLogs entry with adminUid/adminEmail=earn2loveofficial@gmail.com/adminRole=super_admin/action=freeze/targetId, then unfreeze restores state). Pending-counts and /admins listing (includes seeded super_admin) OK. Frontend best-effort: /login shows Firebase email/password + Continue with Google, NO demo credentials present. Firebase sign-in COMPLETED in the test browser (identitytoolkit not blocked). Dashboard rendered live numbers matching backend (Total Users 8, Revenue L12,010, Active 2). Users page shows 8 real users with UIDs+emails+countries+tiers. Auth persistence via Firebase local storage works across route changes.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/resources/payments (and /conversions, /withdrawals)",
+        "issue": "Returns 500. Root cause: Firestore FailedPrecondition - collection-group `walletHistory` requires an explicit COLLECTION_GROUP index on field `type` (single-field indexes do NOT cover collectionGroup filters, contrary to what /app/FIRESTORE_INDEXES.md claims). Fix: create the collectionGroup index (Firebase gave a one-click console link in the error) OR wrap firestore_repo._fetch() in try/except google.api_core.exceptions.FailedPrecondition and return [] with a logger.warning so the UI degrades gracefully.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "/api/reports/{id}/detail (and similar detail endpoints)",
+        "issue": "If the caller passes a Firestore-reserved id (e.g. starts and ends with `__`, like `__DOES_NOT_EXIST__`), Firestore raises InvalidArgument and the server returns 500 instead of 404. Not exploitable but should be a defensive 404. Consider validating item_id or catching InvalidArgument in get_module_doc()."
+      },
+      {
+        "endpoint": "/app/FIRESTORE_INDEXES.md",
+        "issue": "Doc incorrectly states walletHistory collection-group filters need no index. In practice `collection_group('walletHistory').where('type','==',...)` requires an explicit collectionGroup index; update the doc and add it to firestore.indexes.json."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Payments / Conversions / Withdrawals pages",
+        "issue": "Will fail to load rows because the underlying /api/resources/payments|conversions|withdrawals return 500 (see backend critical issue above). Wallets page returned 0 rows in the UI despite dashboard revenue L12,010 - worth verifying whether the unfiltered wallets endpoint is returning the topup rows to the UI (it did return them to pytest when CAP=400; possibly a UI filter/render issue but not confirmed).",
+        "affected_selectors": ["/payments", "/conversions", "/withdrawals"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Dashboard header",
+        "issues": ["Green pill still reads 'Live . Demo data' but the backend is now live Firestore - relabel to 'Live data' to avoid confusion."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_firebase_backend.py",
+    "/app/test_reports/pytest/pytest_results_iter4.xml"
+  ],
+  "action_items": [
+    "Create the walletHistory collection-group index on field `type` (Firebase console one-click link is in the backend error log) OR wrap _fetch() in try/except FailedPrecondition and return an empty list so /payments, /conversions, /withdrawals return 200 with items=[] until data grows.",
+    "Update /app/FIRESTORE_INDEXES.md - the claim that collectionGroup walletHistory needs no index is wrong; add the composite/collection-group index to firestore.indexes.json.",
+    "Harden firestore_repo.get_module_doc() against reserved Firestore doc ids: catch google.api_core.exceptions.InvalidArgument and return None so /reports/{bad_id}/detail becomes 404 instead of 500.",
+    "Change the 'Live . Demo data' pill on the Dashboard to just 'Live data' - the backend is now live Firebase."
+  ],
+  "critical_code_review_comments": [
+    "firebase_service.py correctly unescapes FIREBASE_PRIVATE_KEY (\\n -> \\n) before building credentials.Certificate and initialises the Admin SDK once. verify_id_token + role custom claim gating in server.get_current_admin is clean and returns 401/403 appropriately.",
+    "firestore_repo._fetch() imports FailedPrecondition and InvalidArgument but never catches them - any collection-group filter without an index bubbles up as a 500. Add a try/except around `q.limit(CAP).stream()` returning [] and a logger.warning with the index-creation link.",
+    "server.py resource_action() and user_action() both call repo.write_audit() with adminUid/adminEmail/adminRole/action/targetId/timestamp - verified via the freeze/unfreeze flow that a real entry lands in Firestore adminAuditLogs and is queryable via /api/resources/audit-logs.",
+    "list_admins() iterates ALL Firebase Auth users to filter role-claim admins - fine for now (~1 admin) but O(N) across the whole user directory; consider maintaining a small `admins` Firestore collection or paginating for scale.",
+    "server.py root() is at /api/ - fine, but there is no /api/health endpoint; the ENABLE_HEALTH_CHECK=false in frontend/.env suggests one was intended. Optional.",
+    "Login.jsx no longer references any demo credentials - confirmed via full body-text scan, all six demo markers absent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_firebase_backend.py (new - 24 tests for the Firebase-era backend)",
+    "/app/backend/tests/backend_test.py (deleted - obsolete Mongo-era tests)",
+    "/app/backend/tests/test_iteration2_features.py (deleted - obsolete)",
+    "/app/backend/tests/test_iteration3_features.py (deleted - obsolete)"
+  ],
+  "success_rate": {"backend": "87.5% (21/24 passed, 2 skipped=no data, 3 failed=missing index)", "frontend": "Login+Dashboard+Users verified live; Payments/Conversions/Withdrawals blocked by backend 500"},
+  "test_credentials": "Super admin: earn2loveofficial@gmail.com / Earn2Love#Admin2026 (Firebase Auth, role=super_admin custom claim). Web API key AIzaSyDVpBsRXoaQdDdOlaxOakM5-a7CI9Y4BYs used to mint ID tokens via identitytoolkit signInWithPassword.",
+  "seed_data_creation": "None. All test actions used TEST_ prefix in the audit-log `reason` field for traceability. Freeze action was reverted (unfreeze) at end of test.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The Firebase-era test file is /app/backend/tests/test_firebase_backend.py - 24 tests, runs in ~5s with pytest-xdist. Auth is a real Firebase ID token (identitytoolkit signInWithPassword). Data volume is small (~8 users, no supportTickets/friendRequests/verificationRequests/withdraw docs yet). The 3 failing tests are all the same walletHistory collectionGroup index issue - once the main agent adds the index (or catches FailedPrecondition), rerun this file and expect 24/24 or 22/24 with 2 legit skips. The 2 skips (ticket_detail_if_available, verification_liveness_detail_if_available) will start executing once real supportTickets / verificationRequests docs exist.",
+  "rca of the issue": "Backend 500s on payments/conversions/withdrawals: Firestore requires an explicit collection-group index for `collection_group('walletHistory').where(FieldFilter('type','==','topup'))` etc. The auto-created single-field index only supports queries on a specific collection, not the collection-group scope. The code in firestore_repo._fetch() imports FailedPrecondition + InvalidArgument but never catches them, so the exception propagates to a 500. Reproduction: `curl -H 'Authorization: Bearer <token>' <base>/api/resources/payments` -> 500; server log shows `google.api_core.exceptions.FailedPrecondition: 400 The query requires a COLLECTION_GROUP_ASC index for collection walletHistory and field type. You can create it here: https://console.firebase.google.com/v1/r/project/earn2love-app/firestore/indexes?create_exemption=...`. Mitigation: (a) open the Firebase console one-click link from the error to create the collectionGroup index on walletHistory.type (fastest, correct fix); or (b) wrap `q.limit(CAP).stream()` in try/except FailedPrecondition in firestore_repo._fetch() returning [] so the UI shows an empty state; (c) also update /app/FIRESTORE_INDEXES.md which is incorrect."
+}

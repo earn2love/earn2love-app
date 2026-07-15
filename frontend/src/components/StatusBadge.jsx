@@ -30,13 +30,15 @@ const MAP = {
 
 export function StatusBadge({ value, className }) {
   if (value == null || value === "") return <span className="text-muted-foreground">—</span>;
-  const cls = MAP[value] || GRAY;
+  const key = String(value);
+  const norm = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const cls = MAP[key] || MAP[norm] || GRAY;
   return (
     <span
-      className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap", cls, className)}
-      data-testid={`badge-${String(value).toLowerCase().replace(/\s+/g, "-")}`}
+      className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap capitalize", cls, className)}
+      data-testid={`badge-${key.toLowerCase().replace(/\s+/g, "-")}`}
     >
-      {value}
+      {norm}
     </span>
   );
 }

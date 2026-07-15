@@ -61,47 +61,44 @@ export default function Users() {
     const { row, action } = dialog;
     try {
       await api.post(`/users/${row.id}/action`, { action: action.key, reason });
-      toast.success(`${action.label} · ${row.name}`);
+      toast.success(`${action.label} · ${row.displayName || row.name || row.id}`);
       setDialog(null); fetchData();
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); setDialog(null); }
   };
 
   const columns = [
     {
-      key: "name", label: "User",
+      key: "displayName", label: "User",
       render: (r) => (
         <div className="flex items-center gap-2.5">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={r.photo} alt={r.name} />
-            <AvatarFallback className="text-[10px]">{r.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={r.photoUrl || r.profilePhoto || r.photoURL} alt={r.displayName} />
+            <AvatarFallback className="text-[10px]">{(r.displayName || r.name || r.email || "U").slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <p className="font-medium truncate flex items-center gap-1.5">
-              {r.online && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" title="Online" />}
-              {r.name}
+              {(r.isOnline || r.online) && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" title="Online" />}
+              {r.displayName || r.name || "Unnamed"}
             </p>
             <p className="text-[11px] text-muted-foreground truncate font-mono">{r.id}</p>
           </div>
         </div>
       ),
     },
-    { key: "age", label: "Age" },
+    { key: "email", label: "Email", render: (r) => <span className="text-xs">{r.email || "—"}</span> },
     { key: "gender", label: "Gender" },
     { key: "country", label: "Country" },
     { key: "tier", label: "Tier", badge: true },
-    { key: "account_status", label: "Status", badge: true },
-    { key: "verification_status", label: "Verified", badge: true },
-    { key: "reports_count", label: "Reports", render: (r) => <span className={`font-mono text-xs ${r.reports_count >= 3 ? "text-rose-500 font-semibold" : ""}`}>{r.reports_count}</span> },
-    { key: "join_date", label: "Joined", type: "date" },
+    { key: "accountStatus", label: "Status", render: (r) => <StatusBadge value={r.banned ? "Banned" : r.frozen ? "Frozen" : (r.accountStatus || "Active")} /> },
+    { key: "subscriptionStatus", label: "Subscription", badge: true },
+    { key: "createdAt", label: "Joined", type: "datetime" },
   ];
 
   const filterConfig = [
-    { key: "account_status", label: "Status", options: ["Active", "Frozen", "Banned", "Under Review"] },
-    { key: "tier", label: "Tier", options: ["Casual", "Friendship", "Love"] },
-    { key: "verification_status", label: "Verification", options: ["Verified", "Unverified", "Pending", "Needs Review"] },
-    { key: "country", label: "Country", options: ["United Kingdom", "India"] },
-    { key: "gender", label: "Gender", options: ["Male", "Female", "Other", "Prefer not to say"] },
-    { key: "online", label: "Presence", options: ["true", "false"] },
+    { key: "accountStatus", label: "Status", options: ["Active", "Frozen", "Banned", "Under Review"] },
+    { key: "tier", label: "Tier", options: ["free", "premium", "gold", "casual", "friendship", "love"] },
+    { key: "country", label: "Country", options: ["IN", "UK", "India", "United Kingdom"] },
+    { key: "gender", label: "Gender", options: ["male", "female", "other"] },
   ];
 
   return (
@@ -133,7 +130,7 @@ export default function Users() {
           open={!!dialog}
           onOpenChange={(o) => !o && setDialog(null)}
           title={`${dialog.action.label}?`}
-          description={`Apply "${dialog.action.label}" to ${dialog.row.name}. Recorded in the audit log.`}
+          description={`Apply "${dialog.action.label}" to ${dialog.row.displayName || dialog.row.name || dialog.row.id}. Recorded in the audit log.`}
           danger={dialog.action.danger}
           requireReason={dialog.action.danger}
           confirmLabel={dialog.action.label}

@@ -1,51 +1,27 @@
 import os
-import uuid
-import secrets
-import random
 import logging
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Depends, Query
+from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 
-from auth import (hash_password, verify_password, create_access_token, create_refresh_token,
-                  decode_token, can_write, ROLE_PERMISSIONS, ROLES)
-import seed as seeder
+import firebase_service as fb
+import firestore_repo as repo
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-mongo_url = os.environ["MONGO_URL"]
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ["DB_NAME"]]
+fb.init_firebase()
 
-app = FastAPI(title="Earn2Love Admin API")
+app = FastAPI(title="Earn2Love Admin API (Firebase)")
 api = APIRouter(prefix="/api")
-
-MAX_ATTEMPTS = 5
-LOCK_MINUTES = 15
-
-
-class LoginBody(BaseModel):
-    email: str
-    password: str
-
-
-class ForgotBody(BaseModel):
-    email: str
-
-
-class ResetBody(BaseModel):
-    token: str
-    password: str
 
 
 class ActionBody(BaseModel):
@@ -54,640 +30,346 @@ class ActionBody(BaseModel):
     value: dict | None = None
 
 
-def public_admin(a: dict) -> dict:
-    return {k: v for k, v in a.items() if k not in ("password_hash", "_id")}
+class NotificationCreate(BaseModel):
+    title: str
+    type: str
+    channel: str
+    audience: str
+    send_mode: str = "now"
+    body: str | None = None
 
 
-def set_cookies(resp: Response, access: str, refresh: str):
-    resp.set_cookie("access_token", access, httponly=True, secure=False, samesite="lax", max_age=28800, path="/")
-    resp.set_cookie("refresh_token", refresh, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+class TicketReply(BaseModel):
+    text: str
+    visibility: str = "internal"
 
 
-async def get_current_admin(request: Request) -> dict:
-    token = request.cookies.get("access_token")
-    if not token:
-        h = request.headers.get("Authorization", "")
-        if h.startswith("Bearer "):
-            token = h[7:]
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        payload = decode_token(token)
-        if payload.get("type") != "access":
-            raise HTTPException(status_code=401, detail="Invalid token type")
-        admin = await db.admins.find_one({"id": payload["sub"]})
-        if not admin:
-            raise HTTPException(status_code=401, detail="Admin not found")
-        if admin.get("status") != "Active":
-            raise HTTPException(status_code=403, detail="Account disabled")
-        return admin
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-
-async def write_audit(admin: dict, action: str, module: str, target: str = "", target_id: str = "",
-                      reason: str = "", prev=None, new=None, request: Request = None, result="Success"):
-    doc = {
-        "id": f"LOG-{uuid.uuid4().hex[:10]}", "admin": admin["name"], "role": admin["role"],
-        "action": action, "module": module, "target": target, "target_id": target_id,
-        "previous_value": prev, "new_value": new, "reason": reason or "",
-        "ip": client_ip(request) if request else "system",
-        "device": (request.headers.get("user-agent", "")[:60] if request else "system"),
-        "result": result, "timestamp": datetime.now(timezone.utc).isoformat(), "is_demo": True,
-    }
-    await db.audit_logs.insert_one(doc)
+class NotifyBody(BaseModel):
+    text: str | None = None
+    value: dict | None = None
+    action: str | None = None
+    reason: str | None = None
 
 
 def client_ip(request: Request) -> str:
-    if request is None:
-        return "system"
     xff = request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip")
     if xff:
         return xff.split(",")[0].strip()
-    return request.client.host if request.client else "?"
+    return request.client.host if request.client else "unknown"
 
 
-@api.post("/auth/login")
-async def login(body: LoginBody, request: Request, response: Response):
-    email = body.email.strip().lower()
-    ip = client_ip(request)
-    ident = f"{ip}:{email}"
-    attempt = await db.login_attempts.find_one({"identifier": ident})
-    if attempt and attempt.get("count", 0) >= MAX_ATTEMPTS:
-        locked_until = attempt.get("locked_until")
-        if locked_until and datetime.fromisoformat(locked_until) > datetime.now(timezone.utc):
-            raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
+async def get_current_admin(request: Request) -> dict:
+    """Verify the Firebase ID token and ensure the user has an admin role custom claim."""
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    token = header[7:]
+    try:
+        decoded = fb.verify_id_token(token)
+    except Exception as e:
+        logger.warning(f"ID token verification failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    role = decoded.get("role")
+    if role not in fb.ROLES:
+        raise HTTPException(status_code=403, detail="Not an admin account (no role claim)")
+    return {
+        "uid": decoded.get("uid") or decoded.get("user_id"),
+        "email": decoded.get("email"),
+        "name": decoded.get("name") or decoded.get("email"),
+        "role": role,
+        "permissions": fb.role_permissions(role),
+    }
 
-    admin = await db.admins.find_one({"email": email})
-    if not admin or not verify_password(body.password, admin["password_hash"]):
-        await db.login_attempts.update_one(
-            {"identifier": ident},
-            {"$inc": {"count": 1},
-             "$set": {"locked_until": (datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)).isoformat()}},
-            upsert=True)
-        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    await db.login_attempts.delete_one({"identifier": ident})
-    await db.admins.update_one({"id": admin["id"]}, {"$set": {
-        "last_login": datetime.now(timezone.utc).isoformat(), "last_ip": ip,
-        "last_device": request.headers.get("user-agent", "")[:80]}})
-    access = create_access_token(admin["id"], admin["email"], admin["role"])
-    refresh = create_refresh_token(admin["id"])
-    set_cookies(response, access, refresh)
-    await write_audit(admin, "Logged in", "auth", admin["name"], admin["id"], request=request)
-    data = public_admin(admin)
-    data["permissions"] = "*" if ROLE_PERMISSIONS.get(admin["role"]) == "*" else list(ROLE_PERMISSIONS.get(admin["role"], []))
-    return {"admin": data, "token": access}
+def require_write(admin: dict, module: str):
+    if not fb.can_write(admin["role"], module):
+        raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot modify {module}")
+
+
+def audit(admin, action, module, target="", target_id="", prev=None, new=None, reason="", request=None):
+    repo.write_audit({
+        "adminUid": admin["uid"], "adminEmail": admin["email"], "adminRole": admin["role"],
+        "action": action, "module": module, "target": target, "targetId": target_id,
+        "previousValue": prev, "updatedValue": new, "reason": reason or "",
+        "ip": client_ip(request) if request else "unknown",
+        "result": "Success",
+    })
+
+
+# ---------------- Auth ----------------
+@api.get("/auth/me")
+async def me(admin: dict = Depends(get_current_admin)):
+    return admin
 
 
 @api.post("/auth/logout")
-async def logout(response: Response):
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+async def logout():
     return {"ok": True}
 
 
-@api.get("/auth/me")
-async def me(admin: dict = Depends(get_current_admin)):
-    data = public_admin(admin)
-    data["permissions"] = "*" if ROLE_PERMISSIONS.get(admin["role"]) == "*" else list(ROLE_PERMISSIONS.get(admin["role"], []))
-    return data
-
-
-@api.post("/auth/refresh")
-async def refresh(request: Request, response: Response):
-    token = request.cookies.get("refresh_token")
-    if not token:
-        raise HTTPException(status_code=401, detail="No refresh token")
-    try:
-        payload = decode_token(token)
-        if payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail="Invalid token type")
-        admin = await db.admins.find_one({"id": payload["sub"]})
-        if not admin:
-            raise HTTPException(status_code=401, detail="Admin not found")
-        access = create_access_token(admin["id"], admin["email"], admin["role"])
-        response.set_cookie("access_token", access, httponly=True, secure=False, samesite="lax", max_age=28800, path="/")
-        return {"ok": True}
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-
-@api.post("/auth/forgot-password")
-async def forgot(body: ForgotBody):
-    email = body.email.strip().lower()
-    admin = await db.admins.find_one({"email": email})
-    if admin:
-        token = secrets.token_urlsafe(32)
-        await db.password_reset_tokens.insert_one({
-            "token": token, "email": email, "used": False,
-            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()})
-        logger.info(f"[PASSWORD RESET] {email} -> token={token}")
-    return {"ok": True, "message": "If the account exists, a reset link has been sent."}
-
-
-@api.post("/auth/reset-password")
-async def reset(body: ResetBody):
-    rec = await db.password_reset_tokens.find_one({"token": body.token})
-    if not rec or rec.get("used"):
-        raise HTTPException(status_code=400, detail="Invalid or used token")
-    if datetime.fromisoformat(rec["expires_at"]) < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Token expired")
-    await db.admins.update_one({"email": rec["email"]}, {"$set": {"password_hash": hash_password(body.password)}})
-    await db.password_reset_tokens.update_one({"token": body.token}, {"$set": {"used": True}})
-    return {"ok": True}
-
-
-RESOURCES = {
-    "users": ("users", ["name", "email", "id", "phone"], "join_date"),
-    "reports": ("reports", ["id", "reported_user", "reporter", "category"], "created_date"),
-    "liveness": ("liveness_verifications", ["id", "user"], "submitted_date"),
-    "identity": ("identity_verifications", ["id", "user"], "submitted_date"),
-    "subscriptions": ("subscriptions", ["id", "user", "plan"], "started_date"),
-    "payments": ("payments", ["id", "user", "reference", "gateway"], "created_date"),
-    "wallets": ("wallet_transactions", ["id", "user", "reason"], "date"),
-    "conversions": ("coin_conversions", ["id", "user"], "created_date"),
-    "withdrawals": ("withdrawals", ["id", "user", "account_holder"], "requested_date"),
-    "calls": ("calls", ["id", "caller", "receiver"], "start_time"),
-    "tasks": ("tasks", ["id", "title", "provider"], "start_date"),
-    "advertisements": ("advertisements", ["id", "title", "provider"], "id"),
-    "friend-requests": ("friend_requests", ["id", "sender", "receiver"], "created_date"),
-    "chats": ("chat_rooms", ["id", "participants"], "last_message_date"),
-    "moderation": ("moderation_items", ["id", "user", "queue"], "created_date"),
-    "notifications": ("notifications", ["id", "title", "type"], "created_date"),
-    "audit-logs": ("audit_logs", ["id", "admin", "action", "target"], "timestamp"),
-    "support-tickets": ("support_tickets", ["id", "user", "subject"], "created_date"),
-    "countries": ("countries", ["name", "code"], "name"),
-}
+# ---------------- Generic resources ----------------
+RESERVED = {"page", "page_size", "search", "sort", "order"}
 
 
 @api.get("/resources/{module}")
 async def list_resource(module: str, request: Request, admin: dict = Depends(get_current_admin),
-                        page: int = 1, page_size: int = 15, search: str = "",
-                        sort: str = "", order: str = "desc"):
-    if module not in RESOURCES:
-        raise HTTPException(status_code=404, detail="Unknown module")
-    coll, search_fields, default_sort = RESOURCES[module]
-    q = {}
-    if search:
-        q["$or"] = [{f: {"$regex": search, "$options": "i"}} for f in search_fields]
-    reserved = {"page", "page_size", "search", "sort", "order"}
-    for key, val in request.query_params.items():
-        if key in reserved or not val or val == "All":
-            continue
-        if val in ("true", "false"):
-            q[key] = val == "true"
-        else:
-            q[key] = val
-    total = await db[coll].count_documents(q)
-    sort_field = sort or default_sort
-    cursor = db[coll].find(q, {"_id": 0}).sort(sort_field, -1 if order == "desc" else 1)
-    cursor = cursor.skip((page - 1) * page_size).limit(page_size)
-    items = await cursor.to_list(page_size)
-    return {"items": items, "total": total, "page": page, "page_size": page_size,
-            "pages": max(1, (total + page_size - 1) // page_size)}
+                        page: int = 1, page_size: int = 15, search: str = ""):
+    extra = {k: v for k, v in request.query_params.items() if k not in RESERVED and v and v != "All"}
+    return repo.list_module(module, page=page, page_size=page_size, search=search, extra_filters=extra)
 
 
 @api.get("/resources/{module}/{item_id}")
 async def get_resource(module: str, item_id: str, admin: dict = Depends(get_current_admin)):
-    if module not in RESOURCES:
-        raise HTTPException(status_code=404, detail="Unknown module")
-    coll = RESOURCES[module][0]
-    item = await db[coll].find_one({"id": item_id}, {"_id": 0})
-    if not item:
+    doc = repo.get_module_doc(module, item_id)
+    if not doc:
         raise HTTPException(status_code=404, detail="Not found")
-    return item
+    return doc
 
 
-ACTION_STATUS_FIELD = {
-    "reports": "status", "liveness": "status", "identity": "status", "withdrawals": "status",
-    "conversions": "status", "payments": "status", "moderation": "status", "support-tickets": "status",
-    "subscriptions": "status", "calls": "status", "tasks": "status", "advertisements": "status",
-    "friend-requests": "status", "notifications": "status",
+STATUS_MAP = {
+    "approve": "approved", "reject": "rejected", "resolve": "resolved", "escalate": "escalated",
+    "assign": "assigned", "mark-paid": "paid", "mark-processing": "processing", "mark-failed": "failed",
+    "under-review": "under_review", "reverse": "reversed", "close": "closed", "activate": "active",
+    "pause": "paused", "disable": "disabled", "remove": "removed", "cancel": "cancelled", "flag": "flagged",
+    "refund": "refunded",
 }
 
 
 @api.post("/resources/{module}/{item_id}/action")
 async def resource_action(module: str, item_id: str, body: ActionBody, request: Request,
                           admin: dict = Depends(get_current_admin)):
-    if module not in RESOURCES:
-        raise HTTPException(status_code=404, detail="Unknown module")
-    if not can_write(admin["role"], module):
-        raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot perform actions here")
-    coll = RESOURCES[module][0]
-    item = await db[coll].find_one({"id": item_id}, {"_id": 0})
-    if not item:
+    require_write(admin, module)
+    current = repo.get_module_doc(module, item_id)
+    if not current:
         raise HTTPException(status_code=404, detail="Not found")
-
     update = {}
-    action = body.action
-    status_field = ACTION_STATUS_FIELD.get(module, "status")
-    status_map = {
-        "approve": "Approved", "reject": "Rejected", "resolve": "Resolved", "escalate": "Escalated",
-        "assign": "Assigned", "mark-paid": "Paid", "mark-processing": "Processing", "mark-failed": "Failed",
-        "under-review": "Under Review", "reverse": "Reversed", "pause": "Paused", "activate": "Active",
-        "disable": "Disabled", "remove": "Removed", "cancel": "Cancelled", "close": "Closed",
-        "flag": "Under Review", "refund": "Refunded",
-    }
-    prev = item.get(status_field)
-    if action in status_map:
-        update[status_field] = status_map[action]
+    if body.action in STATUS_MAP:
+        update["status"] = STATUS_MAP[body.action]
     if body.value:
         update.update(body.value)
     if update:
-        await db[coll].update_one({"id": item_id}, {"$set": update})
-    await write_audit(admin, action.replace("-", " ").title(), module,
-                      item.get("user") or item.get("name") or item.get("reported_user") or item_id,
-                      item_id, body.reason or "", prev, update.get(status_field), request)
-    updated = await db[coll].find_one({"id": item_id}, {"_id": 0})
-    return {"ok": True, "item": updated}
+        repo.update_module_doc(module, item_id, update)
+    audit(admin, body.action, module, current.get("uid") or item_id, item_id,
+          current.get("status"), update.get("status"), body.reason, request)
+    return {"ok": True, "item": repo.get_module_doc(module, item_id)}
 
 
-USER_ACTIONS = {
-    "freeze": ("account_status", "Frozen"), "unfreeze": ("account_status", "Active"),
-    "ban": ("account_status", "Banned"), "unban": ("account_status", "Active"),
-    "under-review": ("account_status", "Under Review"),
-    "reset-reports": ("reports_count", 0), "freeze-wallet": ("wallet_frozen", True),
-    "unfreeze-wallet": ("wallet_frozen", False),
-    "request-verification": ("verification_status", "Pending"),
-    "reset-liveness": ("verification_status", "Needs Review"),
-    "force-logout": (None, None), "change-tier": (None, None),
-}
-
-
-@api.post("/users/{user_id}/action")
-async def user_action(user_id: str, body: ActionBody, request: Request, admin: dict = Depends(get_current_admin)):
-    if not can_write(admin["role"], "users"):
-        raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot modify users")
-    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+# ---------------- User actions ----------------
+@api.post("/users/{uid}/action")
+async def user_action(uid: str, body: ActionBody, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "users")
+    user = repo.get_user(uid)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if body.action not in USER_ACTIONS:
+
+    action = body.action
+    update, prev, new = {}, None, None
+    auth_sdk = fb.get_auth()
+
+    if action == "freeze":
+        prev = user.get("accountStatus"); update = {"accountStatus": "Frozen", "frozen": True}; new = "Frozen"
+    elif action == "unfreeze":
+        prev = user.get("accountStatus"); update = {"accountStatus": "Active", "frozen": False}; new = "Active"
+    elif action == "ban":
+        prev = user.get("accountStatus"); update = {"accountStatus": "Banned", "banned": True}; new = "Banned"
+        try: auth_sdk.update_user(uid, disabled=True); auth_sdk.revoke_refresh_tokens(uid)
+        except Exception: pass
+    elif action == "unban":
+        prev = user.get("accountStatus"); update = {"accountStatus": "Active", "banned": False}; new = "Active"
+        try: auth_sdk.update_user(uid, disabled=False)
+        except Exception: pass
+    elif action == "under-review":
+        prev = user.get("accountStatus"); update = {"accountStatus": "Under Review"}; new = "Under Review"
+    elif action == "force-logout":
+        try: auth_sdk.revoke_refresh_tokens(uid)
+        except Exception: pass
+    elif action == "reset-reports":
+        prev = user.get("reportsCount"); update = {"reportsCount": 0}; new = 0
+    elif action == "freeze-wallet":
+        update = {"walletFrozen": True}; new = True
+    elif action == "unfreeze-wallet":
+        update = {"walletFrozen": False}; new = False
+    elif action == "request-verification":
+        update = {"verificationStatus": "Pending"}; new = "Pending"
+    elif action == "reset-liveness":
+        update = {"verificationStatus": "Needs Review"}; new = "Needs Review"
+    elif action == "change-tier" and body.value:
+        prev = user.get("tier"); update = {"tier": body.value.get("tier")}; new = body.value.get("tier")
+    else:
         raise HTTPException(status_code=400, detail="Unknown action")
-    field, value = USER_ACTIONS[body.action]
-    prev = user.get(field) if field else None
-    if field:
-        await db.users.update_one({"id": user_id}, {"$set": {field: value}})
-    if body.action == "change-tier" and body.value:
-        prev = user.get("tier")
-        value = body.value.get("tier")
-        await db.users.update_one({"id": user_id}, {"$set": {"tier": value}})
-    await write_audit(admin, body.action.replace("-", " ").title(), "users", user["name"], user_id,
-                      body.reason or "", prev, value, request)
-    updated = await db.users.find_one({"id": user_id}, {"_id": 0})
-    return {"ok": True, "user": updated}
+
+    if update:
+        repo.update_user(uid, update)
+    audit(admin, action, "users", user.get("displayName") or user.get("name") or uid, uid, prev, new, body.reason, request)
+    return {"ok": True, "user": repo.get_user(uid)}
 
 
-@api.post("/users/{user_id}/note")
-async def add_note(user_id: str, body: ActionBody, request: Request, admin: dict = Depends(get_current_admin)):
-    note = {"id": f"note_{uuid.uuid4().hex[:8]}", "user_id": user_id, "admin": admin["name"],
-            "text": body.reason or "", "created_at": datetime.now(timezone.utc).isoformat()}
-    await db.admin_notes.insert_one(dict(note))
-    await write_audit(admin, "Added note", "users", "", user_id, body.reason or "", request=request)
+@api.post("/users/{uid}/note")
+async def add_note(uid: str, body: ActionBody, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "users")
+    fb.get_db().collection("users").document(uid).collection("adminNotes").add({
+        "admin": admin["email"], "text": body.reason or "",
+        "createdAt": datetime.now(timezone.utc),
+    })
+    audit(admin, "add-note", "users", "", uid, reason=body.reason, request=request)
     return {"ok": True}
 
 
-@api.get("/users/{user_id}/related")
-async def user_related(user_id: str, admin: dict = Depends(get_current_admin)):
-    notes = await db.admin_notes.find({"user_id": user_id}, {"_id": 0}).to_list(50)
-    payments = await db.payments.find({"user_id": user_id}, {"_id": 0}).to_list(50)
-    tx = await db.wallet_transactions.find({"user_id": user_id}, {"_id": 0}).to_list(50)
-    reports = await db.reports.find({"reported_user_id": user_id}, {"_id": 0}).to_list(50)
-    calls = await db.calls.find({"$or": [{"caller_id": user_id}, {"receiver_id": user_id}]}, {"_id": 0}).to_list(50)
-    withdrawals = await db.withdrawals.find({"user_id": user_id}, {"_id": 0}).to_list(50)
-    logs = await db.audit_logs.find({"target_id": user_id}, {"_id": 0}).sort("timestamp", -1).to_list(50)
-    return {"notes": notes, "payments": payments, "transactions": tx, "reports": reports,
-            "calls": calls, "withdrawals": withdrawals, "audit": logs}
+@api.get("/users/{uid}/related")
+async def get_related(uid: str, admin: dict = Depends(get_current_admin)):
+    return repo.user_related(uid)
 
 
+# ---------------- Dashboard / analytics ----------------
 @api.get("/dashboard")
 async def dashboard(admin: dict = Depends(get_current_admin)):
-    total_users = await db.users.count_documents({})
-    active_users = await db.users.count_documents({"online": True})
-    pending_reports = await db.reports.count_documents({"status": {"$in": ["Open", "Assigned", "Investigating"]}})
-    pay_agg = await db.payments.aggregate([
-        {"$match": {"status": "Successful"}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}]).to_list(1)
-    revenue = round(pay_agg[0]["total"], 2) if pay_agg else 0
-
-    async def group_count(coll, field):
-        rows = await db[coll].aggregate([{"$group": {"_id": f"${field}", "value": {"$sum": 1}}}]).to_list(50)
-        return [{"name": str(r["_id"]), "value": r["value"]} for r in rows if r["_id"] is not None]
-
-    by_gender = await group_count("users", "gender")
-    by_country = await group_count("users", "country")
-    by_tier = await group_count("users", "tier")
-    rev_by_type = await db.payments.aggregate([
-        {"$match": {"status": "Successful"}},
-        {"$group": {"_id": "$payment_type", "value": {"$sum": "$amount"}}}]).to_list(20)
-    rev_by_source = [{"name": str(r["_id"]), "value": round(r["value"], 2)} for r in rev_by_type]
-
-    today = datetime.now(timezone.utc).date()
-    trend = []
-    users_all = await db.users.find({}, {"join_date": 1, "_id": 0}).to_list(500)
-    for i in range(13, -1, -1):
-        day = today - timedelta(days=i)
-        c = sum(1 for u in users_all if u.get("join_date", "")[:10] == day.isoformat())
-        trend.append({"name": day.strftime("%d %b"), "registrations": c, "active": max(0, c + (i % 5) * 3)})
-
-    recent_reports = await db.reports.find({}, {"_id": 0}).sort("created_date", -1).to_list(6)
-    recent_verifs = await db.identity_verifications.find({}, {"_id": 0}).sort("submitted_date", -1).to_list(6)
-
-    pending_withdrawals = await db.withdrawals.count_documents({"status": {"$in": ["Pending", "Under Review"]}})
-    pending_verifs = await db.liveness_verifications.count_documents({"status": {"$in": ["Pending", "Needs Review"]}})
-    open_tickets = await db.support_tickets.count_documents({"status": {"$in": ["Open", "Assigned"]}})
-
-    return {
-        "kpis": {"total_users": total_users, "active_users": active_users, "revenue": revenue,
-                 "pending_reports": pending_reports, "pending_withdrawals": pending_withdrawals,
-                 "pending_verifs": pending_verifs, "open_tickets": open_tickets},
-        "by_gender": by_gender, "by_country": by_country, "by_tier": by_tier,
-        "rev_by_source": rev_by_source, "trend": trend,
-        "recent_reports": recent_reports, "recent_verifications": recent_verifs,
-    }
+    return repo.dashboard()
 
 
 @api.get("/analytics")
-async def analytics(admin: dict = Depends(get_current_admin), days_range: str = Query("30", alias="range")):
-    days = int(days_range) if days_range.isdigit() else 30
-    total_users = await db.users.count_documents({})
-    total_calls = await db.calls.count_documents({})
-    call_min = await db.calls.aggregate([{"$group": {"_id": None, "m": {"$sum": "$duration"}}}]).to_list(1)
-    total_min = call_min[0]["m"] if call_min else 0
-    rev = await db.payments.aggregate([{"$match": {"status": "Successful"}},
-                                       {"$group": {"_id": None, "t": {"$sum": "$amount"}}}]).to_list(1)
-    total_rev = round(rev[0]["t"], 2) if rev else 0
-    banned = await db.users.count_documents({"account_status": "Banned"})
-    verified = await db.users.count_documents({"verification_status": "Verified"})
-
-    today = datetime.now(timezone.utc).date()
-    users_all = await db.users.find({}, {"join_date": 1, "_id": 0}).to_list(500)
-    growth = []
-    cum = total_users - len([u for u in users_all if u.get("join_date", "")[:10] >= (today - timedelta(days=days)).isoformat()])
-    for i in range(days, -1, -1):
-        day = today - timedelta(days=i)
-        c = sum(1 for u in users_all if u.get("join_date", "")[:10] == day.isoformat())
-        cum += c
-        growth.append({"name": day.strftime("%d/%m"), "users": cum, "new": c})
-
-    country_cmp = await db.payments.aggregate([
-        {"$match": {"status": "Successful"}},
-        {"$group": {"_id": "$country", "revenue": {"$sum": "$amount"}, "count": {"$sum": 1}}}]).to_list(10)
-    country_cmp = [{"name": str(r["_id"]), "revenue": round(r["revenue"], 2), "count": r["count"]} for r in country_cmp]
-
-    return {
-        "summary": {"total_users": total_users, "total_calls": total_calls, "total_minutes": total_min,
-                    "revenue": total_rev, "banned": banned, "verified": verified,
-                    "arpu": round(total_rev / total_users, 2) if total_users else 0,
-                    "verification_rate": round(verified / total_users * 100, 1) if total_users else 0,
-                    "ban_rate": round(banned / total_users * 100, 1) if total_users else 0},
-        "growth": growth, "country_comparison": country_cmp,
-    }
+async def analytics(admin: dict = Depends(get_current_admin), range: str = "30"):
+    return repo.analytics(int(range) if range.isdigit() else 30)
 
 
+@api.get("/pending-counts")
+async def pending_counts(admin: dict = Depends(get_current_admin)):
+    return repo.pending_counts()
+
+
+@api.get("/search")
+async def search(admin: dict = Depends(get_current_admin), q: str = ""):
+    return repo.global_search((q or "").strip())
+
+
+# ---------------- Detail pages ----------------
+@api.get("/reports/{report_id}/detail")
+async def report_detail(report_id: str, admin: dict = Depends(get_current_admin)):
+    report = repo.get_module_doc("reports", report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    uid = report.get("targetUid")
+    user = repo.get_user(uid) if uid else None
+    prev = repo.list_module("reports", 1, 50)["items"]
+    prev = [r for r in prev if r.get("targetUid") == uid and r["id"] != report_id]
+    return {"report": report, "user": user, "previous_reports": prev, "notes": [], "audit": []}
+
+
+@api.get("/support-tickets/{ticket_id}/detail")
+async def ticket_detail(ticket_id: str, admin: dict = Depends(get_current_admin)):
+    ticket = repo.get_module_doc("support-tickets", ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    db = fb.get_db()
+    msgs = [repo.normalise(d) for d in db.collection("supportTickets").document(ticket_id).collection("messages").order_by("createdAt").stream()]
+    user = repo.get_user(ticket.get("uid")) if ticket.get("uid") else None
+    return {"ticket": ticket, "messages": msgs, "user": user}
+
+
+@api.post("/support-tickets/{ticket_id}/reply")
+async def ticket_reply(ticket_id: str, body: TicketReply, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "support-tickets")
+    db = fb.get_db()
+    ticket = repo.get_module_doc("support-tickets", ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    msg = {"author": admin["email"], "role": admin["role"], "text": body.text,
+           "visibility": body.visibility, "createdAt": datetime.now(timezone.utc)}
+    db.collection("supportTickets").document(ticket_id).collection("messages").add(msg)
+    db.collection("supportTickets").document(ticket_id).set(
+        {"status": "assigned" if ticket.get("status") == "open" else ticket.get("status"),
+         "updatedAt": datetime.now(timezone.utc)}, merge=True)
+    audit(admin, f"reply-{body.visibility}", "support-tickets", ticket.get("subject", ""), ticket_id, request=request)
+    return {"ok": True}
+
+
+@api.get("/verification/{kind}/{item_id}/detail")
+async def verification_detail(kind: str, item_id: str, admin: dict = Depends(get_current_admin)):
+    if kind not in ("liveness", "identity", "verification"):
+        raise HTTPException(status_code=404, detail="Unknown type")
+    item = repo.get_module_doc(kind, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+    user = repo.get_user(item.get("uid")) if item.get("uid") else None
+    can_view = admin["role"] in ("super_admin",) or fb.can_write(admin["role"], kind)
+    return {"kind": kind, "item": item, "user": user, "history": {"liveness": [], "identity": []},
+            "audit": [], "can_view_documents": can_view}
+
+
+@api.post("/notifications")
+async def create_notification(body: NotificationCreate, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "notifications")
+    status = {"now": "Sent", "schedule": "Scheduled", "draft": "Draft"}.get(body.send_mode, "Draft")
+    doc = {"title": body.title, "type": body.type, "channel": body.channel, "audience": body.audience,
+           "body": body.body or "", "status": status, "createdBy": admin["email"],
+           "createdAt": datetime.now(timezone.utc)}
+    ref = fb.get_db().collection("adminNotifications").add(doc)
+    audit(admin, f"notification-{status.lower()}", "notifications", body.title, request=request)
+    return {"ok": True, "notification": {**doc, "createdAt": doc["createdAt"].isoformat()}}
+
+
+# ---------------- Admins (Firebase Auth users with role claims) ----------------
+@api.get("/admins")
+async def list_admins(admin: dict = Depends(get_current_admin)):
+    auth_sdk = fb.get_auth()
+    items = []
+    try:
+        page = auth_sdk.list_users()
+        for u in page.iterate_all():
+            role = (u.custom_claims or {}).get("role")
+            if role in fb.ROLES:
+                items.append({
+                    "id": u.uid, "uid": u.uid, "name": u.display_name or u.email, "email": u.email,
+                    "role": role, "status": "Disabled" if u.disabled else "Active",
+                    "initials": "".join([p[0] for p in (u.display_name or u.email or "A").split()[:2]]).upper(),
+                    "last_login": None, "last_ip": None,
+                })
+    except Exception as e:
+        logger.warning(f"list_admins failed: {e}")
+    return {"items": items, "roles": fb.ROLES,
+            "permissions_map": {r: fb.role_permissions(r) for r in fb.ROLES}}
+
+
+class SetRoleBody(BaseModel):
+    email: str
+    role: str
+
+
+@api.post("/admins/set-role")
+async def set_role(body: SetRoleBody, request: Request, admin: dict = Depends(get_current_admin)):
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super_admin can manage admin roles")
+    if body.role not in fb.ROLES:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    auth_sdk = fb.get_auth()
+    try:
+        u = auth_sdk.get_user_by_email(body.email.strip().lower())
+        auth_sdk.set_custom_user_claims(u.uid, {"role": body.role})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not set role: {e}")
+    audit(admin, "set-role", "roles", body.email, u.uid, new=body.role, request=request)
+    return {"ok": True}
+
+
+# ---------------- Light config endpoints (kept for existing UI) ----------------
 @api.get("/settings")
 async def get_settings(admin: dict = Depends(get_current_admin)):
-    s = await db.system_settings.find_one({"id": "system"}, {"_id": 0})
-    return s or {}
+    doc = fb.get_db().collection("adminConfig").document("system").get()
+    return repo.normalise(doc) if doc.exists else {}
 
 
 @api.put("/settings")
-async def update_settings(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
-    if admin["role"] not in ("Owner", "Super Admin"):
-        raise HTTPException(status_code=403, detail="Only Owner/Super Admin can change settings")
-    body.pop("_id", None)
-    body["id"] = "system"
-    await db.system_settings.update_one({"id": "system"}, {"$set": body}, upsert=True)
-    await write_audit(admin, "Updated settings", "settings", "System", "system", request=request)
-    return {"ok": True}
-
-
-@api.get("/admins")
-async def list_admins(admin: dict = Depends(get_current_admin)):
-    admins = await db.admins.find({}, {"_id": 0, "password_hash": 0}).to_list(100)
-    return {"items": admins, "roles": ROLES,
-            "permissions_map": {r: ("*" if p == "*" else list(p)) for r, p in ROLE_PERMISSIONS.items()}}
-
-
-class AdminCreate(BaseModel):
-    name: str
-    email: str
-    role: str
-    password: str
-
-
-@api.post("/admins")
-async def create_admin(body: AdminCreate, request: Request, admin: dict = Depends(get_current_admin)):
-    if admin["role"] not in ("Owner", "Super Admin"):
-        raise HTTPException(status_code=403, detail="Only Owner/Super Admin can create admins")
-    if body.role not in ROLES:
-        raise HTTPException(status_code=400, detail="Invalid role")
-    email = body.email.strip().lower()
-    if await db.admins.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="Email already exists")
-    doc = {"id": "adm_" + uuid.uuid4().hex[:8], "name": body.name, "email": email, "role": body.role,
-           "password_hash": hash_password(body.password),
-           "initials": "".join([p[0] for p in body.name.split()[:2]]).upper(),
-           "status": "Active", "avatar": None, "last_login": None,
-           "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True}
-    await db.admins.insert_one(dict(doc))
-    await write_audit(admin, "Created admin", "roles", body.name, doc["id"], request=request)
-    return {"ok": True, "admin": public_admin(doc)}
-
-
-@api.post("/admins/{admin_id}/action")
-async def admin_action(admin_id: str, body: ActionBody, request: Request, admin: dict = Depends(get_current_admin)):
-    if admin["role"] not in ("Owner", "Super Admin"):
-        raise HTTPException(status_code=403, detail="Only Owner/Super Admin can manage admins")
-    target = await db.admins.find_one({"id": admin_id}, {"_id": 0})
-    if not target:
-        raise HTTPException(status_code=404, detail="Admin not found")
-    if body.action == "disable":
-        await db.admins.update_one({"id": admin_id}, {"$set": {"status": "Disabled"}})
-    elif body.action == "enable":
-        await db.admins.update_one({"id": admin_id}, {"$set": {"status": "Active"}})
-    elif body.action == "change-role" and body.value:
-        await db.admins.update_one({"id": admin_id}, {"$set": {"role": body.value.get("role")}})
-    elif body.action == "reset-password" and body.value:
-        await db.admins.update_one({"id": admin_id}, {"$set": {"password_hash": hash_password(body.value.get("password"))}})
-    await write_audit(admin, body.action.replace("-", " ").title(), "roles", target["name"], admin_id,
-                      body.reason or "", request=request)
-    return {"ok": True}
-
-
-@api.put("/countries/{country_id}")
-async def update_country(country_id: str, body: dict, request: Request, admin: dict = Depends(get_current_admin)):
-    if admin["role"] not in ("Owner", "Super Admin", "Finance Admin"):
-        raise HTTPException(status_code=403, detail="Not permitted")
-    body.pop("_id", None)
-    await db.countries.update_one({"id": country_id}, {"$set": body})
-    await write_audit(admin, "Updated country", "countries", body.get("name", country_id), country_id, request=request)
-    return {"ok": True}
-
-
-class CountryCreate(BaseModel):
-    name: str
-    code: str
-    dial_code: str
-    currency_code: str
-    currency_symbol: str
-
-
-@api.post("/countries")
-async def create_country(body: CountryCreate, request: Request, admin: dict = Depends(get_current_admin)):
-    if admin["role"] not in ("Owner", "Super Admin", "Finance Admin"):
-        raise HTTPException(status_code=403, detail="Not permitted")
-    doc = {"id": "c_" + uuid.uuid4().hex[:6], **body.model_dump(), "region": "Custom", "enabled": True,
-           "price_casual": 0, "price_friendship": 0, "price_love": 0, "withdrawal_min": 0,
-           "audio_rate": 10, "video_rate": 25, "gateways": [], "tax": 0, "is_demo": True}
-    await db.countries.insert_one(dict(doc))
-    await write_audit(admin, "Created country", "countries", body.name, doc["id"], request=request)
+async def put_settings(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super_admin can change settings")
+    body.pop("_id", None); body.pop("id", None)
+    fb.get_db().collection("adminConfig").document("system").set(body, merge=True)
+    audit(admin, "update-settings", "settings", "system", "system", request=request)
     return {"ok": True}
 
 
 @api.get("/")
 async def root():
-    return {"message": "Earn2Love Admin API", "status": "ok"}
-
-
-# ---------------- Reports detail ----------------
-@api.get("/reports/{report_id}/detail")
-async def report_detail(report_id: str, admin: dict = Depends(get_current_admin)):
-    report = await db.reports.find_one({"id": report_id}, {"_id": 0})
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-    uid = report.get("reported_user_id")
-    user = await db.users.find_one({"id": uid}, {"_id": 0}) if uid else None
-    prev_reports = await db.reports.find(
-        {"reported_user_id": uid, "id": {"$ne": report_id}}, {"_id": 0}).sort("created_date", -1).to_list(20) if uid else []
-    notes = await db.admin_notes.find({"user_id": uid}, {"_id": 0}).to_list(30) if uid else []
-    audit = await db.audit_logs.find({"target_id": report_id}, {"_id": 0}).sort("timestamp", -1).to_list(30)
-    return {"report": report, "user": user, "previous_reports": prev_reports, "notes": notes, "audit": audit}
-
-
-# ---------------- Notifications composer ----------------
-class NotificationCreate(BaseModel):
-    title: str
-    type: str
-    channel: str
-    audience: str
-    send_mode: str = "now"  # now | schedule | draft
-    body: str | None = None
-
-
-@api.post("/notifications")
-async def create_notification(body: NotificationCreate, request: Request, admin: dict = Depends(get_current_admin)):
-    if not can_write(admin["role"], "notifications"):
-        raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot send notifications")
-    status = {"now": "Sent", "schedule": "Scheduled", "draft": "Draft"}.get(body.send_mode, "Draft")
-    audience_counts = {"All users": 250, "UK users": 112, "India users": 138, "Love tier": 37,
-                       "Friendship tier": 74, "Unverified": 96}
-    sent = audience_counts.get(body.audience, 100) if status == "Sent" else 0
-    doc = {"id": f"NTF-{uuid.uuid4().hex[:8]}", "title": body.title, "type": body.type,
-           "channel": body.channel, "audience": body.audience, "body": body.body or "",
-           "status": status, "sent_count": sent,
-           "open_rate": round(random.uniform(15, 55), 1) if status == "Sent" else 0,
-           "created_date": datetime.now(timezone.utc).isoformat(), "created_by": admin["name"], "is_demo": True}
-    await db.notifications.insert_one(dict(doc))
-    await write_audit(admin, f"Notification {status.lower()}", "notifications", body.title, doc["id"], request=request)
-    return {"ok": True, "notification": doc}
-
-
-# ---------------- Support ticket thread ----------------
-class TicketReply(BaseModel):
-    text: str
-    visibility: str = "internal"  # internal | user
-
-
-@api.get("/support-tickets/{ticket_id}/detail")
-async def ticket_detail(ticket_id: str, admin: dict = Depends(get_current_admin)):
-    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-    messages = await db.ticket_messages.find({"ticket_id": ticket_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
-    user = await db.users.find_one({"id": ticket.get("user_id")}, {"_id": 0}) if ticket.get("user_id") else None
-    return {"ticket": ticket, "messages": messages, "user": user}
-
-
-@api.post("/support-tickets/{ticket_id}/reply")
-async def ticket_reply(ticket_id: str, body: TicketReply, request: Request, admin: dict = Depends(get_current_admin)):
-    if not can_write(admin["role"], "support-tickets"):
-        raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot reply to tickets")
-    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-    msg = {"id": f"msg_{uuid.uuid4().hex[:8]}", "ticket_id": ticket_id, "author": admin["name"],
-           "role": admin["role"], "text": body.text, "visibility": body.visibility,
-           "created_at": datetime.now(timezone.utc).isoformat()}
-    await db.ticket_messages.insert_one(dict(msg))
-    await db.support_tickets.update_one({"id": ticket_id}, {"$set": {
-        "last_updated": datetime.now(timezone.utc).isoformat(),
-        "status": "Assigned" if ticket["status"] == "Open" else ticket["status"],
-        "assigned_admin": ticket.get("assigned_admin") if ticket.get("assigned_admin") not in (None, "Unassigned") else admin["name"]}})
-    await write_audit(admin, f"Ticket reply ({body.visibility})", "support-tickets", ticket.get("subject", ""), ticket_id, request=request)
-    return {"ok": True, "message": msg}
-
-
-# ---------------- Verification detail ----------------
-@api.get("/verification/{kind}/{item_id}/detail")
-async def verification_detail(kind: str, item_id: str, admin: dict = Depends(get_current_admin)):
-    if kind not in ("liveness", "identity"):
-        raise HTTPException(status_code=404, detail="Unknown verification type")
-    coll = "liveness_verifications" if kind == "liveness" else "identity_verifications"
-    item = await db[coll].find_one({"id": item_id}, {"_id": 0})
-    if not item:
-        raise HTTPException(status_code=404, detail="Verification not found")
-    uid = item.get("user_id")
-    user = await db.users.find_one({"id": uid}, {"_id": 0}) if uid else None
-    other_liveness = await db.liveness_verifications.find({"user_id": uid}, {"_id": 0}).to_list(20) if uid else []
-    other_identity = await db.identity_verifications.find({"user_id": uid}, {"_id": 0}).to_list(20) if uid else []
-    audit = await db.audit_logs.find({"target_id": item_id}, {"_id": 0}).sort("timestamp", -1).to_list(30)
-    can_view_documents = admin["role"] in ("Owner", "Super Admin") or can_write(admin["role"], kind)
-    return {"kind": kind, "item": item, "user": user, "history": {"liveness": other_liveness, "identity": other_identity},
-            "audit": audit, "can_view_documents": can_view_documents}
-
-
-# ---------------- Global search ----------------
-@api.get("/search")
-async def global_search(admin: dict = Depends(get_current_admin), q: str = ""):
-    q = (q or "").strip()
-    if len(q) < 2:
-        return {"results": []}
-    rx = {"$regex": q, "$options": "i"}
-    results = []
-    users = await db.users.find({"$or": [{"name": rx}, {"id": rx}, {"email": rx}]}, {"_id": 0}).limit(6).to_list(6)
-    for u in users:
-        results.append({"type": "User", "id": u["id"], "title": u["name"],
-                        "subtitle": f"{u['country']} · {u['tier']} · {u['account_status']}", "route": f"/users/{u['id']}"})
-    reports = await db.reports.find({"$or": [{"id": rx}, {"reported_user": rx}, {"category": rx}]}, {"_id": 0}).limit(4).to_list(4)
-    for r in reports:
-        results.append({"type": "Report", "id": r["id"], "title": r["id"],
-                        "subtitle": f"{r['reported_user']} · {r['category']} · {r['status']}", "route": f"/reports/{r['id']}"})
-    tickets = await db.support_tickets.find({"$or": [{"id": rx}, {"subject": rx}, {"user": rx}]}, {"_id": 0}).limit(4).to_list(4)
-    for t in tickets:
-        results.append({"type": "Ticket", "id": t["id"], "title": t["id"],
-                        "subtitle": f"{t['subject']} · {t['status']}", "route": f"/tickets/{t['id']}"})
-    return {"results": results}
-
-
-@api.get("/pending-counts")
-async def pending_counts(admin: dict = Depends(get_current_admin)):
-    reports = await db.reports.count_documents({"status": {"$in": ["Open", "Assigned", "Investigating"]}})
-    withdrawals = await db.withdrawals.count_documents({"status": {"$in": ["Pending", "Under Review"]}})
-    liveness = await db.liveness_verifications.count_documents({"status": {"$in": ["Pending", "Needs Review"]}})
-    identity = await db.identity_verifications.count_documents({"status": {"$in": ["Pending", "Needs Review"]}})
-    moderation = await db.moderation_items.count_documents({"status": "Pending"})
-    tickets = await db.support_tickets.count_documents({"status": {"$in": ["Open", "Assigned"]}})
-    conversions = await db.coin_conversions.count_documents({"status": "Under Review"})
-    payments = await db.payments.count_documents({"status": "Disputed"})
-    counts = {"reports": reports, "withdrawals": withdrawals, "liveness": liveness,
-              "identity": identity, "moderation": moderation, "support-tickets": tickets,
-              "conversions": conversions, "payments": payments}
-    return {"counts": counts, "total": sum(counts.values())}
+    return {"message": "Earn2Love Admin API (Firebase)", "status": "ok"}
 
 
 app.include_router(api)
@@ -699,23 +381,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def startup():
-    await db.admins.create_index("email", unique=True)
-    await db.admins.create_index("id")
-    await db.users.create_index("id")
-    await db.users.create_index("account_status")
-    await db.login_attempts.create_index("identifier")
-    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=3600)
-    await seeder.seed_admins(db)
-    await seeder.seed_settings(db)
-    await seeder.seed_all(db)
-    await seeder.seed_ticket_messages(db)
-    logger.info("Startup: seeding complete")
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    client.close()
