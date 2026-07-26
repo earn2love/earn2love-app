@@ -17,6 +17,7 @@ import firestore_repo as repo
 import documents_service as docs
 import appconfig_service as appcfg
 import support_service as support
+import hr_service as hr
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -335,6 +336,92 @@ async def support_status(cid: str, body: SupportAgentAction, request: Request,
         raise HTTPException(status_code=404, detail="Conversation not found")
     audit(admin, f"support-{body.status}", "support", c.get("userUid", ""), cid, None, body.status, None, request)
     return c
+
+
+@api.get("/employees")
+async def employees_list(search: str = "", role: str | None = None,
+                         admin: dict = Depends(get_current_admin)):
+    return {"items": hr.list_employees(search, role), "roles": hr.ROLES}
+
+
+@api.get("/employees/{eid}")
+async def employees_get(eid: str, admin: dict = Depends(get_current_admin)):
+    e = hr.get_employee(eid)
+    if not e:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return e
+
+
+@api.post("/employees")
+async def employees_create(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "employees")
+    e = hr.create_employee(body, admin["email"])
+    audit(admin, "create", "employees", e["id"], e["id"], None, e.get("employeeCode"), None, request)
+    return e
+
+
+@api.put("/employees/{eid}")
+async def employees_update(eid: str, body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "employees")
+    e = hr.update_employee(eid, body, admin["email"])
+    if not e:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    audit(admin, "update", "employees", eid, eid, None, None, None, request)
+    return e
+
+
+@api.delete("/employees/{eid}")
+async def employees_delete(eid: str, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "employees")
+    if not hr.delete_employee(eid):
+        raise HTTPException(status_code=404, detail="Employee not found")
+    audit(admin, "delete", "employees", eid, eid, None, None, None, request)
+    return {"ok": True}
+
+
+@api.post("/employees/{eid}/{kind}")
+async def employees_append(eid: str, kind: str, body: dict, request: Request,
+                           admin: dict = Depends(get_current_admin)):
+    if kind not in ("payslips", "attendance", "documents", "contracts"):
+        raise HTTPException(status_code=400, detail="Invalid record type")
+    require_write(admin, "employees")
+    e = hr.append_subrecord(eid, kind, body)
+    if not e:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    audit(admin, f"add-{kind}", "employees", eid, eid, None, None, None, request)
+    return e
+
+
+@api.get("/role-permissions")
+async def perms_get(admin: dict = Depends(get_current_admin)):
+    return hr.get_permissions()
+
+
+@api.put("/role-permissions")
+async def perms_update(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super_admin can edit permissions")
+    res = hr.update_permissions(body.get("matrix", {}), admin["email"])
+    audit(admin, "update", "permissions", "matrix", "matrix", None, "permissions updated", None, request)
+    return res
+
+
+@api.get("/me/profile")
+async def my_profile(admin: dict = Depends(get_current_admin)):
+    prof = hr.get_employee_by_email(admin["email"])
+    return {"profile": prof, "admin": admin}
+
+
+@api.post("/me/profile")
+async def create_my_profile(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    existing = hr.get_employee_by_email(admin["email"])
+    if existing:
+        return existing
+    body["email"] = admin["email"]
+    body.setdefault("role", admin["role"])
+    e = hr.create_employee(body, admin["email"])
+    audit(admin, "add-to-profile", "employees", e["id"], e["id"], None, e.get("employeeCode"), None, request)
+    return e
 
 
 @api.get("/app-config")
