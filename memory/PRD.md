@@ -98,8 +98,39 @@ payslips, attendance, RBAC permissions matrix). Username scheme achanta01 for ap
 
 ## Next Tasks
 1. Report/Verification detail pages with evidence & full action set.
-2. Notifications composer + ticket threads.
-3. Bulk actions, saved filters, Excel export.
+2. Bulk actions, saved filters, Excel export.
+3. When user provides RESEND_API_KEY: email channel auto-activates (already wired).
+
+## 2026-07 — Employee/HR module + Admin Profile + functional RBAC matrix (Task 1 DONE)
+Wired the HR module end-to-end. Employees page (CRUD + auto employee code lastname+NN +
+payslips/attendance/documents/contracts sub-records), Permissions Matrix page (super_admin-only
+edit of view/edit per role per module; super_admin locked full-access), and Admin Profile
+(/profile via avatar "My Profile" — shows own employee record, create-if-missing). Backend:
+hr_service.py (get/update_permissions, can(role,module,perm), editable_modules(role)).
+IMPORTANT: RBAC is now ENFORCED from the stored matrix (appConfig/rolePermissions) as source of
+truth — server.py require_write consults hr.can(...) with 30s cache + fallback to fb static
+defaults; get_current_admin.permissions now = hr.editable_modules(role). Admin-only nav items
+(Employees, Permissions) hidden from non-super_admin. Routes: /employees /permissions /profile.
+Verified: iteration_7.json (15/15 pytest + 100% UI flows).
+
+## 2026-07 — Production Notifications engine (Task 2 — FCM + in-app + Resend)
+Rebuilt Notifications as a real multi-channel engine (no mock data). backend/notifications_service.py:
+resolve_audience (all/country/tier/unverified), send_campaign delivering across channels
+in_app (writes users/{uid}/notifications in EXACT Flutter schema: title/body/type/category/isRead/createdAt),
+push (firebase_admin.messaging.send_each_for_multicast to device tokens on user docs, 500 batch),
+email (Resend — NO-OP/queued until RESEND_API_KEY is set in backend/.env; auto-activates once set).
+Stores campaigns in `adminCampaigns` with delivery stats. Endpoints: GET /notifications/meta,
+GET /notifications/campaigns[/{id}], POST /notifications/audience-preview, POST /notifications/send.
+Frontend pages/Notifications.jsx: campaign list + Compose (channels, audience targeting, LIVE
+audience preview, delivery stats). NOTE: live DB has ~8 users & NO device tokens → push sent=0 is
+correct; emails are @earn2love.app placeholders → email recipients 0 is correct.
+BLOCKED for full email: awaiting RESEND_API_KEY (+ optional NOTIFICATIONS_FROM_EMAIL) from user.
+
+## Backlog (post iter7 review)
+- P2: split server.py (~709 lines) into modules/*.py APIRouters (HR, notifications).
+- P2: strict Pydantic model for PUT /role-permissions matrix payload.
+- P2: a11y — aria-disabled on locked super_admin permission switches.
+
 
 ## 2026-06 — Flutter app production-hardening (cross-repo, server-side only)
 Worked on `github.com/earn2love/earn2love-app` (Flutter) — this Emergent env cannot

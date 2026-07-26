@@ -52,7 +52,7 @@ export default function Employees() {
     } catch (e) { toast.error(formatApiError(e)); }
     setSaving(false);
   };
-  const doDelete = async () => { try { await api.delete(`/employees/${del.id}`); toast.success("Employee removed"); setDel(null); await load(); } catch (e) { toast.error(formatApiError(e)); } };
+  const doDelete = async () => { try { await api.delete(`/employees/${del.id}`); toast.success("Employee removed"); setDel(null); setEdit(null); await load(); } catch (e) { toast.error(formatApiError(e)); } };
 
   const addSub = async (kind, payload, reset) => {
     try { const { data } = await api.post(`/employees/${edit.id}/${kind}`, payload); setEdit(data); reset(); toast.success("Added"); }

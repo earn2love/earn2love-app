@@ -55,7 +55,7 @@ export function Topbar({ title, subtitle }) {
               {NAV_GROUPS.map((grp) => (
                 <div key={grp.group}>
                   <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">{grp.group}</p>
-                  {grp.items.map((item) => {
+                  {grp.items.filter((item) => !item.superAdminOnly || admin?.role === "super_admin").map((item) => {
                     const Icon = item.icon;
                     const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
                     return (

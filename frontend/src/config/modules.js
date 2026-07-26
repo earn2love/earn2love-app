@@ -61,8 +61,8 @@ export const NAV_GROUPS = [
   {
     group: "Administration",
     items: [
-      { label: "Employees", icon: BriefcaseBusiness, to: "/employees", key: "employees" },
-      { label: "Permissions Matrix", icon: KeyRound, to: "/permissions", key: "permissions" },
+      { label: "Employees", icon: BriefcaseBusiness, to: "/employees", key: "employees", superAdminOnly: true },
+      { label: "Permissions Matrix", icon: KeyRound, to: "/permissions", key: "permissions", superAdminOnly: true },
       { label: "Admin Roles", icon: UserCog, to: "/roles", key: "roles" },
       { label: "Audit Logs", icon: ScrollText, to: "/m/audit-logs", key: "audit-logs" },
       { label: "Support Tickets", icon: LifeBuoy, to: "/m/support-tickets", key: "support-tickets" },

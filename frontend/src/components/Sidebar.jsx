@@ -3,11 +3,15 @@ import { NavLink, useLocation } from "react-router-dom";
 import { ChevronLeft, PanelLeftClose, PanelLeft, ExternalLink } from "lucide-react";
 import { NAV_GROUPS } from "@/config/modules";
 import { usePendingCounts } from "@/context/PendingCountsContext";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const { counts } = usePendingCounts();
+  const { admin } = useAuth();
+  const isSuper = admin?.role === "super_admin";
+  const visibleItems = (items) => items.filter((i) => !i.superAdminOnly || isSuper);
 
   return (
     <aside
@@ -38,7 +42,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
               </p>
             )}
             <div className="space-y-0.5">
-              {grp.items.map((item) => {
+              {visibleItems(grp.items).map((item) => {
                 const Icon = item.icon;
                 const active = item.to === "/"
                   ? location.pathname === "/"
