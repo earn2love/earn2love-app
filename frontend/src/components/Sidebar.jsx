@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Heart, ChevronLeft, PanelLeftClose, PanelLeft, ExternalLink } from "lucide-react";
+import { ChevronLeft, PanelLeftClose, PanelLeft, ExternalLink } from "lucide-react";
 import { NAV_GROUPS } from "@/config/modules";
 import { usePendingCounts } from "@/context/PendingCountsContext";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,8 @@ export function Sidebar({ collapsed, setCollapsed }) {
       )}
     >
       <div className="flex items-center gap-2.5 h-16 px-4 border-b border-white/5 shrink-0">
-        <div className="grid place-items-center h-9 w-9 rounded-lg gradient-brand shrink-0">
-          <Heart className="h-5 w-5 text-white" fill="currentColor" />
+        <div className="grid place-items-center h-9 w-9 rounded-lg overflow-hidden shrink-0 bg-white/95 ring-1 ring-white/10">
+          <img src="/earn2love-logo.png" alt="Earn2Love" className="h-full w-full object-cover" />
         </div>
         {!collapsed && (
           <div className="min-w-0">

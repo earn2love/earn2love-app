@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, ShieldAlert, ScanFace, IdCard, CreditCard, Wallet,
   Coins, ArrowLeftRight, BanknoteArrowDown, Phone, ListChecks, Megaphone,
   UserPlus, MessagesSquare, ShieldCheck, Globe, Bell, UserCog, ScrollText,
-  Settings, LineChart, LifeBuoy,
+  Settings, LineChart, LifeBuoy, FileText,
 } from "lucide-react";
 
 // Sidebar navigation, grouped.
@@ -47,6 +47,7 @@ export const NAV_GROUPS = [
     group: "Configuration",
     items: [
       { label: "Notifications", icon: Bell, to: "/notifications", key: "notifications" },
+      { label: "Documents", icon: FileText, to: "/documents", key: "documents" },
       { label: "System Settings", icon: Settings, to: "/settings", key: "settings" },
     ],
   },

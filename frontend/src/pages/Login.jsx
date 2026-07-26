@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { auth } from "@/lib/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
@@ -58,8 +58,8 @@ export default function Login() {
         <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full gradient-brand opacity-30 blur-3xl" />
         <div className="absolute bottom-0 -left-20 h-80 w-80 rounded-full bg-pink-600 opacity-20 blur-3xl" />
         <div className="relative flex items-center gap-3">
-          <div className="grid place-items-center h-11 w-11 rounded-xl gradient-brand">
-            <Heart className="h-6 w-6 text-white" fill="currentColor" />
+          <div className="grid place-items-center h-11 w-11 rounded-xl overflow-hidden bg-white/95 ring-1 ring-white/10">
+            <img src="/earn2love-logo.png" alt="Earn2Love" className="h-full w-full object-cover" />
           </div>
           <div>
             <p className="font-display font-extrabold text-xl tracking-tight">Earn2Love</p>
@@ -84,8 +84,8 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm animate-fade-up">
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="grid place-items-center h-10 w-10 rounded-xl gradient-brand">
-              <Heart className="h-5 w-5 text-white" fill="currentColor" />
+            <div className="grid place-items-center h-10 w-10 rounded-xl overflow-hidden bg-white/95 ring-1 ring-black/5">
+              <img src="/earn2love-logo.png" alt="Earn2Love" className="h-full w-full object-cover" />
             </div>
             <p className="font-display font-extrabold text-lg">Earn2Love Admin</p>
           </div>

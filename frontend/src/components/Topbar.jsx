@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Menu, Heart, Search, Bell } from "lucide-react";
+import { LogOut, Menu, Search, Bell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePendingCounts } from "@/context/PendingCountsContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -46,8 +46,8 @@ export function Topbar({ title, subtitle }) {
           </SheetTrigger>
           <SheetContent side="left" className="w-72 p-0 bg-sidebar text-sidebar-foreground border-white/5">
             <div className="flex items-center gap-2.5 h-16 px-4 border-b border-white/5">
-              <div className="grid place-items-center h-9 w-9 rounded-lg gradient-brand">
-                <Heart className="h-5 w-5 text-white" fill="currentColor" />
+              <div className="grid place-items-center h-9 w-9 rounded-lg overflow-hidden bg-white/95 ring-1 ring-white/10">
+                <img src="/earn2love-logo.png" alt="Earn2Love" className="h-full w-full object-cover" />
               </div>
               <p className="font-display font-extrabold tracking-tight">Earn2Love</p>
             </div>
