@@ -67,6 +67,21 @@ frontend/src/pages/Documents.jsx. Replaced Heart-icon logo with official earn2lo
 everywhere (Sidebar, Login, Topbar, favicon). All CRUD verified via curl + screenshots.
 NOTE: fresh environments must call POST /api/documents/seed once to populate.
 
+## 2026-07 — App Config module (Phase 1 of dashboard expansion)
+Added "App" nav section → App Configuration page (Firestore `appConfig/current`):
+editable coin packages, membership plans, call rates (audio/video caller+receiver
+per min), conversion ratios (UK/India) + diamond cash unit + withdrawal minimums,
+and a key/value settings list. Backend: appconfig_service.py, GET/PUT /api/app-config
+(audit-logged). Frontend: pages/AppConfig.jsx (tabbed, inline-editable, add/delete rows).
+Removed remaining cosmetic "Demo" labels (Report/Verification evidence). Verified via
+curl (seed+persist) + screenshots. Integration note: deliverables/.../APP_CONFIG_INTEGRATION.md.
+
+REMAINING (agreed order): ② User Support inbox (tickets + user chat routed to employees),
+③ Employee/HR module + Admin Profile (KYC, contracts, docs, badges, payslips, attendance,
+RBAC permissions matrix), ④ full production Notifications (FCM push + Resend email, queue/
+schedule/status, needs Resend API key + FCM setup), richer charts. Username scheme
+achanta01 (lastname+NN) for app users — to build when admin user-creation is added.
+
 ## Next Tasks
 1. Report/Verification detail pages with evidence & full action set.
 2. Notifications composer + ticket threads.

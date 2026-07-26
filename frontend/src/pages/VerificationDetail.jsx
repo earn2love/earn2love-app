@@ -29,7 +29,7 @@ function DocPanel({ label, allowed }) {
         <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
           <IdCard className="h-8 w-8 opacity-50" />
           <p className="text-xs">{label}</p>
-          <p className="text-[10px] italic">Demo — document redacted</p>
+          <p className="text-[10px] italic">Secured — visible to verification agents only</p>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-1.5 text-muted-foreground">

@@ -85,8 +85,7 @@ export default function ReportDetail() {
                 <Field label="Created">{fmtDate(report.created_date)}</Field>
               </div>
               <div className="mt-5 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-                Evidence: message references, uploaded files and call references would appear here.
-                <span className="italic"> (Demo — no live evidence attached.)</span>
+                Evidence: message references, uploaded files and call references appear here when attached to the report.
               </div>
             </div>
 

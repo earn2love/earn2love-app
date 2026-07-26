@@ -15,6 +15,7 @@ from pydantic import BaseModel
 import firebase_service as fb
 import firestore_repo as repo
 import documents_service as docs
+import appconfig_service as appcfg
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -267,6 +268,19 @@ async def add_note(uid: str, body: ActionBody, request: Request, admin: dict = D
 @api.get("/users/{uid}/related")
 async def get_related(uid: str, admin: dict = Depends(get_current_admin)):
     return repo.user_related(uid)
+
+
+@api.get("/app-config")
+async def app_config_get(admin: dict = Depends(get_current_admin)):
+    return appcfg.get_config()
+
+
+@api.put("/app-config")
+async def app_config_update(body: dict, request: Request,
+                            admin: dict = Depends(get_current_admin)):
+    cfg = appcfg.update_config(body, admin["email"])
+    audit(admin, "update", "app-config", "current", "current", None, "app config saved", None, request)
+    return cfg
 
 
 @api.get("/documents")
