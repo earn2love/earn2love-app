@@ -56,6 +56,17 @@ atomic diamond unlock + transition validation. Fixed post-login redirect race an
 removed silent exception swallowing (now logged). Deliverables: /app/e2l_production_hardening/
 ADMIN_INTEGRATION.md. Download via Save to GitHub (no direct file download on platform).
 
+## 2026-07 — Documents module (89 docs) + logo rebrand
+Added a full Documents CRUD system (Firestore `adminDocuments`): 89 professionally-
+generated, category-tailored documents (headers via branded viewer, footers, theme,
+definition/roles/version tables, figures/logo). Endpoints: GET/POST/PUT/DELETE
+/api/documents + POST /api/documents/seed (idempotent). Frontend page: grouped list,
+search, category filter, View (branded iframe), Edit (HTML editor + live preview),
+Delete (confirm), Download (print-to-PDF), New Document. Files: backend/documents_service.py,
+frontend/src/pages/Documents.jsx. Replaced Heart-icon logo with official earn2love-logo.png
+everywhere (Sidebar, Login, Topbar, favicon). All CRUD verified via curl + screenshots.
+NOTE: fresh environments must call POST /api/documents/seed once to populate.
+
 ## Next Tasks
 1. Report/Verification detail pages with evidence & full action set.
 2. Notifications composer + ticket threads.

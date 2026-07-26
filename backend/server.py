@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 import firebase_service as fb
 import firestore_repo as repo
+import documents_service as docs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -47,6 +48,17 @@ class TicketReply(BaseModel):
 class WithdrawalReview(BaseModel):
     decision: str
     reason: str | None = None
+
+
+class DocumentBody(BaseModel):
+    title: str | None = None
+    category: str | None = None
+    code: str | None = None
+    description: str | None = None
+    status: str | None = None
+    version: str | None = None
+    contentHtml: str | None = None
+    number: int | None = None
 
 
 class NotifyBody(BaseModel):
@@ -255,6 +267,55 @@ async def add_note(uid: str, body: ActionBody, request: Request, admin: dict = D
 @api.get("/users/{uid}/related")
 async def get_related(uid: str, admin: dict = Depends(get_current_admin)):
     return repo.user_related(uid)
+
+
+@api.get("/documents")
+async def documents_list(category: str | None = None, search: str = "",
+                         admin: dict = Depends(get_current_admin)):
+    return {"items": docs.list_documents(category, search), "categories": sorted({c for _, _, c, _ in docs.CATALOG})}
+
+
+@api.get("/documents/{doc_id}")
+async def documents_get(doc_id: str, admin: dict = Depends(get_current_admin)):
+    d = docs.get_document(doc_id)
+    if not d:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return d
+
+
+@api.post("/documents")
+async def documents_create(body: DocumentBody, request: Request,
+                           admin: dict = Depends(get_current_admin)):
+    d = docs.create_document(body.model_dump(exclude_none=True), admin["email"])
+    audit(admin, "create", "documents", d["id"], d["id"], None, d.get("title"), None, request)
+    return d
+
+
+@api.put("/documents/{doc_id}")
+async def documents_update(doc_id: str, body: DocumentBody, request: Request,
+                           admin: dict = Depends(get_current_admin)):
+    d = docs.update_document(doc_id, body.model_dump(exclude_none=True), admin["email"])
+    if not d:
+        raise HTTPException(status_code=404, detail="Document not found")
+    audit(admin, "update", "documents", doc_id, doc_id, None, d.get("title"), None, request)
+    return d
+
+
+@api.delete("/documents/{doc_id}")
+async def documents_delete(doc_id: str, request: Request,
+                           admin: dict = Depends(get_current_admin)):
+    if not docs.delete_document(doc_id):
+        raise HTTPException(status_code=404, detail="Document not found")
+    audit(admin, "delete", "documents", doc_id, doc_id, None, None, None, request)
+    return {"ok": True}
+
+
+@api.post("/documents/seed")
+async def documents_seed(request: Request, force: bool = False,
+                         admin: dict = Depends(get_current_admin)):
+    res = docs.seed_documents(force=force)
+    audit(admin, "seed", "documents", "catalog", "catalog", None, res.get("seeded"), None, request)
+    return res
 
 
 @api.post("/withdrawals/{owner_uid}/{wh_id}/review")
