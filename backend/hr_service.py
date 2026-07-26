@@ -165,4 +165,47 @@ def get_permissions(seed=True):
 def update_permissions(matrix, author=""):
     ref = get_db().collection(PERM_DOC[0]).document(PERM_DOC[1])
     ref.set({"matrix": matrix, "updatedAt": _now(), "updatedBy": author}, merge=True)
+    _cache["matrix"] = None  # invalidate
     return get_permissions()
+
+
+# ---- Enforcement: the stored matrix is the source of truth for RBAC ----
+import time
+
+# Map enforcement module keys (used across the API) -> matrix module keys.
+ENFORCE_MAP = {
+    "support-tickets": "support",
+    "liveness": "verification",
+}
+_cache = {"matrix": None, "ts": 0}
+_TTL = 30  # seconds
+
+
+def _current_matrix():
+    now = time.time()
+    if _cache["matrix"] is None or now - _cache["ts"] > _TTL:
+        try:
+            _cache["matrix"] = get_permissions().get("matrix", DEFAULT_PERMISSIONS)
+        except Exception:
+            _cache["matrix"] = DEFAULT_PERMISSIONS
+        _cache["ts"] = now
+    return _cache["matrix"]
+
+
+def can(role, module, perm):
+    """perm in 'view'|'edit'. super_admin always allowed."""
+    if role == "super_admin":
+        return True
+    key = ENFORCE_MAP.get(module, module)
+    m = _current_matrix().get(role, {})
+    if key not in PERM_MODULES:
+        return None  # unknown module -> caller falls back to static defaults
+    return bool(m.get(key, {}).get(perm, False))
+
+
+def editable_modules(role):
+    """List of matrix module keys the role may edit (for frontend gating). super_admin -> '*'."""
+    if role == "super_admin":
+        return "*"
+    m = _current_matrix().get(role, {})
+    return sorted([k for k in PERM_MODULES if m.get(k, {}).get("edit")])

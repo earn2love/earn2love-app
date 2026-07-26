@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, ShieldAlert, ScanFace, IdCard, CreditCard, Wallet,
   Coins, ArrowLeftRight, BanknoteArrowDown, Phone, ListChecks, Megaphone,
   UserPlus, MessagesSquare, ShieldCheck, Globe, Bell, UserCog, ScrollText,
-  Settings, LineChart, LifeBuoy, FileText, Smartphone,
+  Settings, LineChart, LifeBuoy, FileText, Smartphone, BriefcaseBusiness, KeyRound,
 } from "lucide-react";
 
 // Sidebar navigation, grouped.
@@ -61,6 +61,8 @@ export const NAV_GROUPS = [
   {
     group: "Administration",
     items: [
+      { label: "Employees", icon: BriefcaseBusiness, to: "/employees", key: "employees" },
+      { label: "Permissions Matrix", icon: KeyRound, to: "/permissions", key: "permissions" },
       { label: "Admin Roles", icon: UserCog, to: "/roles", key: "roles" },
       { label: "Audit Logs", icon: ScrollText, to: "/m/audit-logs", key: "audit-logs" },
       { label: "Support Tickets", icon: LifeBuoy, to: "/m/support-tickets", key: "support-tickets" },

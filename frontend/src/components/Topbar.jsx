@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Menu, Search, Bell } from "lucide-react";
+import { LogOut, Menu, Search, Bell, UserCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePendingCounts } from "@/context/PendingCountsContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -138,6 +138,9 @@ export function Topbar({ title, subtitle }) {
               Role: <span className="font-medium ml-1 text-foreground">{admin?.role}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem data-testid="my-profile-btn" onClick={() => navigate("/profile")}>
+              <UserCircle2 className="h-4 w-4 mr-2" /> My Profile
+            </DropdownMenuItem>
             <DropdownMenuItem data-testid="logout-btn" onClick={doLogout} className="text-rose-600 focus:text-rose-600">
               <LogOut className="h-4 w-4 mr-2" /> Log out
             </DropdownMenuItem>

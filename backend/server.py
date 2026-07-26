@@ -18,6 +18,7 @@ import documents_service as docs
 import appconfig_service as appcfg
 import support_service as support
 import hr_service as hr
+import notifications_service as notif
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -107,12 +108,16 @@ async def get_current_admin(request: Request) -> dict:
         "email": decoded.get("email"),
         "name": decoded.get("name") or decoded.get("email"),
         "role": role,
-        "permissions": fb.role_permissions(role),
+        "permissions": hr.editable_modules(role),
     }
 
 
 def require_write(admin: dict, module: str):
-    if not fb.can_write(admin["role"], module):
+    # The stored permissions matrix is the source of truth; fall back to static defaults.
+    allowed = hr.can(admin["role"], module, "edit")
+    if allowed is None:
+        allowed = fb.can_write(admin["role"], module)
+    if not allowed:
         raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot modify {module}")
 
 
@@ -587,6 +592,44 @@ async def create_notification(body: NotificationCreate, request: Request, admin:
     ref = fb.get_db().collection("adminNotifications").add(doc)
     audit(admin, f"notification-{status.lower()}", "notifications", body.title, request=request)
     return {"ok": True, "notification": {**doc, "createdAt": doc["createdAt"].isoformat()}}
+
+
+# ---------------- Production Notifications engine (FCM + Resend + in-app) ----------------
+@api.get("/notifications/meta")
+async def notifications_meta(admin: dict = Depends(get_current_admin)):
+    return {"types": notif.TYPES, "channels": notif.CHANNELS,
+            "audienceModes": notif.AUDIENCE_MODES, "emailEnabled": notif.email_enabled()}
+
+
+@api.get("/notifications/campaigns")
+async def notifications_campaigns(status: str | None = None, search: str = "",
+                                  admin: dict = Depends(get_current_admin)):
+    return {"items": notif.list_campaigns(status, search), "emailEnabled": notif.email_enabled()}
+
+
+@api.get("/notifications/campaigns/{cid}")
+async def notifications_campaign(cid: str, admin: dict = Depends(get_current_admin)):
+    c = notif.get_campaign(cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return c
+
+
+@api.post("/notifications/audience-preview")
+async def notifications_audience_preview(body: dict, admin: dict = Depends(get_current_admin)):
+    a = body.get("audience") or {"mode": "all"}
+    return notif.audience_preview(a.get("mode", "all"), a.get("country"), a.get("tier"))
+
+
+@api.post("/notifications/send")
+async def notifications_send(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "notifications")
+    if not (body.get("title") or "").strip():
+        raise HTTPException(status_code=400, detail="Title is required")
+    c = notif.send_campaign(body, admin["email"])
+    audit(admin, f"campaign-{c.get('status','').lower()}", "notifications", c.get("title", ""),
+          c.get("id", ""), None, c.get("delivery"), None, request)
+    return c
 
 
 # ---------------- Admins (Firebase Auth users with role claims) ----------------

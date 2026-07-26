@@ -18,6 +18,9 @@ import Notifications from "@/pages/Notifications";
 import Documents from "@/pages/Documents";
 import AppConfig from "@/pages/AppConfig";
 import Support from "@/pages/Support";
+import Employees from "@/pages/Employees";
+import Permissions from "@/pages/Permissions";
+import Profile from "@/pages/Profile";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import Roles from "@/pages/Roles";
@@ -42,6 +45,9 @@ function App() {
               <Route path="/documents" element={<Documents />} />
               <Route path="/app-config" element={<AppConfig />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/employees" element={<Employees />} />
+              <Route path="/permissions" element={<Permissions />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/m/:key" element={<ModulePage />} />
               <Route path="/countries" element={<Countries />} />
               <Route path="/settings" element={<Settings />} />

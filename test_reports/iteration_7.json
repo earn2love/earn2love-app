@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 7 full-stack QA of the new HR/Employees module, RBAC Permissions Matrix, Admin Profile, and production Notifications engine on the Earn2Love admin panel (live Firebase). Backend: 15/15 pytest cases PASS in /app/backend/tests/test_iter7_hr_notif.py (auth, employees CRUD + payslips/attendance/documents append, /me/profile, GET+PUT /role-permissions with persistence + revert, notifications meta+list+audience-preview+send+404/400 guards). Frontend (demo.admin@earn2love.com / Earn2Love@Demo2026 super_admin): sidebar 'Administration' group correctly renders nav-employees, nav-permissions, nav-roles (was scrolled below fold at 1080h but data-testids present). Avatar dropdown -> my-profile-btn navigates to /profile which shows 'You don't have an HR record yet' Create form (correct empty state). Employees page: Add Employee modal opens, employee 'QAUI TestUI' created (auto code testui01) and appears as card with role/status, and delete via modal shows confirm dialog then 'Employee removed' toast (list updates). Permissions Matrix: all 5 role tabs render; super_admin tab shows locked/full-access banner; moderator switches toggle, 'Save changes' shows success toast and change persists (verified via backend PUT+GET). Notifications: campaigns list renders; Compose dialog exposes notif-title/message/type/notif-channel-in_app/push/email/notif-audience with live 8 users - 0 push - 0 email preview; Email channel is shown as inactive with amber 'Email is inactive - add a Resend API key to enable delivery' note; Send now created 'TEST_QA_ui_campaign' with status Sent and delivery '8 recipients \u00b7 8 in-app'. RBAC: super_admin performed writes (create employee, send notification, update role-permissions) without any 403. No console errors during flows.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Employees edit modal", "issue": "After confirming delete, the parent edit modal remains open showing stale (now-deleted) employee data; user must manually close it. Toast 'Employee removed' and list update work correctly, so this is cosmetic.", "selector": "employee edit Dialog", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Permissions Matrix - super_admin tab", "issues": ["Switches for super_admin appear greyed but do not carry the HTML disabled/aria-disabled attribute on the switch role element (only visually locked). Consider adding aria-disabled=true for accessibility."]},
+      {"screen": "Sidebar", "issues": ["With 7 groups + 26 items the Administration group falls below the 1080px fold and requires scrolling; consider condensing or collapsible groups."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_hr_notif.py",
+    "/app/test_reports/pytest/iter7_results.xml"
+  ],
+  "action_items": [
+    "(cosmetic) Auto-close employee edit modal after successful delete on Employees page.",
+    "(a11y) Add aria-disabled=true / disabled prop to super_admin permission switches for screen-reader/testability parity."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 709 lines - approaching the 700 line split threshold; consider splitting HR/notifications routers into modules/*.py APIRouters.",
+    "PUT /api/role-permissions accepts arbitrary body['matrix'] without Pydantic validation - a malformed payload would blindly overwrite appConfig/rolePermissions. Recommend a strict Pydantic model for the matrix shape.",
+    "In Sidebar there is no permission-based filtering: a non-super_admin will still see Administration links (Employees, Permissions Matrix). Backend enforces write-perms, but nav visibility should respect hr.editable_modules(role) so agents don't see admin-only links."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter7_hr_notif.py (new)"
+  ],
+  "success_rate": {"backend": "100% (15/15 pytest)", "frontend": "100% (all requested UI flows verified)"},
+  "test_credentials": "demo.admin@earn2love.com / Earn2Love@Demo2026 (super_admin)",
+  "seed_data_creation": "Backend tests self-cleanup (create+delete employee, revert permissions toggle). UI test created 'QAUI TestUI' employee, then deleted it via the modal delete flow. Notifications: 2 residual test campaigns remain in adminCampaigns (TEST_QA_iter7_notif from backend send test and TEST_QA_ui_campaign from UI send test) - safe to leave as they only wrote in-app notifications for the 8 test users; can be trimmed manually if desired.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All iter7 features are healthy. To rerun: `cd /app/backend && REACT_APP_BACKEND_URL=$(grep REACT_APP_BACKEND_URL ../frontend/.env|cut -d= -f2) python -m pytest tests/test_iter7_hr_notif.py -v -n0`. The Firestore employeeCode format is <first4-of-lowercase-lastname>NN (e.g. lastName='Iter7' -> 'iter01' when the prefix hasn't been used; if reused it increments). Employees delete UI: modal has a Delete button (bottom-left) that opens a confirm 'Remove employee?' dialog with a second red Delete. Notifications: RESEND_API_KEY not set - email channel intentionally disabled with amber note. Push tokens are 0 in live data - '0 push' preview is expected."
+}
