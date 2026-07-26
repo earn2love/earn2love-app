@@ -53,6 +53,7 @@ export const NAV_GROUPS = [
     group: "Configuration",
     items: [
       { label: "Notifications", icon: Bell, to: "/notifications", key: "notifications" },
+      { label: "User Support", icon: LifeBuoy, to: "/support", key: "support" },
       { label: "Documents", icon: FileText, to: "/documents", key: "documents" },
       { label: "System Settings", icon: Settings, to: "/settings", key: "settings" },
     ],

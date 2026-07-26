@@ -82,6 +82,20 @@ RBAC permissions matrix), ④ full production Notifications (FCM push + Resend e
 schedule/status, needs Resend API key + FCM setup), richer charts. Username scheme
 achanta01 (lastname+NN) for app users — to build when admin user-creation is added.
 
+## 2026-07 — User Support + AI assistant (Phase 2)
+Added "User Support" inbox. AI assistant "Aria" (Emergent LLM, openai/gpt-5.4) answers
+users first and escalates account-specific issues to human agents. Backend:
+support_service.py (Firestore `supportConversations`, run_bot + CRUD), endpoints
+POST /api/support/message (app users via get_current_user token verify), GET
+/api/support/conversations[/{id}], POST .../reply, POST .../status (audit-logged).
+Frontend pages/Support.jsx: conversation list + status filters + threaded chat
+(user/bot/agent bubbles) + agent reply + resolve/reopen, 15s polling. EMERGENT_LLM_KEY
+added to backend/.env. Verified via curl (bot answer + escalate + reply + resolve) + screenshot.
+
+REMAINING: ③ full production Notifications (FCM push + Resend email; needs RESEND_API_KEY
++ FCM setup) and ④ Employee/HR module + Admin Profile (KYC, contracts, docs, badges,
+payslips, attendance, RBAC permissions matrix). Username scheme achanta01 for app users.
+
 ## Next Tasks
 1. Report/Verification detail pages with evidence & full action set.
 2. Notifications composer + ticket threads.

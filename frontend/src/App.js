@@ -17,6 +17,7 @@ import VerificationDetail from "@/pages/VerificationDetail";
 import Notifications from "@/pages/Notifications";
 import Documents from "@/pages/Documents";
 import AppConfig from "@/pages/AppConfig";
+import Support from "@/pages/Support";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import Roles from "@/pages/Roles";
@@ -40,6 +41,7 @@ function App() {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/app-config" element={<AppConfig />} />
+              <Route path="/support" element={<Support />} />
               <Route path="/m/:key" element={<ModulePage />} />
               <Route path="/countries" element={<Countries />} />
               <Route path="/settings" element={<Settings />} />

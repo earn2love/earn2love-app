@@ -16,6 +16,7 @@ import firebase_service as fb
 import firestore_repo as repo
 import documents_service as docs
 import appconfig_service as appcfg
+import support_service as support
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -69,6 +70,16 @@ class NotifyBody(BaseModel):
     reason: str | None = None
 
 
+class SupportUserMessage(BaseModel):
+    text: str
+    name: str | None = None
+
+
+class SupportAgentAction(BaseModel):
+    text: str | None = None
+    status: str | None = None
+
+
 def client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip")
     if xff:
@@ -102,6 +113,23 @@ async def get_current_admin(request: Request) -> dict:
 def require_write(admin: dict, module: str):
     if not fb.can_write(admin["role"], module):
         raise HTTPException(status_code=403, detail=f"Your role ({admin['role']}) cannot modify {module}")
+
+
+async def get_current_user(request: Request) -> dict:
+    """Verify a Firebase ID token for ANY authenticated user (app users incl. admins)."""
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    try:
+        decoded = fb.verify_id_token(header[7:])
+    except Exception as e:
+        logger.warning(f"user token verification failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return {
+        "uid": decoded.get("uid") or decoded.get("user_id"),
+        "email": decoded.get("email"),
+        "name": decoded.get("name") or decoded.get("email"),
+    }
 
 
 def audit(admin, action, module, target="", target_id="", prev=None, new=None, reason="", request=None):
@@ -268,6 +296,45 @@ async def add_note(uid: str, body: ActionBody, request: Request, admin: dict = D
 @api.get("/users/{uid}/related")
 async def get_related(uid: str, admin: dict = Depends(get_current_admin)):
     return repo.user_related(uid)
+
+
+@api.post("/support/message")
+async def support_message(body: SupportUserMessage, user: dict = Depends(get_current_user)):
+    return await support.user_message(user["uid"], body.name or user.get("name"), body.text)
+
+
+@api.get("/support/conversations")
+async def support_list(status: str | None = None, search: str = "",
+                       admin: dict = Depends(get_current_admin)):
+    return {"items": support.list_conversations(status, search)}
+
+
+@api.get("/support/conversations/{cid}")
+async def support_get(cid: str, admin: dict = Depends(get_current_admin)):
+    c = support.get_conversation(cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return c
+
+
+@api.post("/support/conversations/{cid}/reply")
+async def support_reply(cid: str, body: SupportAgentAction, request: Request,
+                        admin: dict = Depends(get_current_admin)):
+    c = support.agent_reply(cid, body.text or "", admin["email"])
+    if not c:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    audit(admin, "reply", "support", c.get("userUid", ""), cid, None, None, None, request)
+    return c
+
+
+@api.post("/support/conversations/{cid}/status")
+async def support_status(cid: str, body: SupportAgentAction, request: Request,
+                         admin: dict = Depends(get_current_admin)):
+    c = support.set_status(cid, body.status or "open", admin["email"])
+    if not c:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    audit(admin, f"support-{body.status}", "support", c.get("userUid", ""), cid, None, body.status, None, request)
+    return c
 
 
 @api.get("/app-config")
