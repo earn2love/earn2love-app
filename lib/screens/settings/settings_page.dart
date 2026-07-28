@@ -378,7 +378,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Switch.adaptive(
                   value: value,
                   onChanged: (v) => _saveSetting(settingKey, v),
-                  activeColor: _pink,
+                  activeThumbColor: _pink,
                 ),
             ],
           ),

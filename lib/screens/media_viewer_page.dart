@@ -133,7 +133,7 @@ class _VideoViewerState extends State<VideoViewer> {
   void initState() {
     super.initState();
 
-    controller = VideoPlayerController.network(widget.url)
+    controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
       ..initialize().then((_) {
         setState(() {});
         controller.play();

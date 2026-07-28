@@ -1662,7 +1662,7 @@ class _AutoPlayVideoState extends State<_AutoPlayVideo> {
   @override
   void initState() {
     super.initState();
-    controller = VideoPlayerController.network(widget.url)
+    controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
       ..initialize().then((_) {
         if (!mounted) return;
         controller.setLooping(true);

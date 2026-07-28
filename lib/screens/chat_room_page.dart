@@ -1445,6 +1445,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     if (!await file.exists()) return;
 
     final bytes = await file.length();
+    if (!mounted) return;
+
     if (bytes > _maxAudioBytes) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Voice message too large')),

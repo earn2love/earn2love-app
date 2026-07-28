@@ -103,8 +103,9 @@ class RequestsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final me = FirebaseAuth.instance.currentUser;
-    if (me == null)
+    if (me == null) {
       return const Scaffold(body: Center(child: Text("Not logged in")));
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text("Requests")),

@@ -557,8 +557,10 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 onPressed: () async {
+                  final navigator = Navigator.of(context);
                   await _mergeUser({fieldKey: ctrl.text.trim()});
-                  if (context.mounted) Navigator.pop(context);
+                  if (!mounted) return;
+                  navigator.pop();
                 },
                 icon: const Icon(Icons.save),
                 label: const Text("Save"),

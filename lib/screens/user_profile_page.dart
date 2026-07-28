@@ -843,7 +843,7 @@ class _SimpleVideoPlayerState extends State<_SimpleVideoPlayer> {
   @override
   void initState() {
     super.initState();
-    controller = VideoPlayerController.network(widget.url)
+    controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
       ..initialize().then((_) {
         if (!mounted) return;
         controller.setLooping(true);

@@ -565,7 +565,7 @@ class _LoginPageState extends State<LoginPage>
     return false;
   }
 
-  Future<void> _emailSendLink_NoPasswordFirst() async {
+  Future<void> _emailSendLinkNoPasswordFirst() async {
     final email = idCtrl.text.trim().toLowerCase();
     if (!isEmail) {
       setState(() => status = "Enter valid email");
@@ -1493,7 +1493,7 @@ class _LoginPageState extends State<LoginPage>
 
                       if (isEmail) {
                         if (!otpSent) {
-                          await _emailSendLink_NoPasswordFirst();
+                          await _emailSendLinkNoPasswordFirst();
                         } else {
                           await _emailVerifyLink();
                         }
@@ -1587,7 +1587,7 @@ class _LoginPageState extends State<LoginPage>
                         : () async {
                             if (!otpSent) return;
                             if (isEmail) {
-                              await _emailSendLink_NoPasswordFirst();
+                              await _emailSendLinkNoPasswordFirst();
                             } else {
                               await _sendPhoneOtp();
                             }

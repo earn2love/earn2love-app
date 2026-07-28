@@ -178,8 +178,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     if (day == today) return 'Today';
     if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
-    if (day.isAfter(today.subtract(const Duration(days: 7))))
+    if (day.isAfter(today.subtract(const Duration(days: 7)))) {
       return 'This Week';
+    }
     return 'Earlier';
   }
 

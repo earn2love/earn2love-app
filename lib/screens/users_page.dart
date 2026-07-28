@@ -23,8 +23,9 @@ class UsersPage extends StatelessWidget {
 
   bool _allowedRequest(String fromTier, String toTier) {
     if (fromTier == "love") return true;
-    if (fromTier == "friendship")
-      return (toTier == "casual" || toTier == "friendship");
+    if (fromTier == "friendship") {
+      return toTier == "casual" || toTier == "friendship";
+    }
     if (fromTier == "casual") return toTier == "casual";
     return false;
   }
@@ -123,6 +124,8 @@ class UsersPage extends StatelessWidget {
       }
       return;
     }
+
+    if (!context.mounted) return;
 
     final msgCtrl = TextEditingController();
 
@@ -289,8 +292,9 @@ class UsersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final me = FirebaseAuth.instance.currentUser;
-    if (me == null)
+    if (me == null) {
       return const Scaffold(body: Center(child: Text("Not logged in")));
+    }
 
     final usersCol = FirebaseFirestore.instance.collection('users');
 
@@ -299,8 +303,9 @@ class UsersPage extends StatelessWidget {
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: usersCol.doc(me.uid).snapshots(),
         builder: (context, mySnap) {
-          if (!mySnap.hasData)
+          if (!mySnap.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
 
           final myData = mySnap.data!.data() ?? {};
           final myTier =
@@ -312,8 +317,9 @@ class UsersPage extends StatelessWidget {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (snap.hasError)
+              if (snap.hasError) {
                 return Center(child: Text("Error: ${snap.error}"));
+              }
 
               final docs = snap.data?.docs ?? [];
               final otherUsers = docs.where((d) => d.id != me.uid).toList();
