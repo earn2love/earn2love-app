@@ -25,7 +25,10 @@ class RequestsPage extends StatelessWidget {
     final docId = requestDocId(uid, fromUid);
 
     // mark accepted
-    await FirebaseFirestore.instance.collection('friendRequests').doc(docId).set({
+    await FirebaseFirestore.instance
+        .collection('friendRequests')
+        .doc(docId)
+        .set({
       'fromUid': fromUid,
       'toUid': uid,
       'status': 'accepted',
@@ -37,10 +40,14 @@ class RequestsPage extends StatelessWidget {
     final rooms = FirebaseFirestore.instance.collection('chatRooms');
 
     // find existing 1-1 room
-    final q = await rooms.where('participants', arrayContains: uid).limit(50).get();
+    final q =
+        await rooms.where('participants', arrayContains: uid).limit(50).get();
     String? roomId;
     for (final d in q.docs) {
-      final p = (d.data()['participants'] as List?)?.map((e) => e.toString()).toList() ?? [];
+      final p = (d.data()['participants'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
       if (p.contains(fromUid) && p.length == 2) {
         roomId = d.id;
         break;
@@ -71,7 +78,10 @@ class RequestsPage extends StatelessWidget {
 
     final docId = requestDocId(uid, fromUid);
 
-    await FirebaseFirestore.instance.collection('friendRequests').doc(docId).set({
+    await FirebaseFirestore.instance
+        .collection('friendRequests')
+        .doc(docId)
+        .set({
       'fromUid': fromUid,
       'toUid': uid,
       'status': 'rejected',
@@ -93,7 +103,8 @@ class RequestsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final me = FirebaseAuth.instance.currentUser;
-    if (me == null) return const Scaffold(body: Center(child: Text("Not logged in")));
+    if (me == null)
+      return const Scaffold(body: Center(child: Text("Not logged in")));
 
     return Scaffold(
       appBar: AppBar(title: const Text("Requests")),
@@ -119,23 +130,31 @@ class RequestsPage extends StatelessWidget {
               final fromUid = (data['fromUid'] ?? '').toString();
 
               return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                future: FirebaseFirestore.instance.collection('users').doc(fromUid).get(),
+                future: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(fromUid)
+                    .get(),
                 builder: (context, userSnap) {
                   final u = userSnap.data?.data() ?? {};
                   final name = (u['displayName'] ?? 'User').toString();
-                  final photo = (u['photoUrl'] ?? u['profilePhoto'] ?? '').toString();
-                  final tier = (u['tier'] ?? u['subTier'] ?? 'casual').toString();
+                  final photo =
+                      (u['photoUrl'] ?? u['profilePhoto'] ?? '').toString();
+                  final tier =
+                      (u['tier'] ?? u['subTier'] ?? 'casual').toString();
 
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundImage: photo.isEmpty ? null : NetworkImage(photo),
+                      backgroundImage:
+                          photo.isEmpty ? null : NetworkImage(photo),
                       child: photo.isEmpty ? const Icon(Icons.person) : null,
                     ),
-                    title: Text(name, style: const TextStyle(fontWeight: FontWeight.w900)),
+                    title: Text(name,
+                        style: const TextStyle(fontWeight: FontWeight.w900)),
                     subtitle: Text("Plan: ${tier.toUpperCase()}"),
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => UserProfilePage(userId: fromUid)),
+                      MaterialPageRoute(
+                          builder: (_) => UserProfilePage(userId: fromUid)),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -148,7 +167,8 @@ class RequestsPage extends StatelessWidget {
                         IconButton(
                           tooltip: "Accept",
                           icon: const Icon(Icons.check, color: Colors.green),
-                          onPressed: () => _acceptRequest(context: context, fromUid: fromUid),
+                          onPressed: () => _acceptRequest(
+                              context: context, fromUid: fromUid),
                         ),
                       ],
                     ),

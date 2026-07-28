@@ -295,7 +295,9 @@ class _PaymentPageState extends State<PaymentPage> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            onPressed: paying ? null : () => Navigator.pop(context, false),
+                            onPressed: paying
+                                ? null
+                                : () => Navigator.pop(context, false),
                             child: const Text(
                               "Cancel",
                               style: TextStyle(fontWeight: FontWeight.w700),

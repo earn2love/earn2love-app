@@ -19,7 +19,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           .collection('notifications');
 
   Future<void> _markAllAsRead() async {
-    final unread = await _notificationsRef.where('isRead', isEqualTo: false).get();
+    final unread =
+        await _notificationsRef.where('isRead', isEqualTo: false).get();
 
     if (unread.docs.isEmpty) return;
 
@@ -36,17 +37,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
         .collection('users')
         .doc(FirebaseAuth.instance.currentUser!.uid);
 
-    batch.set(userRef, {
-      'counters': {
-        'unreadBellNotifications': 0,
-      },
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    batch.set(
+        userRef,
+        {
+          'counters': {
+            'unreadBellNotifications': 0,
+          },
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true));
 
     await batch.commit();
   }
 
-  Future<void> _markOneAsRead(DocumentReference<Map<String, dynamic>> ref) async {
+  Future<void> _markOneAsRead(
+      DocumentReference<Map<String, dynamic>> ref) async {
     final snap = await ref.get();
     final data = snap.data() ?? {};
     final alreadyRead = data['isRead'] == true;
@@ -173,7 +178,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     if (day == today) return 'Today';
     if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
-    if (day.isAfter(today.subtract(const Duration(days: 7)))) return 'This Week';
+    if (day.isAfter(today.subtract(const Duration(days: 7))))
+      return 'This Week';
     return 'Earlier';
   }
 
@@ -282,7 +288,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               child: const Text(
                 'Mark all',
@@ -432,7 +439,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           title,
                           style: TextStyle(
                             fontSize: 14.7,
-                            fontWeight: isRead ? FontWeight.w800 : FontWeight.w900,
+                            fontWeight:
+                                isRead ? FontWeight.w800 : FontWeight.w900,
                             color: const Color(0xFF31284A),
                             height: 1.2,
                           ),

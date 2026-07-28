@@ -334,8 +334,7 @@ class _LoginPageState extends State<LoginPage>
 
   String get fullPhone => "$dialCode$phoneDigitsOnly";
 
-  String get fullPhoneDigitsOnly =>
-      fullPhone.replaceAll(RegExp(r'[^0-9]'), '');
+  String get fullPhoneDigitsOnly => fullPhone.replaceAll(RegExp(r'[^0-9]'), '');
 
   String _hash(String s) => sha256.convert(utf8.encode(s)).toString();
 
@@ -400,9 +399,7 @@ class _LoginPageState extends State<LoginPage>
     final existing = snap.data() ?? {};
 
     final userPhone = user.phoneNumber;
-    final phoneDigits = userPhone == null
-        ? null
-        : userPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    final phoneDigits = userPhone?.replaceAll(RegExp(r'[^0-9]'), '');
 
     final pricing = _pricingMetaForCountry(country);
 
@@ -931,7 +928,8 @@ class _LoginPageState extends State<LoginPage>
 
   Future<void> _finalSignup() async {
     if (!otpVerified) {
-      setState(() => status = isEmail ? "Verify Link first" : "Verify OTP first");
+      setState(
+          () => status = isEmail ? "Verify Link first" : "Verify OTP first");
       return;
     }
 
@@ -1689,9 +1687,7 @@ class _LoginPageState extends State<LoginPage>
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
-                    color: hasError
-                        ? Colors.red.shade50
-                        : Colors.green.shade50,
+                    color: hasError ? Colors.red.shade50 : Colors.green.shade50,
                     border: Border.all(
                       color: hasError
                           ? Colors.red.shade200

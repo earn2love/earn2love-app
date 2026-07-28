@@ -293,7 +293,8 @@ class _AuthScreenState extends State<AuthScreen> {
           (route) => false,
         );
       } else {
-        _toast('Phone+Password login not supported. Use OTP login or email login.');
+        _toast(
+            'Phone+Password login not supported. Use OTP login or email login.');
       }
     } on FirebaseAuthException catch (e) {
       _toast(e.message ?? 'Login failed');
@@ -308,11 +309,11 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final isSignup = mode == AuthMode.signup;
 
-    final bg = const Color(0xFFF8F2FF);
-    final purple = const Color(0xFF6C4AA3);
-    final green = const Color(0xFF7FAE7D);
+    const bg = Color(0xFFF8F2FF);
+    const purple = Color(0xFF6C4AA3);
+    const green = Color(0xFF7FAE7D);
 
-    final titleStyle = const TextStyle(
+    const titleStyle = TextStyle(
       fontSize: 34,
       fontWeight: FontWeight.w800,
     );
@@ -364,7 +365,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   },
             child: Text(
               isSignup ? 'Login' : 'Sign Up',
-              style: TextStyle(
+              style: const TextStyle(
                 color: purple,
                 fontWeight: FontWeight.w700,
               ),
@@ -414,7 +415,8 @@ class _AuthScreenState extends State<AuthScreen> {
                               showCountryPicker(
                                 context: context,
                                 showPhoneCode: true,
-                                onSelect: (c) => setState(() => selectedCountry = c),
+                                onSelect: (c) =>
+                                    setState(() => selectedCountry = c),
                               );
                             },
                       child: Container(
@@ -432,7 +434,8 @@ class _AuthScreenState extends State<AuthScreen> {
                             const SizedBox(width: 6),
                             Text(
                               '+${selectedCountry?.phoneCode ?? '44'}',
-                              style: const TextStyle(fontWeight: FontWeight.w700),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(width: 6),
                             const Icon(Icons.keyboard_arrow_down_rounded),
@@ -495,13 +498,13 @@ class _AuthScreenState extends State<AuthScreen> {
                       Container(
                         height: 54,
                         width: 130,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: Colors.white,
-                          borderRadius: const BorderRadius.only(
+                          borderRadius: BorderRadius.only(
                             topRight: Radius.circular(14),
                             bottomRight: Radius.circular(14),
                           ),
-                          border: const Border(
+                          border: Border(
                             left: BorderSide(color: Colors.black12),
                           ),
                         ),
@@ -519,7 +522,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             !otpSent
                                 ? 'Send OTP'
                                 : (!otpVerified ? 'Verify OTP' : 'Verified'),
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: purple,
                               fontWeight: FontWeight.w800,
                             ),
@@ -532,7 +535,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton(
-                    style: TextButton.styleFrom(padding: const EdgeInsets.only(left: 4)),
+                    style: TextButton.styleFrom(
+                        padding: const EdgeInsets.only(left: 4)),
                     onPressed: busy ? null : () async => sendOtp(),
                     child: const Text('Resend'),
                   ),
@@ -566,7 +570,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       onPressed: busy ? null : signup,
                       child: const Text(
                         'Sign Up',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800),
                       ),
                     ),
                   ),
@@ -584,7 +589,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       onPressed: null,
                       child: const Text(
                         'Sign Up',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800),
                       ),
                     ),
                   ),
@@ -615,7 +621,8 @@ class _AuthScreenState extends State<AuthScreen> {
                     onPressed: busy ? null : login,
                     child: const Text(
                       'Login',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                     ),
                   ),
                 ),

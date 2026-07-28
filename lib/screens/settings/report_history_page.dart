@@ -95,11 +95,9 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                 Text('Issue: $issue',
                     style: const TextStyle(color: Colors.white)),
                 const SizedBox(height: 8),
-                Text('Status: $status',
-                    style: const TextStyle(color: _muted)),
+                Text('Status: $status', style: const TextStyle(color: _muted)),
                 const SizedBox(height: 8),
-                Text('Created: $time',
-                    style: const TextStyle(color: _muted)),
+                Text('Created: $time', style: const TextStyle(color: _muted)),
                 if (description.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(description,
@@ -164,7 +162,8 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                   itemCount: docs.length,
                   itemBuilder: (context, i) {
                     final m = docs[i].data();
-                    final issue = (m['issue'] ?? m['reason'] ?? 'Issue').toString();
+                    final issue =
+                        (m['issue'] ?? m['reason'] ?? 'Issue').toString();
                     final status = (m['status'] ?? 'pending').toString();
 
                     final otherUid = showMadeByMe
@@ -203,7 +202,8 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                       );
                     }
 
-                    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    return FutureBuilder<
+                        DocumentSnapshot<Map<String, dynamic>>>(
                       future: FirebaseFirestore.instance
                           .collection('users')
                           .doc(otherUid)
@@ -211,7 +211,8 @@ class _ReportHistoryPageState extends State<ReportHistoryPage> {
                       builder: (context, userSnap) {
                         final user = userSnap.data?.data() ?? {};
                         final name =
-                            (user['displayName'] ?? user['name'] ?? 'User').toString();
+                            (user['displayName'] ?? user['name'] ?? 'User')
+                                .toString();
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),

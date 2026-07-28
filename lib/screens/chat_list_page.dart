@@ -225,8 +225,9 @@ class _ChatListPageState extends State<ChatListPage> {
               ),
               const SizedBox(height: 10),
               _sheetActionTile(
-                icon:
-                    archived ? Icons.unarchive_outlined : Icons.archive_outlined,
+                icon: archived
+                    ? Icons.unarchive_outlined
+                    : Icons.archive_outlined,
                 title: archived ? 'Unarchive' : 'Archive',
                 onTap: () => Navigator.pop(context, 'archive'),
               ),
@@ -915,13 +916,16 @@ class _ChatListPageState extends State<ChatListPage> {
                         for (final roomDoc in allDocs) {
                           final room = roomDoc.data();
                           final roomId = roomDoc.id;
-                          final participants = (room['participants'] as List?) ?? [];
-                          final otherUid = _otherUidFromParticipants(participants);
+                          final participants =
+                              (room['participants'] as List?) ?? [];
+                          final otherUid =
+                              _otherUidFromParticipants(participants);
                           if (otherUid.isEmpty) continue;
 
                           final pref = prefsMap[roomId] ?? {};
-                          final roomUpdatedAt = room['updatedAt'] as Timestamp? ??
-                              room['lastMessageAt'] as Timestamp?;
+                          final roomUpdatedAt =
+                              room['updatedAt'] as Timestamp? ??
+                                  room['lastMessageAt'] as Timestamp?;
 
                           if (_isDeletedForMe(
                             pref: pref,
@@ -951,8 +955,10 @@ class _ChatListPageState extends State<ChatListPage> {
 
                           if (!showBySelectedTab) continue;
 
-                          final lastMessage = (room['lastMessage'] ?? '').toString();
-                          final lastMessageAt = room['lastMessageAt'] as Timestamp?;
+                          final lastMessage =
+                              (room['lastMessage'] ?? '').toString();
+                          final lastMessageAt =
+                              room['lastMessageAt'] as Timestamp?;
                           final lastSenderId =
                               (room['lastMessageSenderId'] ?? '').toString();
 
@@ -961,16 +967,16 @@ class _ChatListPageState extends State<ChatListPage> {
                                       ?.map((e) => e.toString())
                                       .toList() ??
                                   [];
-                          final seenBy =
-                              (room['lastMessageSeenBy'] as List?)
-                                      ?.map((e) => e.toString())
-                                      .toList() ??
-                                  [];
+                          final seenBy = (room['lastMessageSeenBy'] as List?)
+                                  ?.map((e) => e.toString())
+                                  .toList() ??
+                              [];
 
                           final isMine = lastSenderId == uid;
                           final delivered = deliveredTo.contains(otherUid);
                           final seen = seenBy.contains(otherUid);
-                          final mutedUntil = pref['muteChatUntil'] as Timestamp?;
+                          final mutedUntil =
+                              pref['muteChatUntil'] as Timestamp?;
                           final archived = archivedIds.contains(roomId);
 
                           final tile = StreamBuilder<
@@ -982,16 +988,19 @@ class _ChatListPageState extends State<ChatListPage> {
                             builder: (context, otherSnap) {
                               final other = otherSnap.data?.data() ?? {};
 
-                              final rawName =
-                                  (other['displayName'] ?? '').toString().trim();
+                              final rawName = (other['displayName'] ?? '')
+                                  .toString()
+                                  .trim();
                               final displayName =
                                   rawName.isEmpty ? 'User' : rawName;
 
-                              final photo =
-                                  (other['photoUrl'] ?? other['profilePhoto'] ?? '')
-                                      .toString();
+                              final photo = (other['photoUrl'] ??
+                                      other['profilePhoto'] ??
+                                      '')
+                                  .toString();
                               final online = other['online'] == true;
-                              final lastSeen = other['lastSeenAt'] as Timestamp?;
+                              final lastSeen =
+                                  other['lastSeenAt'] as Timestamp?;
 
                               return StreamBuilder<
                                   QuerySnapshot<Map<String, dynamic>>>(

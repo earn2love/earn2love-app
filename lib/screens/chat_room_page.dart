@@ -256,7 +256,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       return asBool(_myChatPrefs['allowImageRequests'], def: true);
     }
     return _globalAllowImageRequests();
-    }
+  }
 
   bool _chatAllowAudioRequests() {
     if (_myChatPrefs.containsKey('allowAudioRequests')) {
@@ -348,7 +348,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   void _scheduleMarkSeen(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) {
-    final signature = docs.isEmpty ? 'empty' : '${docs.first.id}_${docs.length}';
+    final signature =
+        docs.isEmpty ? 'empty' : '${docs.first.id}_${docs.length}';
     if (_markingSeen || _lastMarkSeenSignature == signature) return;
 
     _lastMarkSeenSignature = signature;
@@ -482,7 +483,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
       await batch.commit();
     } catch (_) {}
-}
+  }
+
   void _listenRequests() {
     _reqSub?.cancel();
     _reqSub = reqRef.snapshots().listen((snap) async {
@@ -630,16 +632,22 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
           throw Exception('INSUFFICIENT');
         }
 
-        tx.set(callerRef, {
-          'silverBalance': FieldValue.increment(-cost),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        tx.set(
+            callerRef,
+            {
+              'silverBalance': FieldValue.increment(-cost),
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true));
 
         if (reward > 0) {
-          tx.set(receiverRef, {
-            'silverBalance': FieldValue.increment(reward),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+          tx.set(
+              receiverRef,
+              {
+                'silverBalance': FieldValue.increment(reward),
+                'updatedAt': FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true));
         }
 
         tx.set(callerHistoryRef, {
@@ -687,8 +695,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(_blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
+          content: Text(
+              _blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
         ),
       );
       return;
@@ -886,8 +894,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     if (_anyBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(_blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
+          content: Text(
+              _blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
         ),
       );
       return;
@@ -952,6 +960,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       SnackBar(content: Text('${_requestLabel(type)} sent ✅')),
     );
   }
+
   Future<void> _openRequestsSheet() async {
     await _cleanupExpiredRequests();
 
@@ -1234,8 +1243,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     if (_anyBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(_blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
+          content: Text(
+              _blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
         ),
       );
       return;
@@ -1278,8 +1287,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     if (_anyBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(_blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
+          content: Text(
+              _blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
         ),
       );
       return;
@@ -1385,8 +1394,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     if (_anyBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(_blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
+          content: Text(
+              _blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
         ),
       );
       return;
@@ -1724,6 +1733,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       onTap: () => Navigator.pop(context, emoji),
     );
   }
+
   Future<void> _blockOrUnblock() async {
     if (_blockedByMe) {
       await roomRef.set({
@@ -2055,65 +2065,65 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Widget _blockedBanner() {
-  if (_blockedByMe) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.red.shade50,
-        border: Border.all(color: Colors.red.shade200),
-      ),
-      child: const Text(
-        'You blocked this user. You cannot send messages or requests.',
-        style: TextStyle(fontWeight: FontWeight.w900),
-      ),
-    );
+    if (_blockedByMe) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: Colors.red.shade50,
+          border: Border.all(color: Colors.red.shade200),
+        ),
+        child: const Text(
+          'You blocked this user. You cannot send messages or requests.',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      );
+    }
+
+    if (_blockedByOther) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: Colors.orange.shade50,
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: const Text(
+          'You are blocked. Messaging and media are restricted.',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
-  if (_blockedByOther) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.orange.shade50,
-        border: Border.all(color: Colors.orange.shade200),
-      ),
-      child: const Text(
-        'You are blocked. Messaging and media are restricted.',
-        style: TextStyle(fontWeight: FontWeight.w900),
-      ),
-    );
+  Widget _limitedChatBanner() {
+    if (_anyBlocked) return const SizedBox.shrink();
+
+    if (!_isFriends && !_meHasEligiblePlan) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: Colors.blue.shade50,
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: const Text(
+          'Image and direct premium features may be limited in this chat until friendship/eligible plan is active.',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
-
-  return const SizedBox.shrink();
-}
-
-Widget _limitedChatBanner() {
-  if (_anyBlocked) return const SizedBox.shrink();
-
-  if (!_isFriends && !_meHasEligiblePlan) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.blue.shade50,
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: const Text(
-        'Image and direct premium features may be limited in this chat until friendship/eligible plan is active.',
-        style: TextStyle(fontWeight: FontWeight.w900),
-      ),
-    );
-  }
-
-  return const SizedBox.shrink();
-}
 
   Widget _replyPreview() {
     if (_replyingTo == null) return const SizedBox.shrink();
@@ -2400,8 +2410,8 @@ Widget _limitedChatBanner() {
     String messageId,
     Map<String, dynamic> m,
     Timestamp? clearedAt,
-  ) 
-{    final sender = asString(m['senderId']);
+  ) {
+    final sender = asString(m['senderId']);
     final text = asString(m['text']);
     final type = asString(m['type'], def: 'text');
     final imageUrl = asString(m['imageUrl']);
@@ -2564,7 +2574,9 @@ Widget _limitedChatBanner() {
             ),
           ];
 
-          if (isMe && !deletedForEveryone && !seenBy.contains(widget.otherUid)) {
+          if (isMe &&
+              !deletedForEveryone &&
+              !seenBy.contains(widget.otherUid)) {
             items.add(
               ListTile(
                 leading: const Icon(Icons.delete_forever_outlined),
@@ -2677,8 +2689,8 @@ Widget _limitedChatBanner() {
                 title: _searchMode
                     ? TextField(
                         autofocus: true,
-                        onChanged: (v) =>
-                            setState(() => _searchText = v.trim().toLowerCase()),
+                        onChanged: (v) => setState(
+                            () => _searchText = v.trim().toLowerCase()),
                         decoration: const InputDecoration(
                           hintText: 'Search chat',
                           border: InputBorder.none,
@@ -2714,8 +2726,8 @@ Widget _limitedChatBanner() {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        UserProfilePage(userId: widget.otherUid),
+                                    builder: (_) => UserProfilePage(
+                                        userId: widget.otherUid),
                                   ),
                                 );
                               },
@@ -2754,8 +2766,8 @@ Widget _limitedChatBanner() {
                         if (!_searchMode) _searchText = '';
                       });
                     },
-                    icon:
-                        Icon(_searchMode ? Icons.close : Icons.search, size: 21),
+                    icon: Icon(_searchMode ? Icons.close : Icons.search,
+                        size: 21),
                   ),
                   if (!_searchMode) ...[
                     IconButton(
@@ -2839,7 +2851,8 @@ Widget _limitedChatBanner() {
                     ),
                   ],
                 ],
-              ),              body: Stack(
+              ),
+              body: Stack(
                 children: [
                   _buildChatWallpaper(),
                   Column(
@@ -2874,7 +2887,8 @@ Widget _limitedChatBanner() {
                           ),
                         ),
                       Expanded(
-                        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        child:
+                            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                           stream: messagesStream,
                           builder: (context, snap) {
                             if (!snap.hasData) {
@@ -2928,9 +2942,8 @@ Widget _limitedChatBanner() {
                                 if (i == docs.length - 1) {
                                   showDateChip = true;
                                 } else {
-                                  final nextTs =
-                                      docs[i + 1].data()['createdAt']
-                                          as Timestamp?;
+                                  final nextTs = docs[i + 1].data()['createdAt']
+                                      as Timestamp?;
                                   final currentDate = ts?.toDate();
                                   final nextDate = nextTs?.toDate();
                                   if (currentDate != null && nextDate != null) {

@@ -140,7 +140,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   DocumentReference<Map<String, dynamic>> _friendReqDoc(String a, String b) {
-    return FirebaseFirestore.instance.collection('friendRequests').doc(_pairId(a, b));
+    return FirebaseFirestore.instance
+        .collection('friendRequests')
+        .doc(_pairId(a, b));
   }
 
   Future<void> _sendRequest(String myUid, String toUid) async {
@@ -217,12 +219,17 @@ class _HomePageState extends State<HomePage> {
     }
 
     final rooms = FirebaseFirestore.instance.collection('chatRooms');
-    final q = await rooms.where('participants', arrayContains: myUid).limit(100).get();
+    final q = await rooms
+        .where('participants', arrayContains: myUid)
+        .limit(100)
+        .get();
 
     String? roomId;
     for (final d in q.docs) {
-      final p =
-          (d.data()['participants'] as List?)?.map((e) => e.toString()).toList() ?? [];
+      final p = (d.data()['participants'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
       if (p.contains(otherUid) && p.length == 2) {
         roomId = d.id;
         break;
@@ -363,142 +370,247 @@ class _HomePageState extends State<HomePage> {
     return asString(u['tier'] ?? u['subTier'], def: 'casual').toLowerCase();
   }
 
- Widget _header(Map<String, dynamic> me) {
-  final myName = asString(me['displayName'], def: 'mouli');
-  final myTier =
-      asString(me['tier'] ?? me['subTier'], def: 'LOVE').toUpperCase();
-  final myPhoto = asString(me['photoUrl'] ?? me['profilePhoto']);
-  final silver = asDouble(me['silverBalance']).toStringAsFixed(0);
+  Widget _header(Map<String, dynamic> me) {
+    final myName = asString(me['displayName'], def: 'mouli');
+    final myTier =
+        asString(me['tier'] ?? me['subTier'], def: 'LOVE').toUpperCase();
+    final myPhoto = asString(me['photoUrl'] ?? me['profilePhoto']);
+    final silver = asDouble(me['silverBalance']).toStringAsFixed(0);
 
-  final rawCountry = asString(me['country'], def: 'IN').toUpperCase();
-  final country = rawCountry == 'UK' ? 'UK' : 'IN';
+    final rawCountry = asString(me['country'], def: 'IN').toUpperCase();
+    final country = rawCountry == 'UK' ? 'UK' : 'IN';
 
-  return Container(
-    padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-    decoration: BoxDecoration(
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.pink.shade400,
-          Colors.purple.shade500,
-          Colors.indigo.shade500,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.pink.shade400,
+            Colors.purple.shade500,
+            Colors.indigo.shade500,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+            color: Colors.purple.withOpacity(0.18),
+          ),
         ],
       ),
-      boxShadow: [
-        BoxShadow(
-          blurRadius: 16,
-          offset: const Offset(0, 8),
-          color: Colors.purple.withOpacity(0.18),
-        ),
-      ],
-    ),
-    child: SafeArea(
-      bottom: false,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileMenuPage()),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.95),
-                  width: 2,
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileMenuPage()),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.95),
+                    width: 2,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.white.withOpacity(0.12),
+                  backgroundImage:
+                      myPhoto.isEmpty ? null : NetworkImage(myPhoto),
+                  child: myPhoto.isEmpty
+                      ? const Icon(Icons.person, color: Colors.white, size: 30)
+                      : null,
                 ),
               ),
-              child: CircleAvatar(
-                radius: 28,
-                backgroundColor: Colors.white.withOpacity(0.12),
-                backgroundImage: myPhoto.isEmpty ? null : NetworkImage(myPhoto),
-                child: myPhoto.isEmpty
-                    ? const Icon(Icons.person, color: Colors.white, size: 30)
-                    : null,
-              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Earn2Love',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF25D366),
-                          shape: BoxShape.circle,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Earn2Love',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          height: 1,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${myName.toLowerCase()} · $myTier',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white.withOpacity(0.95),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF25D366),
+                            shape: BoxShape.circle,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${myName.toLowerCase()} · $myTier',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white.withOpacity(0.95),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // RIGHT SIDE
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TopUpPage(country: country),
+            // RIGHT SIDE
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TopUpPage(country: country),
+                      ),
+                    );
+                  },
+                  child: SizedBox(
+                    width: 56,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.96),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                                color: Colors.black.withOpacity(0.10),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.blueGrey.shade200,
+                                      Colors.grey.shade100,
+                                      Colors.blueGrey.shade300,
+                                    ],
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: const Text(
+                                  '₹',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF535B67),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                right: -1,
+                                top: -1,
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFFD948),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    size: 14,
+                                    color: Color(0xFF222431),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          height: 16,
+                          child: Text(
+                            silver,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white.withOpacity(0.98),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                },
-                child: SizedBox(
-                  width: 56,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
+                  ),
+                ),
+                const SizedBox(width: 10),
+                StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .snapshots(),
+                  builder: (context, snap) {
+                    final data = snap.data?.data() ?? {};
+                    final counters =
+                        (data['counters'] as Map<String, dynamic>?) ?? {};
+                    final unread =
+                        asInt(counters['unreadBellNotifications'], def: 0);
+
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsPage(),
+                          ),
+                        );
+                      },
+                      child: Container(
                         width: 48,
                         height: 48,
+                        margin: const EdgeInsets.only(top: 0),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.96),
                           shape: BoxShape.circle,
@@ -514,159 +626,55 @@ class _HomePageState extends State<HomePage> {
                           clipBehavior: Clip.none,
                           alignment: Alignment.center,
                           children: [
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.blueGrey.shade200,
-                                    Colors.grey.shade100,
-                                    Colors.blueGrey.shade300,
-                                  ],
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Text(
-                                '₹',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF535B67),
-                                ),
-                              ),
+                            const Icon(
+                              Icons.notifications_none_rounded,
+                              size: 24,
+                              color: Color(0xFF3E3753),
                             ),
-                            Positioned(
-                              right: -1,
-                              top: -1,
-                              child: Container(
-                                width: 20,
-                                height: 20,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFFFD948),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.add,
-                                  size: 14,
-                                  color: Color(0xFF222431),
+                            if (unread > 0)
+                              Positioned(
+                                right: -2,
+                                top: -2,
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF4D6D),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1.4,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    unread > 99 ? '99+' : '$unread',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        height: 16,
-                        child: Text(
-                          silver,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white.withOpacity(0.98),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
-              ),
-              const SizedBox(width: 10),
-              StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(uid)
-                    .snapshots(),
-                builder: (context, snap) {
-                  final data = snap.data?.data() ?? {};
-                  final counters =
-                      (data['counters'] as Map<String, dynamic>?) ?? {};
-                  final unread =
-                      asInt(counters['unreadBellNotifications'], def: 0);
-
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationsPage(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      margin: const EdgeInsets.only(top: 0),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.96),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                            color: Colors.black.withOpacity(0.10),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.center,
-                        children: [
-                          const Icon(
-                            Icons.notifications_none_rounded,
-                            size: 24,
-                            color: Color(0xFF3E3753),
-                          ),
-                          if (unread > 0)
-                            Positioned(
-                              right: -2,
-                              top: -2,
-                              child: Container(
-                                constraints: const BoxConstraints(
-                                  minWidth: 18,
-                                  minHeight: 18,
-                                ),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFF4D6D),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 1.4,
-                                  ),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  unread > 99 ? '99+' : '$unread',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _chip({
     required String title,
@@ -730,26 +738,30 @@ class _HomePageState extends State<HomePage> {
                   _chip(
                     title: 'All',
                     selected: _selectedFilter == _HomeFilter.all,
-                    onTap: () => setState(() => _selectedFilter = _HomeFilter.all),
+                    onTap: () =>
+                        setState(() => _selectedFilter = _HomeFilter.all),
                   ),
                   const SizedBox(width: 8),
                   _chip(
                     title: 'Online',
                     selected: _selectedFilter == _HomeFilter.online,
                     showDot: true,
-                    onTap: () => setState(() => _selectedFilter = _HomeFilter.online),
+                    onTap: () =>
+                        setState(() => _selectedFilter = _HomeFilter.online),
                   ),
                   const SizedBox(width: 8),
                   _chip(
                     title: 'Nearby',
                     selected: _selectedFilter == _HomeFilter.nearby,
-                    onTap: () => setState(() => _selectedFilter = _HomeFilter.nearby),
+                    onTap: () =>
+                        setState(() => _selectedFilter = _HomeFilter.nearby),
                   ),
                   const SizedBox(width: 8),
                   _chip(
                     title: 'New',
                     selected: _selectedFilter == _HomeFilter.newest,
-                    onTap: () => setState(() => _selectedFilter = _HomeFilter.newest),
+                    onTap: () =>
+                        setState(() => _selectedFilter = _HomeFilter.newest),
                   ),
                 ],
               ),
@@ -1032,7 +1044,8 @@ class _HomePageState extends State<HomePage> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.person_add_alt_1_rounded, size: 13, color: Color(0xFF564D6B)),
+                    Icon(Icons.person_add_alt_1_rounded,
+                        size: 13, color: Color(0xFF564D6B)),
                     SizedBox(width: 4),
                     Text(
                       'Request',
@@ -1059,7 +1072,8 @@ class _HomePageState extends State<HomePage> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.chat_bubble_rounded, size: 12, color: Colors.white),
+                    Icon(Icons.chat_bubble_rounded,
+                        size: 12, color: Colors.white),
                     SizedBox(width: 4),
                     Text(
                       'Text',
@@ -1143,7 +1157,8 @@ class _HomePageState extends State<HomePage> {
             color: Colors.transparent,
             child: InkWell(
               onTap: userTap,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(26)),
               child: ClipPath(
                 clipper: _TopPhotoClipper(),
                 child: SizedBox(
@@ -1156,7 +1171,8 @@ class _HomePageState extends State<HomePage> {
                       return Container(
                         color: const Color(0xFFF0E9F8),
                         alignment: Alignment.center,
-                        child: const Icon(Icons.person, size: 48, color: Colors.deepPurple),
+                        child: const Icon(Icons.person,
+                            size: 48, color: Colors.deepPurple),
                       );
                     },
                   ),
@@ -1268,7 +1284,8 @@ class _HomePageState extends State<HomePage> {
 
                     final displayUsers = <Map<String, dynamic>>[...users];
                     if (displayUsers.length < 30) {
-                      displayUsers.addAll(_makeDummyUsers(30 - displayUsers.length));
+                      displayUsers
+                          .addAll(_makeDummyUsers(30 - displayUsers.length));
                     }
 
                     final filtered = _applyFilter(displayUsers);
@@ -1276,7 +1293,8 @@ class _HomePageState extends State<HomePage> {
                     return GridView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
                       itemCount: filtered.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         crossAxisSpacing: 14,
                         mainAxisSpacing: 14,
@@ -1344,13 +1362,15 @@ class _PlanSelectSheet extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         child: ListTile(
           leading: CircleAvatar(
-            backgroundColor: premium ? Colors.pink.shade50 : Colors.green.shade50,
+            backgroundColor:
+                premium ? Colors.pink.shade50 : Colors.green.shade50,
             child: Icon(
               icon,
               color: premium ? Colors.pink.shade400 : Colors.green.shade600,
             ),
           ),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
           subtitle: Text(subtitle),
           trailing: premium
               ? const Icon(Icons.lock)

@@ -194,7 +194,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   : null,
             ),
             child: photo.isEmpty
-                ? const Icon(Icons.person_rounded, color: Colors.white, size: 38)
+                ? const Icon(Icons.person_rounded,
+                    color: Colors.white, size: 38)
                 : null,
           ),
           const SizedBox(width: 14),
@@ -478,7 +479,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   _profileHeader(),
                   const SizedBox(height: 18),
-
                   _sectionTitle('Profile & Privacy'),
                   _groupCard([
                     _switchTile(
@@ -506,9 +506,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: readReceipts,
                     ),
                   ]),
-
                   const SizedBox(height: 16),
-
                   _sectionTitle('Requests & Calls'),
                   _groupCard([
                     _switchTile(
@@ -536,9 +534,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: allowVideoCalls,
                     ),
                   ]),
-
                   const SizedBox(height: 16),
-
                   _sectionTitle('Chat Settings'),
                   _groupCard([
                     _switchTile(
@@ -566,9 +562,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: pinImportantChats,
                     ),
                   ]),
-
                   const SizedBox(height: 16),
-
                   _sectionTitle('Notification Settings'),
                   _groupCard([
                     _switchTile(
@@ -596,9 +590,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: callNotifications,
                     ),
                   ]),
-
                   const SizedBox(height: 16),
-
                   _sectionTitle('Safety'),
                   _groupCard([
                     _navTile(
@@ -631,7 +623,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                     ),
                   ]),
-
                   const SizedBox(height: 20),
                   _logoutTile(),
                 ],

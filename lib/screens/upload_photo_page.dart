@@ -20,7 +20,8 @@ class _UploadPhotoPageState extends State<UploadPhotoPage> {
   File? file;
 
   Future<void> pick() async {
-    final x = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final x = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (x == null) return;
     setState(() {
       file = File(x.path);
@@ -93,7 +94,9 @@ class _UploadPhotoPageState extends State<UploadPhotoPage> {
                   ? Center(
                       child: Text(
                         "No photo selected",
-                        style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w800),
                       ),
                     )
                   : Image.file(file!, fit: BoxFit.cover),
@@ -118,19 +121,24 @@ class _UploadPhotoPageState extends State<UploadPhotoPage> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 color: isFail ? Colors.red.shade50 : Colors.green.shade50,
-                border: Border.all(color: isFail ? Colors.red.shade200 : Colors.green.shade200),
+                border: Border.all(
+                    color:
+                        isFail ? Colors.red.shade200 : Colors.green.shade200),
               ),
               child: Text(
                 info,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.w900, color: isFail ? Colors.red : Colors.green.shade800),
+                style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: isFail ? Colors.red : Colors.green.shade800),
               ),
             ),
           ],
           const SizedBox(height: 18),
           Text(
             "Note: Later we will add nudity detection and auto-flagging.\nFlagged media will show warning before opening.",
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 12, height: 1.35),
+            style: TextStyle(
+                color: Colors.grey.shade700, fontSize: 12, height: 1.35),
           ),
         ],
       ),

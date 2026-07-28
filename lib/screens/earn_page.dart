@@ -26,7 +26,8 @@ class _EarnPageState extends State<EarnPage> {
     return s.isEmpty ? def : s;
   }
 
-  bool hasFriendshipOrLove(String tier) => tier == 'friendship' || tier == 'love';
+  bool hasFriendshipOrLove(String tier) =>
+      tier == 'friendship' || tier == 'love';
 
   Future<void> addDummySilver(int amount) async {
     setState(() {
@@ -54,7 +55,8 @@ class _EarnPageState extends State<EarnPage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: isFail ? Colors.red.shade50 : Colors.green.shade50,
-        border: Border.all(color: isFail ? Colors.red.shade200 : Colors.green.shade200),
+        border: Border.all(
+            color: isFail ? Colors.red.shade200 : Colors.green.shade200),
       ),
       child: Text(
         info,
@@ -90,12 +92,16 @@ class _EarnPageState extends State<EarnPage> {
             bool locked = false,
           }) {
             return Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               child: ListTile(
                 leading: CircleAvatar(child: Icon(icon)),
-                title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                title: Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w900)),
                 subtitle: Text(subtitle),
-                trailing: locked ? const Icon(Icons.lock) : const Icon(Icons.chevron_right),
+                trailing: locked
+                    ? const Icon(Icons.lock)
+                    : const Icon(Icons.chevron_right),
                 onTap: locked ? null : onTap,
               ),
             );
@@ -119,7 +125,8 @@ class _EarnPageState extends State<EarnPage> {
                 locked: lockedTasks,
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Offerwall integration next ✅")),
+                    const SnackBar(
+                        content: Text("Offerwall integration next ✅")),
                   );
                 },
               ),

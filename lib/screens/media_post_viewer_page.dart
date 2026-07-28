@@ -30,13 +30,15 @@ class MediaPostViewerPage extends StatelessWidget {
 
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
-  DocumentReference<Map<String, dynamic>> get mediaRef => FirebaseFirestore.instance
-      .collection('users')
-      .doc(ownerUid)
-      .collection('media')
-      .doc(mediaId);
+  DocumentReference<Map<String, dynamic>> get mediaRef =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(ownerUid)
+          .collection('media')
+          .doc(mediaId);
 
-  DocumentReference<Map<String, dynamic>> get likeRef => mediaRef.collection('likes').doc(uid);
+  DocumentReference<Map<String, dynamic>> get likeRef =>
+      mediaRef.collection('likes').doc(uid);
 
   Future<void> _toggleLike(bool alreadyLiked) async {
     if (isVirtualProfilePhoto) return;
@@ -47,7 +49,8 @@ class MediaPostViewerPage extends StatelessWidget {
 
       if (!mediaSnap.exists) return;
 
-      final currentCount = ((mediaSnap.data()?['likeCount'] ?? 0) as num).toInt();
+      final currentCount =
+          ((mediaSnap.data()?['likeCount'] ?? 0) as num).toInt();
 
       if (alreadyLiked && likeSnap.exists) {
         tx.delete(likeRef);
@@ -77,7 +80,8 @@ class MediaPostViewerPage extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Warning"),
-        content: const Text("This media may be sensitive. Do you want to continue?"),
+        content:
+            const Text("This media may be sensitive. Do you want to continue?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -113,8 +117,11 @@ class MediaPostViewerPage extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundImage: ownerPhotoUrl.isEmpty ? null : NetworkImage(ownerPhotoUrl),
-                    child: ownerPhotoUrl.isEmpty ? const Icon(Icons.person) : null,
+                    backgroundImage: ownerPhotoUrl.isEmpty
+                        ? null
+                        : NetworkImage(ownerPhotoUrl),
+                    child:
+                        ownerPhotoUrl.isEmpty ? const Icon(Icons.person) : null,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -139,7 +146,8 @@ class MediaPostViewerPage extends StatelessWidget {
                         future: _confirmWarningIfNeeded(context),
                         builder: (context, snap) {
                           if (!snap.hasData) {
-                            return const CircularProgressIndicator(color: Colors.white);
+                            return const CircularProgressIndicator(
+                                color: Colors.white);
                           }
                           if (snap.data != true) {
                             return const Text(
@@ -154,7 +162,8 @@ class MediaPostViewerPage extends StatelessWidget {
                         future: _confirmWarningIfNeeded(context),
                         builder: (context, snap) {
                           if (!snap.hasData) {
-                            return const CircularProgressIndicator(color: Colors.white);
+                            return const CircularProgressIndicator(
+                                color: Colors.white);
                           }
                           if (snap.data != true) {
                             return const Text(
@@ -183,7 +192,8 @@ class MediaPostViewerPage extends StatelessWidget {
                 stream: mediaRef.snapshots(),
                 builder: (context, mediaSnap) {
                   final mediaData = mediaSnap.data?.data() ?? {};
-                  final likeCount = ((mediaData['likeCount'] ?? 0) as num).toInt();
+                  final likeCount =
+                      ((mediaData['likeCount'] ?? 0) as num).toInt();
 
                   return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                     stream: likeRef.snapshots(),

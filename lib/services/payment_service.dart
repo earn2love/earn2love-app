@@ -6,8 +6,7 @@ class PaymentService {
       FirebaseFunctions.instanceFor(region: 'us-central1');
 
   static Future<void> buyPack(String packId) async {
-    final createPayment =
-        _functions.httpsCallable('createStripePaymentIntent');
+    final createPayment = _functions.httpsCallable('createStripePaymentIntent');
 
     final result = await createPayment.call({'packId': packId});
 
@@ -23,8 +22,7 @@ class PaymentService {
 
     await Stripe.instance.presentPaymentSheet();
 
-    final confirmPayment =
-        _functions.httpsCallable('confirmStripeTopupDev');
+    final confirmPayment = _functions.httpsCallable('confirmStripeTopupDev');
 
     await confirmPayment.call({
       'paymentIntentId': paymentIntentId,

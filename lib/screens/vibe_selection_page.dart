@@ -315,9 +315,9 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
               color: Colors.white.withOpacity(0.68),
             ),
           ),
-          child: Row(
+          child: const Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               CircleAvatar(
                 radius: 12,
                 backgroundColor: Color(0xFF4F67FF),
@@ -354,13 +354,13 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
+          const Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 2, right: 4),
+              padding: EdgeInsets.only(top: 2, right: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Casual',
                     style: TextStyle(
                       fontFamily: 'Poppins',
@@ -369,8 +369,8 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Expanded(
+                  SizedBox(height: 6),
+                  Expanded(
                     child: Text(
                       'Enjoy light, easygoing chats without any pressure.',
                       maxLines: 3,
@@ -384,8 +384,8 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const SingleChildScrollView(
+                  SizedBox(height: 6),
+                  SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
@@ -437,13 +437,13 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
+          const Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 2, right: 4),
+              padding: EdgeInsets.only(top: 2, right: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Friend',
                     style: TextStyle(
                       fontFamily: 'Poppins',
@@ -452,8 +452,8 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
+                  SizedBox(height: 6),
+                  Text(
                     'Meet warm people, build genuine bonds, and enjoy friendly conversations that feel real.',
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -465,8 +465,8 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                       color: Color(0xFF47356F),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const SingleChildScrollView(
+                  SizedBox(height: 6),
+                  SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
@@ -519,13 +519,13 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
+          const Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 2, right: 4),
+              padding: EdgeInsets.only(top: 2, right: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Love',
                     style: TextStyle(
                       fontFamily: 'Poppins',
@@ -534,8 +534,8 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
+                  SizedBox(height: 6),
+                  Text(
                     'Unlock deeper romantic connections, premium access, and a more rewarding experience.',
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -547,8 +547,8 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                       color: Color(0xFF4A2F68),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const SingleChildScrollView(
+                  SizedBox(height: 6),
+                  SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [

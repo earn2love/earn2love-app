@@ -47,7 +47,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     return digits.length >= 8 && RegExp(r"^[0-9+\s-]+$").hasMatch(t);
   }
 
-  String get phoneDigitsOnly => idCtrl.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+  String get phoneDigitsOnly =>
+      idCtrl.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
   String get fullPhone => '$dialCode$phoneDigitsOnly';
 
   String _hash(String s) => sha256.convert(utf8.encode(s)).toString();
@@ -223,9 +224,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = const Color(0xFFF8F2FF);
-    final purple = const Color(0xFF6C4AA3);
-    final green = const Color(0xFF7FAE7D);
+    const bg = Color(0xFFF8F2FF);
+    const purple = Color(0xFF6C4AA3);
+    const green = Color(0xFF7FAE7D);
 
     return Scaffold(
       backgroundColor: bg,
@@ -235,18 +236,24 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         titleSpacing: 16,
         title: Row(
           children: [
-            Image.asset('assets/images/earn2love_icon.png', width: _appBarIcon, height: _appBarIcon),
+            Image.asset('assets/images/earn2love_icon.png',
+                width: _appBarIcon, height: _appBarIcon),
             const SizedBox(width: 10),
-            Text(
+            const Text(
               'Earn2Love',
-              style: TextStyle(fontSize: _appBarTitle, fontWeight: FontWeight.w900, color: purple),
+              style: TextStyle(
+                  fontSize: _appBarTitle,
+                  fontWeight: FontWeight.w900,
+                  color: purple),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: busy ? null : () => Navigator.of(context).pop(),
-            child: Text('Login', style: TextStyle(color: purple, fontWeight: FontWeight.w900, fontSize: 16)),
+            child: const Text('Login',
+                style: TextStyle(
+                    color: purple, fontWeight: FontWeight.w900, fontSize: 16)),
           ),
           const SizedBox(width: 8),
         ],
@@ -255,10 +262,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 14, 18, 22),
           children: [
-            Text(
+            const Text(
               'Reset Password',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: _pageTitle, fontWeight: FontWeight.w900, color: purple),
+              style: TextStyle(
+                  fontSize: _pageTitle,
+                  fontWeight: FontWeight.w900,
+                  color: purple),
             ),
             const SizedBox(height: 14),
 
@@ -286,7 +296,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             showCountryPicker(
                               context: context,
                               showPhoneCode: true,
-                              onSelect: (c) => setState(() => selectedCountry = c),
+                              onSelect: (c) =>
+                                  setState(() => selectedCountry = c),
                             );
                           },
                     child: Container(
@@ -362,7 +373,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             borderRadius: BorderRadius.circular(14),
                             side: const BorderSide(color: Colors.black12),
                           ),
-                          textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                          textStyle: const TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 16),
                         ),
                         onPressed: busy
                             ? null
@@ -373,18 +385,30 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   await verifyOtp();
                                 }
                               },
-                        child: Text(!otpSent ? 'Send OTP' : (!otpVerified ? 'Verify OTP' : 'Verified')),
+                        child: Text(!otpSent
+                            ? 'Send OTP'
+                            : (!otpVerified ? 'Verify OTP' : 'Verified')),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 14),
-
-              SizedBox(height: 56, child: TextField(controller: passCtrl, enabled: !busy, obscureText: true, decoration: _decor('Enter new password'))),
+              SizedBox(
+                  height: 56,
+                  child: TextField(
+                      controller: passCtrl,
+                      enabled: !busy,
+                      obscureText: true,
+                      decoration: _decor('Enter new password'))),
               const SizedBox(height: 12),
-              SizedBox(height: 56, child: TextField(controller: pass2Ctrl, enabled: !busy, obscureText: true, decoration: _decor('Re-enter new password'))),
-
+              SizedBox(
+                  height: 56,
+                  child: TextField(
+                      controller: pass2Ctrl,
+                      enabled: !busy,
+                      obscureText: true,
+                      decoration: _decor('Re-enter new password'))),
               const SizedBox(height: 16),
               SizedBox(
                 height: 60,
@@ -392,8 +416,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: green,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    textStyle: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 18),
                   ),
                   onPressed: busy ? null : resetPassword,
                   child: const Text('Reset Password'),
@@ -406,8 +432,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: green,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    textStyle: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 18),
                   ),
                   onPressed: busy ? null : sendOtpOrLink,
                   child: Text(busy ? 'Please wait...' : 'Send Reset Link'),

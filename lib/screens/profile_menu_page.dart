@@ -118,7 +118,6 @@ class ProfileMenuPage extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const ProfileBioPage()),
             ),
           ),
-
           _sectionTitle("Contact & Address"),
           _tile(
             context: context,
@@ -140,7 +139,6 @@ class ProfileMenuPage extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const ProfileAddressPage()),
             ),
           ),
-
           _sectionTitle("Privacy & Safety"),
           _tile(
             context: context,
@@ -149,10 +147,10 @@ class ProfileMenuPage extends StatelessWidget {
             subtitle: "Public/private, view options",
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ProfilePhotoPrivacyPage()),
+              MaterialPageRoute(
+                  builder: (_) => const ProfilePhotoPrivacyPage()),
             ),
           ),
-
           _sectionTitle("Support"),
           _tile(
             context: context,
@@ -164,18 +162,19 @@ class ProfileMenuPage extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const SupportPage()),
             ),
           ),
-
           const SizedBox(height: 6),
           Card(
             elevation: 0,
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: Colors.red.withOpacity(0.12),
                 child: const Icon(Icons.logout, color: Colors.red),
               ),
-              title: const Text("Logout", style: TextStyle(fontWeight: FontWeight.w900)),
+              title: const Text("Logout",
+                  style: TextStyle(fontWeight: FontWeight.w900)),
               subtitle: const Text("Sign out from this device"),
               onTap: () => _logout(context),
             ),

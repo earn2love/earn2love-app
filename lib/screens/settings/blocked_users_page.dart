@@ -71,7 +71,8 @@ class BlockedUsersPage extends StatelessWidget {
             return const Center(
               child: Text(
                 'No blocked users',
-                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    color: Colors.white70, fontWeight: FontWeight.w700),
               ),
             );
           }
@@ -91,10 +92,10 @@ class BlockedUsersPage extends StatelessWidget {
                     .get(),
                 builder: (context, userSnap) {
                   final user = userSnap.data?.data() ?? {};
-                  final name =
-                      (user['displayName'] ?? user['name'] ?? 'User').toString();
-                  final photo =
-                      (user['photoUrl'] ?? user['profilePhoto'] ?? '').toString();
+                  final name = (user['displayName'] ?? user['name'] ?? 'User')
+                      .toString();
+                  final photo = (user['photoUrl'] ?? user['profilePhoto'] ?? '')
+                      .toString();
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),

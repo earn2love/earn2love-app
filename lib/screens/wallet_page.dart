@@ -53,7 +53,8 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   bool hasLove(String tier) => tier == 'love';
-  bool hasFriendshipOrLove(String tier) => tier == 'friendship' || tier == 'love';
+  bool hasFriendshipOrLove(String tier) =>
+      tier == 'friendship' || tier == 'love';
 
   List<String> get coinList => const ['Silver', 'Gold', 'Diamond'];
 
@@ -163,7 +164,8 @@ class _WalletPageState extends State<WalletPage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: isFail ? Colors.red.shade50 : Colors.green.shade50,
-        border: Border.all(color: isFail ? Colors.red.shade200 : Colors.green.shade200),
+        border: Border.all(
+            color: isFail ? Colors.red.shade200 : Colors.green.shade200),
       ),
       child: Text(
         info,
@@ -199,11 +201,16 @@ class _WalletPageState extends State<WalletPage> {
           children: [
             Text(emoji, style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 10),
-            Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+            Text(label,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            Text(hint, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+            Text(hint,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
           ],
         ),
       ),
@@ -229,7 +236,9 @@ class _WalletPageState extends State<WalletPage> {
               children: [
                 const Icon(Icons.account_balance_wallet),
                 const SizedBox(width: 8),
-                const Text("Your Wallet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                const Text("Your Wallet",
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                 const Spacer(),
                 _pill(tier.toUpperCase()),
               ],
@@ -315,7 +324,9 @@ class _WalletPageState extends State<WalletPage> {
           ],
         ),
         subtitle: Text(
-          active ? "Currently enabled for your account ✅" : "Open to see what is included",
+          active
+              ? "Currently enabled for your account ✅"
+              : "Open to see what is included",
         ),
         children: [
           Container(
@@ -345,7 +356,9 @@ class _WalletPageState extends State<WalletPage> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: active ? null : onTap,
-                    icon: Icon(active ? Icons.check_circle : (paid ? Icons.lock_open : Icons.verified)),
+                    icon: Icon(active
+                        ? Icons.check_circle
+                        : (paid ? Icons.lock_open : Icons.verified)),
                     label: Text(
                       active
                           ? "$title Active"
@@ -366,12 +379,14 @@ class _WalletPageState extends State<WalletPage> {
   Widget planOptions(Map<String, dynamic> u) {
     final tier = asString(u['tier'] ?? u['subTier'], def: 'casual');
     final country = asString(u['country'], def: 'IN');
-    final currencySymbol = asString(u['currencySymbol'], def: country == 'IN' ? '₹' : '£');
+    final currencySymbol =
+        asString(u['currencySymbol'], def: country == 'IN' ? '₹' : '£');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text("Plans", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+        const Text("Plans",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
         _planSection(
           currentTier: tier,
@@ -465,10 +480,12 @@ class _WalletPageState extends State<WalletPage> {
         const SizedBox(height: 8),
         Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: ListTile(
             leading: const CircleAvatar(child: Icon(Icons.play_circle)),
-            title: const Text("Ads", style: TextStyle(fontWeight: FontWeight.w900)),
+            title: const Text("Ads",
+                style: TextStyle(fontWeight: FontWeight.w900)),
             subtitle: const Text("Earn Silver by watching ads (dummy now)"),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => addDummySilver(10),
@@ -476,10 +493,12 @@ class _WalletPageState extends State<WalletPage> {
         ),
         Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: ListTile(
             leading: const CircleAvatar(child: Icon(Icons.task_alt)),
-            title: const Text("Tasks", style: TextStyle(fontWeight: FontWeight.w900)),
+            title: const Text("Tasks",
+                style: TextStyle(fontWeight: FontWeight.w900)),
             subtitle: Text(
               hasFriendshipOrLove(tier)
                   ? "Offerwall tasks → earn Gold"
@@ -491,7 +510,8 @@ class _WalletPageState extends State<WalletPage> {
             onTap: hasFriendshipOrLove(tier)
                 ? () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Offerwall integration next ✅")),
+                      const SnackBar(
+                          content: Text("Offerwall integration next ✅")),
                     );
                   }
                 : null,
@@ -518,16 +538,21 @@ class _WalletPageState extends State<WalletPage> {
         leading: Icon(icon),
         title: Row(
           children: [
-            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900))),
+            Expanded(
+                child: Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w900))),
             if (locked)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
                   color: Colors.red.shade50,
                   border: Border.all(color: Colors.red.shade200),
                 ),
-                child: Text(lockedText, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+                child: Text(lockedText,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 12)),
               ),
           ],
         ),
@@ -555,7 +580,8 @@ class _WalletPageState extends State<WalletPage> {
 
   Widget ratesCard(String country, String currencySymbol) {
     final s2g = (country == 'UK') ? "3 Silver → 2.5 Gold" : "3 Silver → 2 Gold";
-    final g2d = (country == 'UK') ? "3 Gold → 2.5 Diamond" : "3 Gold → 2 Diamond";
+    final g2d =
+        (country == 'UK') ? "3 Gold → 2.5 Diamond" : "3 Gold → 2 Diamond";
 
     String cash;
     if (country == 'UK') {
@@ -580,13 +606,15 @@ class _WalletPageState extends State<WalletPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Rates ($country)", style: const TextStyle(fontWeight: FontWeight.w900)),
+          Text("Rates ($country)",
+              style: const TextStyle(fontWeight: FontWeight.w900)),
           const SizedBox(height: 6),
           Text("• $s2g"),
           Text("• $g2d"),
           Text("• Withdraw: $cash"),
           const SizedBox(height: 6),
-          const Text("Note: Direct Silver → Diamond not allowed.", style: TextStyle(fontSize: 12)),
+          const Text("Note: Direct Silver → Diamond not allowed.",
+              style: TextStyle(fontSize: 12)),
         ],
       ),
     );
@@ -594,7 +622,8 @@ class _WalletPageState extends State<WalletPage> {
 
   Widget conversionUI(Map<String, dynamic> u) {
     final country = asString(u['country'], def: 'IN');
-    final currencySymbol = asString(u['currencySymbol'], def: country == 'IN' ? '₹' : '£');
+    final currencySymbol =
+        asString(u['currencySymbol'], def: country == 'IN' ? '₹' : '£');
     final streakDays = asInt(u['streakDays']);
     final bonusPct = asInt(u['streakBonusPct']);
 
@@ -609,8 +638,11 @@ class _WalletPageState extends State<WalletPage> {
             Expanded(
               child: DropdownButtonFormField<String>(
                 initialValue: fromCoin,
-                decoration: const InputDecoration(labelText: "From", border: OutlineInputBorder()),
-                items: coinList.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                decoration: const InputDecoration(
+                    labelText: "From", border: OutlineInputBorder()),
+                items: coinList
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
                 onChanged: busy
                     ? null
                     : (v) {
@@ -627,9 +659,13 @@ class _WalletPageState extends State<WalletPage> {
             Expanded(
               child: DropdownButtonFormField<String>(
                 initialValue: toCoin,
-                decoration: const InputDecoration(labelText: "To", border: OutlineInputBorder()),
-                items: toOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: busy ? null : (v) => setState(() => toCoin = v ?? toCoin),
+                decoration: const InputDecoration(
+                    labelText: "To", border: OutlineInputBorder()),
+                items: toOptions
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
+                onChanged:
+                    busy ? null : (v) => setState(() => toCoin = v ?? toCoin),
               ),
             ),
           ],
@@ -686,14 +722,18 @@ class _WalletPageState extends State<WalletPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Current: $days days", style: const TextStyle(fontWeight: FontWeight.w900)),
+                  Text("Current: $days days",
+                      style: const TextStyle(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 4),
-                  Text("Bonus: $bonus% (Silver→Gold)", style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text("Bonus: $bonus% (Silver→Gold)",
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
                 ],
               ),
             ),
             const SizedBox(width: 10),
-            SizedBox(width: 120, child: LinearProgressIndicator(value: progress, minHeight: 10)),
+            SizedBox(
+                width: 120,
+                child: LinearProgressIndicator(value: progress, minHeight: 10)),
           ],
         ),
         const SizedBox(height: 10),
@@ -739,7 +779,8 @@ class _WalletPageState extends State<WalletPage> {
           final tier = asString(u['tier'] ?? u['subTier'], def: 'casual');
           final love = hasLove(tier);
           final country = asString(u['country'], def: 'IN');
-          final currencySymbol = asString(u['currencySymbol'], def: country == 'IN' ? '₹' : '£');
+          final currencySymbol =
+              asString(u['currencySymbol'], def: country == 'IN' ? '₹' : '£');
 
           String withdrawText;
           if (country == 'UK') {
@@ -776,7 +817,8 @@ class _WalletPageState extends State<WalletPage> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const WalletHistoryPage()),
+                          MaterialPageRoute(
+                              builder: (_) => const WalletHistoryPage()),
                         );
                       },
                       icon: const Icon(Icons.open_in_new),
@@ -811,7 +853,9 @@ class _WalletPageState extends State<WalletPage> {
                     ElevatedButton(
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Withdraw flow (KYC + request status) next ✅")),
+                          const SnackBar(
+                              content: Text(
+                                  "Withdraw flow (KYC + request status) next ✅")),
                         );
                       },
                       child: const Text("Start Withdraw (coming soon)"),

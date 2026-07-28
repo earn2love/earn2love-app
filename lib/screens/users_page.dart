@@ -23,7 +23,8 @@ class UsersPage extends StatelessWidget {
 
   bool _allowedRequest(String fromTier, String toTier) {
     if (fromTier == "love") return true;
-    if (fromTier == "friendship") return (toTier == "casual" || toTier == "friendship");
+    if (fromTier == "friendship")
+      return (toTier == "casual" || toTier == "friendship");
     if (fromTier == "casual") return toTier == "casual";
     return false;
   }
@@ -44,7 +45,9 @@ class UsersPage extends StatelessWidget {
     return FirebaseFirestore.instance.runTransaction((tx) async {
       final snap = await tx.get(ref);
       final data = snap.data() ?? {};
-      final count = (data['requestsSent'] is num) ? (data['requestsSent'] as num).toInt() : 0;
+      final count = (data['requestsSent'] is num)
+          ? (data['requestsSent'] as num).toInt()
+          : 0;
 
       if (count >= 100) return false;
 
@@ -113,7 +116,9 @@ class UsersPage extends StatelessWidget {
     if (!allowed) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Casual users can send only 100 requests per day.")),
+          const SnackBar(
+              content:
+                  Text("Casual users can send only 100 requests per day.")),
         );
       }
       return;
@@ -205,14 +210,18 @@ class UsersPage extends StatelessWidget {
 
     if (action != "accept" && action != "reject") return;
 
-    await FirebaseFirestore.instance.collection('requests').doc(reqDoc.id).update({
+    await FirebaseFirestore.instance
+        .collection('requests')
+        .doc(reqDoc.id)
+        .update({
       'status': action == "accept" ? 'accepted' : 'rejected',
       'respondedAt': FieldValue.serverTimestamp(),
     });
 
     if (action == "accept") {
       final roomId = _roomIdFor(myUid, otherUid);
-      final roomRef = FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
+      final roomRef =
+          FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
 
       final snap = await roomRef.get();
       if (!snap.exists) {
@@ -252,13 +261,16 @@ class UsersPage extends StatelessWidget {
     required String otherUid,
   }) async {
     final roomId = _roomIdFor(myUid, otherUid);
-    final roomRef = FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
+    final roomRef =
+        FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
 
     final snap = await roomRef.get();
     if (!snap.exists) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Chat not available yet. Send/accept request first.")),
+          const SnackBar(
+              content:
+                  Text("Chat not available yet. Send/accept request first.")),
         );
       }
       return;
@@ -277,7 +289,8 @@ class UsersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final me = FirebaseAuth.instance.currentUser;
-    if (me == null) return const Scaffold(body: Center(child: Text("Not logged in")));
+    if (me == null)
+      return const Scaffold(body: Center(child: Text("Not logged in")));
 
     final usersCol = FirebaseFirestore.instance.collection('users');
 
@@ -286,10 +299,12 @@ class UsersPage extends StatelessWidget {
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: usersCol.doc(me.uid).snapshots(),
         builder: (context, mySnap) {
-          if (!mySnap.hasData) return const Center(child: CircularProgressIndicator());
+          if (!mySnap.hasData)
+            return const Center(child: CircularProgressIndicator());
 
           final myData = mySnap.data!.data() ?? {};
-          final myTier = (myData['tier'] ?? myData['subTier'] ?? 'casual').toString();
+          final myTier =
+              (myData['tier'] ?? myData['subTier'] ?? 'casual').toString();
 
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: usersCol.snapshots(),
@@ -297,7 +312,8 @@ class UsersPage extends StatelessWidget {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (snap.hasError) return Center(child: Text("Error: ${snap.error}"));
+              if (snap.hasError)
+                return Center(child: Text("Error: ${snap.error}"));
 
               final docs = snap.data?.docs ?? [];
               final otherUsers = docs.where((d) => d.id != me.uid).toList();
@@ -317,13 +333,17 @@ class UsersPage extends StatelessWidget {
                   final rawName = (data['displayName'] ?? '').toString().trim();
                   final otherName = rawName.isEmpty ? 'User' : rawName;
                   final bio = (data['bio'] ?? '').toString();
-                  final otherTier = (data['tier'] ?? data['subTier'] ?? 'casual').toString();
+                  final otherTier =
+                      (data['tier'] ?? data['subTier'] ?? 'casual').toString();
 
-                  final photoUrl = (data['photoUrl'] ?? data['profilePhoto'] ?? '').toString();
+                  final photoUrl =
+                      (data['photoUrl'] ?? data['profilePhoto'] ?? '')
+                          .toString();
 
                   final canRequest = _allowedRequest(myTier, otherTier);
 
-                  return FutureBuilder<QueryDocumentSnapshot<Map<String, dynamic>>?>(
+                  return FutureBuilder<
+                      QueryDocumentSnapshot<Map<String, dynamic>>?>(
                     future: _latestRequestBetween(me.uid, otherUid),
                     builder: (context, reqSnap) {
                       final req = reqSnap.data;
@@ -333,13 +353,16 @@ class UsersPage extends StatelessWidget {
                       final fromUid = reqData?['fromUid']?.toString();
                       final toUid = reqData?['toUid']?.toString();
 
-                      final isIncomingPending =
-                          status == 'pending' && toUid == me.uid && fromUid == otherUid;
-                      final isOutgoingPending =
-                          status == 'pending' && fromUid == me.uid && toUid == otherUid;
+                      final isIncomingPending = status == 'pending' &&
+                          toUid == me.uid &&
+                          fromUid == otherUid;
+                      final isOutgoingPending = status == 'pending' &&
+                          fromUid == me.uid &&
+                          toUid == otherUid;
 
                       Widget trailing;
-                      if (!canRequest && !(isIncomingPending || status == 'accepted')) {
+                      if (!canRequest &&
+                          !(isIncomingPending || status == 'accepted')) {
                         trailing = const Text("Not allowed");
                       } else if (isIncomingPending) {
                         trailing = const Chip(label: Text("Accept?"));
@@ -352,7 +375,9 @@ class UsersPage extends StatelessWidget {
                       }
 
                       return ListTile(
-                        leading: HeartAvatar(imageUrl: photoUrl.isEmpty ? null : photoUrl, size: 46),
+                        leading: HeartAvatar(
+                            imageUrl: photoUrl.isEmpty ? null : photoUrl,
+                            size: 46),
                         title: Text(otherName),
                         subtitle: bio.isEmpty
                             ? Text("Tier: $otherTier")
@@ -385,7 +410,8 @@ class UsersPage extends StatelessWidget {
 
                           if (isOutgoingPending) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Request already pending.")),
+                              const SnackBar(
+                                  content: Text("Request already pending.")),
                             );
                             return;
                           }
@@ -393,7 +419,8 @@ class UsersPage extends StatelessWidget {
                           if (!canRequest) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text("Your tier ($myTier) cannot request $otherTier users."),
+                                content: Text(
+                                    "Your tier ($myTier) cannot request $otherTier users."),
                               ),
                             );
                             return;

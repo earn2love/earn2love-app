@@ -120,12 +120,15 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
 
   DateTime get _rangeStart {
     final now = DateTime.now();
-    if (rangeMode == 'custom' && fromDate != null)
+    if (rangeMode == 'custom' && fromDate != null) {
       return _startOfDay(fromDate!);
-    if (rangeMode == '14d')
+    }
+    if (rangeMode == '14d') {
       return _startOfDay(now.subtract(const Duration(days: 14)));
-    if (rangeMode == '30d')
+    }
+    if (rangeMode == '30d') {
       return _startOfDay(now.subtract(const Duration(days: 30)));
+    }
     return _startOfDay(now.subtract(const Duration(days: 7)));
   }
 

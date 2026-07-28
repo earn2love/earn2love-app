@@ -33,12 +33,12 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
   DocumentReference<Map<String, dynamic>> get _roomRef =>
       FirebaseFirestore.instance.collection('chatRooms').doc(widget.roomId);
 
-  DocumentReference<Map<String, dynamic>> get _chatPrefRef => FirebaseFirestore
-      .instance
-      .collection('users')
-      .doc(uid)
-      .collection('chatPrefs')
-      .doc(widget.roomId);
+  DocumentReference<Map<String, dynamic>> get _chatPrefRef =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('chatPrefs')
+          .doc(widget.roomId);
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _prefSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _roomSub;
@@ -292,7 +292,7 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
     return SwitchListTile(
       value: value,
       onChanged: _saving ? null : onChanged,
-      activeColor: _pink,
+      activeThumbColor: _pink,
       secondary: Icon(icon, color: Colors.white),
       title: Text(
         title,

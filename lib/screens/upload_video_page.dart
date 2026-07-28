@@ -91,7 +91,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
               child: file == null
                   ? Text(
                       "No video selected",
-                      style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w800),
                     )
                   : Column(
                       mainAxisSize: MainAxisSize.min,
@@ -100,7 +102,9 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
                         const SizedBox(height: 10),
                         Text(
                           "Selected ✅",
-                          style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w900),
+                          style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontWeight: FontWeight.w900),
                         )
                       ],
                     ),
@@ -125,19 +129,24 @@ class _UploadVideoPageState extends State<UploadVideoPage> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 color: isFail ? Colors.red.shade50 : Colors.green.shade50,
-                border: Border.all(color: isFail ? Colors.red.shade200 : Colors.green.shade200),
+                border: Border.all(
+                    color:
+                        isFail ? Colors.red.shade200 : Colors.green.shade200),
               ),
               child: Text(
                 info,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.w900, color: isFail ? Colors.red : Colors.green.shade800),
+                style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: isFail ? Colors.red : Colors.green.shade800),
               ),
             ),
           ],
           const SizedBox(height: 18),
           Text(
             "Note: Later we will add video playback + nudity detection.\nFlagged media will show warning before opening.",
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 12, height: 1.35),
+            style: TextStyle(
+                color: Colors.grey.shade700, fontSize: 12, height: 1.35),
           ),
         ],
       ),

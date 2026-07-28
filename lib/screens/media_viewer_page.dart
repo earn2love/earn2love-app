@@ -16,7 +16,6 @@ class MediaViewerPage extends StatefulWidget {
 }
 
 class _MediaViewerPageState extends State<MediaViewerPage> {
-
   late PageController _controller;
   int currentIndex = 0;
 
@@ -29,7 +28,6 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
@@ -47,7 +45,6 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
             });
           },
           itemBuilder: (context, index) {
-
             final media = widget.mediaList[index];
             final type = media['type'];
             final url = media['url'];
@@ -67,7 +64,6 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
 }
 
 class ImageViewer extends StatefulWidget {
-
   final String url;
 
   const ImageViewer({super.key, required this.url});
@@ -77,12 +73,10 @@ class ImageViewer extends StatefulWidget {
 }
 
 class _ImageViewerState extends State<ImageViewer> {
-
   bool liked = false;
   bool showHeart = false;
 
   void _doubleTapLike() {
-
     setState(() {
       liked = !liked;
       showHeart = true;
@@ -99,13 +93,11 @@ class _ImageViewerState extends State<ImageViewer> {
 
   @override
   Widget build(BuildContext context) {
-
     return GestureDetector(
       onDoubleTap: _doubleTapLike,
       child: Stack(
         alignment: Alignment.center,
         children: [
-
           InteractiveViewer(
             minScale: 1,
             maxScale: 4,
@@ -113,7 +105,6 @@ class _ImageViewerState extends State<ImageViewer> {
               child: Image.network(widget.url),
             ),
           ),
-
           if (showHeart)
             const Icon(
               Icons.favorite,
@@ -127,7 +118,6 @@ class _ImageViewerState extends State<ImageViewer> {
 }
 
 class VideoViewer extends StatefulWidget {
-
   final String url;
 
   const VideoViewer({super.key, required this.url});
@@ -137,7 +127,6 @@ class VideoViewer extends StatefulWidget {
 }
 
 class _VideoViewerState extends State<VideoViewer> {
-
   late VideoPlayerController controller;
 
   @override
@@ -146,7 +135,6 @@ class _VideoViewerState extends State<VideoViewer> {
 
     controller = VideoPlayerController.network(widget.url)
       ..initialize().then((_) {
-
         setState(() {});
         controller.play();
       });
@@ -154,7 +142,6 @@ class _VideoViewerState extends State<VideoViewer> {
 
   @override
   Widget build(BuildContext context) {
-
     if (!controller.value.isInitialized) {
       return const Center(
         child: CircularProgressIndicator(),

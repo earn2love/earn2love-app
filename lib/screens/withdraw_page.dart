@@ -60,8 +60,10 @@ class _WithdrawPageState extends State<WithdrawPage> {
       final d = snap.data() ?? {};
 
       country = (d['country'] ?? "IN").toString();
-      currencySymbol = (d['currencySymbol'] ?? (country == 'IN' ? '₹' : '£')).toString();
-      currencyCode = (d['currencyCode'] ?? (country == 'IN' ? 'INR' : 'GBP')).toString();
+      currencySymbol =
+          (d['currencySymbol'] ?? (country == 'IN' ? '₹' : '£')).toString();
+      currencyCode =
+          (d['currencyCode'] ?? (country == 'IN' ? 'INR' : 'GBP')).toString();
       diamondBalance = _num(d['diamondBalance']);
 
       final bank = (d['bankDetails'] is Map) ? (d['bankDetails'] as Map) : {};
@@ -106,12 +108,14 @@ class _WithdrawPageState extends State<WithdrawPage> {
   Future<void> requestWithdraw() async {
     if (country == "IN") {
       if (diamondBalance < 1) {
-        setState(() => status = "Need at least 1 💎 Diamond to withdraw (India).");
+        setState(
+            () => status = "Need at least 1 💎 Diamond to withdraw (India).");
         return;
       }
     } else if (country == "UK") {
       if (diamondBalance < 15000) {
-        setState(() => status = "Need at least 15000 💎 Diamonds to withdraw (UK).");
+        setState(
+            () => status = "Need at least 15000 💎 Diamonds to withdraw (UK).");
         return;
       }
     } else {

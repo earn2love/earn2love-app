@@ -250,7 +250,8 @@ class _ProfilePageState extends State<ProfilePage> {
       final userSnap = await userRef.get();
       final userData = userSnap.data() ?? {};
       final ownerName = asString(userData['displayName'], def: 'User');
-      final ownerPhoto = asString(userData['photoUrl'] ?? userData['profilePhoto']);
+      final ownerPhoto =
+          asString(userData['photoUrl'] ?? userData['profilePhoto']);
 
       final mediaId = FirebaseFirestore.instance.collection('tmp').doc().id;
       final ext = type == 'photo' ? 'jpg' : 'mp4';
@@ -457,7 +458,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       const Text(
                         'Edit bio',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -558,7 +560,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _allMediaStream() {
-    return mediaRef.orderBy('createdAt', descending: true).limit(300).snapshots();
+    return mediaRef
+        .orderBy('createdAt', descending: true)
+        .limit(300)
+        .snapshots();
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _followersStream() {
@@ -706,7 +711,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) => _ProfileGalleryPage(
+                                              builder: (_) =>
+                                                  _ProfileGalleryPage(
                                                 ownerUid: uid,
                                                 mediaList: [
                                                   {
@@ -731,15 +737,18 @@ class _ProfilePageState extends State<ProfilePage> {
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             border: Border.all(
-                                              color: Colors.white.withOpacity(0.95),
+                                              color: Colors.white
+                                                  .withOpacity(0.95),
                                               width: 2,
                                             ),
                                           ),
                                           child: CircleAvatar(
                                             radius: 46,
-                                            backgroundImage:
-                                                photo.isEmpty ? null : NetworkImage(photo),
-                                            backgroundColor: Colors.white.withOpacity(0.18),
+                                            backgroundImage: photo.isEmpty
+                                                ? null
+                                                : NetworkImage(photo),
+                                            backgroundColor:
+                                                Colors.white.withOpacity(0.18),
                                             child: photo.isEmpty
                                                 ? const Icon(
                                                     Icons.person,
@@ -760,7 +769,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                             padding: const EdgeInsets.all(7),
                                             decoration: BoxDecoration(
                                               shape: BoxShape.circle,
-                                              color: Colors.black.withOpacity(0.82),
+                                              color: Colors.black
+                                                  .withOpacity(0.82),
                                               border: Border.all(
                                                 color: Colors.white,
                                                 width: 2,
@@ -782,7 +792,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                   child: Padding(
                                     padding: const EdgeInsets.only(top: 8),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         _StatsRow(
                                           allMediaStream: _allMediaStream(),
@@ -797,7 +808,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                           maxLines: 3,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color: bio.isEmpty ? Colors.white70 : Colors.white,
+                                            color: bio.isEmpty
+                                                ? Colors.white70
+                                                : Colors.white,
                                             fontSize: 12.5,
                                             height: 1.28,
                                             fontWeight: FontWeight.w600,
@@ -921,19 +934,24 @@ class _StatsRow extends StatelessWidget {
 
         return Row(
           children: [
-            Expanded(child: _StatText(value: postsCount.toString(), label: 'Posts')),
+            Expanded(
+                child: _StatText(value: postsCount.toString(), label: 'Posts')),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: followersStream,
               builder: (context, snap) {
                 final count = snap.data?.docs.length ?? 0;
-                return Expanded(child: _StatText(value: count.toString(), label: 'Followers'));
+                return Expanded(
+                    child:
+                        _StatText(value: count.toString(), label: 'Followers'));
               },
             ),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: followingStream,
               builder: (context, snap) {
                 final count = snap.data?.docs.length ?? 0;
-                return Expanded(child: _StatText(value: count.toString(), label: 'Following'));
+                return Expanded(
+                    child:
+                        _StatText(value: count.toString(), label: 'Following'));
               },
             ),
           ],
@@ -1012,7 +1030,9 @@ class _MediaGridStream extends StatelessWidget {
         if (docs.isEmpty) {
           return Center(
             child: Text(
-              type == 'photo' ? 'No photos uploaded yet.' : 'No videos uploaded yet.',
+              type == 'photo'
+                  ? 'No photos uploaded yet.'
+                  : 'No videos uploaded yet.',
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           );
@@ -1029,7 +1049,8 @@ class _MediaGridStream extends StatelessWidget {
             'ownerUid': asString(m['ownerUid']),
             'ownerName': asString(m['ownerName'], def: 'User'),
             'ownerPhotoUrl': asString(m['ownerPhotoUrl']),
-            'likeCount': (m['likeCount'] is num) ? (m['likeCount'] as num).toInt() : 0,
+            'likeCount':
+                (m['likeCount'] is num) ? (m['likeCount'] as num).toInt() : 0,
           };
         }).toList();
 
@@ -1099,7 +1120,8 @@ class _MediaGridStream extends StatelessWidget {
                               color: Colors.black.withOpacity(0.40),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.play_arrow, color: Colors.white, size: 20),
+                            child: const Icon(Icons.play_arrow,
+                                color: Colors.white, size: 20),
                           ),
                         ),
                       if (flagged)
@@ -1234,7 +1256,8 @@ class _ReelCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 17,
-                backgroundImage: ownerPhoto.isEmpty ? null : NetworkImage(ownerPhoto),
+                backgroundImage:
+                    ownerPhoto.isEmpty ? null : NetworkImage(ownerPhoto),
                 child: ownerPhoto.isEmpty ? const Icon(Icons.person) : null,
               ),
               const SizedBox(width: 10),
@@ -1276,7 +1299,11 @@ class _LikeActionColumn extends StatelessWidget {
   });
 
   DocumentReference<Map<String, dynamic>> get mediaRef =>
-      FirebaseFirestore.instance.collection('users').doc(ownerUid).collection('media').doc(mediaId);
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(ownerUid)
+          .collection('media')
+          .doc(mediaId);
 
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
@@ -1290,7 +1317,8 @@ class _LikeActionColumn extends StatelessWidget {
 
       if (!mediaSnap.exists) return;
 
-      final currentCount = ((mediaSnap.data()?['likeCount'] ?? 0) as num).toInt();
+      final currentCount =
+          ((mediaSnap.data()?['likeCount'] ?? 0) as num).toInt();
 
       if (alreadyLiked && likeSnap.exists) {
         tx.delete(likeRef);
@@ -1318,7 +1346,8 @@ class _LikeActionColumn extends StatelessWidget {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: mediaRef.snapshots(),
       builder: (context, mediaSnap) {
-        final likeCount = ((mediaSnap.data?.data()?['likeCount'] ?? 0) as num).toInt();
+        final likeCount =
+            ((mediaSnap.data?.data()?['likeCount'] ?? 0) as num).toInt();
 
         return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: likeRef.snapshots(),
@@ -1406,7 +1435,8 @@ class _ProfileGalleryPageState extends State<_ProfileGalleryPage> {
 
       if (!mediaSnap.exists) return;
 
-      final currentCount = ((mediaSnap.data()?['likeCount'] ?? 0) as num).toInt();
+      final currentCount =
+          ((mediaSnap.data()?['likeCount'] ?? 0) as num).toInt();
 
       if (alreadyLiked && likeSnap.exists) {
         tx.delete(currentLikeRef);
@@ -1462,7 +1492,8 @@ class _ProfileGalleryPageState extends State<_ProfileGalleryPage> {
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundImage: ownerPhoto.isEmpty ? null : NetworkImage(ownerPhoto),
+                  backgroundImage:
+                      ownerPhoto.isEmpty ? null : NetworkImage(ownerPhoto),
                   child: ownerPhoto.isEmpty ? const Icon(Icons.person) : null,
                 ),
                 const SizedBox(width: 10),
@@ -1485,15 +1516,23 @@ class _ProfileGalleryPageState extends State<_ProfileGalleryPage> {
           ),
           Expanded(
             child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: isVirtualProfile ? const Stream.empty() : currentMediaRef.snapshots(),
+              stream: isVirtualProfile
+                  ? const Stream.empty()
+                  : currentMediaRef.snapshots(),
               builder: (context, mediaSnap) {
-                final likeCount =
-                    isVirtualProfile ? 0 : ((mediaSnap.data?.data()?['likeCount'] ?? 0) as num).toInt();
+                final likeCount = isVirtualProfile
+                    ? 0
+                    : ((mediaSnap.data?.data()?['likeCount'] ?? 0) as num)
+                        .toInt();
 
                 return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                  stream: isVirtualProfile ? const Stream.empty() : currentLikeRef.snapshots(),
+                  stream: isVirtualProfile
+                      ? const Stream.empty()
+                      : currentLikeRef.snapshots(),
                   builder: (context, likeSnap) {
-                    final liked = isVirtualProfile ? false : (likeSnap.data?.exists == true);
+                    final liked = isVirtualProfile
+                        ? false
+                        : (likeSnap.data?.exists == true);
 
                     return Stack(
                       children: [
@@ -1524,7 +1563,8 @@ class _ProfileGalleryPageState extends State<_ProfileGalleryPage> {
                                       child: Image.network(
                                         url,
                                         fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => const Text(
+                                        errorBuilder: (_, __, ___) =>
+                                            const Text(
                                           'Image failed to load',
                                           style: TextStyle(color: Colors.white),
                                         ),
@@ -1551,8 +1591,11 @@ class _ProfileGalleryPageState extends State<_ProfileGalleryPage> {
                                 IconButton(
                                   onPressed: () => _toggleLike(liked),
                                   icon: Icon(
-                                    liked ? Icons.favorite : Icons.favorite_border,
-                                    color: liked ? Colors.redAccent : Colors.white,
+                                    liked
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color:
+                                        liked ? Colors.redAccent : Colors.white,
                                     size: 30,
                                   ),
                                 ),

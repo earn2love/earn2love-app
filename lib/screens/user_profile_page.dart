@@ -47,7 +47,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _allMediaStream() {
-    return userRef.collection('media').orderBy('createdAt', descending: true).limit(300).snapshots();
+    return userRef
+        .collection('media')
+        .orderBy('createdAt', descending: true)
+        .limit(300)
+        .snapshots();
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _followersStream() {
@@ -125,11 +129,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   Future<void> _openChat(BuildContext context) async {
     final rooms = FirebaseFirestore.instance.collection('chatRooms');
-    final q = await rooms.where('participants', arrayContains: uid).limit(100).get();
+    final q =
+        await rooms.where('participants', arrayContains: uid).limit(100).get();
 
     String? roomId;
     for (final d in q.docs) {
-      final p = (d.data()['participants'] as List?)?.map((e) => e.toString()).toList() ?? [];
+      final p = (d.data()['participants'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
       if (p.contains(widget.userId) && p.length == 2) {
         roomId = d.id;
         break;
@@ -246,9 +254,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                   ),
                                   child: CircleAvatar(
                                     radius: 46,
-                                    backgroundImage:
-                                        photo.isEmpty ? null : NetworkImage(photo),
-                                    backgroundColor: Colors.white.withOpacity(0.18),
+                                    backgroundImage: photo.isEmpty
+                                        ? null
+                                        : NetworkImage(photo),
+                                    backgroundColor:
+                                        Colors.white.withOpacity(0.18),
                                     child: photo.isEmpty
                                         ? const Icon(
                                             Icons.person,
@@ -264,7 +274,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                 child: Padding(
                                   padding: const EdgeInsets.only(top: 8),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       _StatsRow(
                                         allMediaStream: _allMediaStream(),
@@ -273,36 +284,43 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
-                                        bio.isEmpty
-                                            ? 'No bio added yet.'
-                                            : bio,
+                                        bio.isEmpty ? 'No bio added yet.' : bio,
                                         maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          color: bio.isEmpty ? Colors.white70 : Colors.white,
+                                          color: bio.isEmpty
+                                              ? Colors.white70
+                                              : Colors.white,
                                           fontSize: 12.5,
                                           height: 1.28,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       const SizedBox(height: 8),
-                                      StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                                      StreamBuilder<
+                                          DocumentSnapshot<
+                                              Map<String, dynamic>>>(
                                         stream: reqRef.snapshots(),
                                         builder: (context, reqSnap) {
                                           final req = reqSnap.data?.data();
-                                          final status = (req?['status'] ?? '').toString();
-                                          final fromUid = (req?['fromUid'] ?? '').toString();
-                                          final toUid = (req?['toUid'] ?? '').toString();
+                                          final status =
+                                              (req?['status'] ?? '').toString();
+                                          final fromUid =
+                                              (req?['fromUid'] ?? '')
+                                                  .toString();
+                                          final toUid =
+                                              (req?['toUid'] ?? '').toString();
 
                                           final isIncomingPending =
                                               status == 'pending' &&
-                                              toUid == uid &&
-                                              fromUid == widget.userId;
+                                                  toUid == uid &&
+                                                  fromUid == widget.userId;
                                           final isOutgoingPending =
                                               status == 'pending' &&
-                                              fromUid == uid &&
-                                              toUid == widget.userId;
-                                          final isAccepted = status == 'accepted';
+                                                  fromUid == uid &&
+                                                  toUid == widget.userId;
+                                          final isAccepted =
+                                              status == 'accepted';
 
                                           if (isMe) {
                                             return const SizedBox.shrink();
@@ -315,7 +333,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                                   child: _ActionButton(
                                                     text: 'Accept',
                                                     filled: true,
-                                                    onTap: () => _acceptRequest(context),
+                                                    onTap: () =>
+                                                        _acceptRequest(context),
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
@@ -323,7 +342,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                                   child: _ActionButton(
                                                     text: 'Decline',
                                                     filled: false,
-                                                    onTap: () => _declineRequest(context),
+                                                    onTap: () =>
+                                                        _declineRequest(
+                                                            context),
                                                   ),
                                                 ),
                                               ],
@@ -340,9 +361,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                                           ? 'Follow request sent'
                                                           : 'Follow request',
                                                   filled: true,
-                                                  onTap: (isAccepted || isOutgoingPending)
+                                                  onTap: (isAccepted ||
+                                                          isOutgoingPending)
                                                       ? null
-                                                      : () => _sendFollowRequest(context),
+                                                      : () =>
+                                                          _sendFollowRequest(
+                                                              context),
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
@@ -350,7 +374,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                                 child: _ActionButton(
                                                   text: 'Message',
                                                   filled: false,
-                                                  onTap: () => _openChat(context),
+                                                  onTap: () =>
+                                                      _openChat(context),
                                                 ),
                                               ),
                                             ],
@@ -421,7 +446,9 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = filled ? Colors.white.withOpacity(onTap == null ? 0.12 : 0.18) : Colors.transparent;
+    final bg = filled
+        ? Colors.white.withOpacity(onTap == null ? 0.12 : 0.18)
+        : Colors.transparent;
     final border = Colors.white.withOpacity(0.30);
 
     return Material(
@@ -514,19 +541,24 @@ class _StatsRow extends StatelessWidget {
 
         return Row(
           children: [
-            Expanded(child: _StatText(value: postsCount.toString(), label: 'Posts')),
+            Expanded(
+                child: _StatText(value: postsCount.toString(), label: 'Posts')),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: followersStream,
               builder: (context, snap) {
                 final count = snap.data?.docs.length ?? 0;
-                return Expanded(child: _StatText(value: count.toString(), label: 'Followers'));
+                return Expanded(
+                    child:
+                        _StatText(value: count.toString(), label: 'Followers'));
               },
             ),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: followingStream,
               builder: (context, snap) {
                 final count = snap.data?.docs.length ?? 0;
-                return Expanded(child: _StatText(value: count.toString(), label: 'Following'));
+                return Expanded(
+                    child:
+                        _StatText(value: count.toString(), label: 'Following'));
               },
             ),
           ],
@@ -605,7 +637,9 @@ class _UserMediaGridStream extends StatelessWidget {
         if (docs.isEmpty) {
           return Center(
             child: Text(
-              type == 'photo' ? 'No photos uploaded yet.' : 'No videos uploaded yet.',
+              type == 'photo'
+                  ? 'No photos uploaded yet.'
+                  : 'No videos uploaded yet.',
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           );
@@ -685,7 +719,8 @@ class _UserMediaGridStream extends StatelessWidget {
                               color: Colors.black.withOpacity(0.40),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.play_arrow, color: Colors.white, size: 20),
+                            child: const Icon(Icons.play_arrow,
+                                color: Colors.white, size: 20),
                           ),
                         ),
                     ],
@@ -721,7 +756,8 @@ class _UserProfileGalleryPage extends StatefulWidget {
   });
 
   @override
-  State<_UserProfileGalleryPage> createState() => _UserProfileGalleryPageState();
+  State<_UserProfileGalleryPage> createState() =>
+      _UserProfileGalleryPageState();
 }
 
 class _UserProfileGalleryPageState extends State<_UserProfileGalleryPage> {

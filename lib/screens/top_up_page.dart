@@ -101,11 +101,13 @@ class TopUpPage extends StatelessWidget {
                         const Expanded(
                           child: Text(
                             "Choose your pack",
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w900),
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(999),
                             color: Colors.white,
@@ -135,7 +137,8 @@ class TopUpPage extends StatelessWidget {
                       onTap: () => _openCheckout(
                         context,
                         label: featured['price'] as String,
-                        totalSilver: (featured['coins'] as int) + (featured['bonus'] as int),
+                        totalSilver: (featured['coins'] as int) +
+                            (featured['bonus'] as int),
                         bonusSilver: featured['bonus'] as int,
                       ),
                     ),
@@ -155,14 +158,16 @@ class TopUpPage extends StatelessWidget {
                           onTap: () => _openCheckout(
                             context,
                             label: p['price'] as String,
-                            totalSilver: (p['coins'] as int) + (p['bonus'] as int),
+                            totalSilver:
+                                (p['coins'] as int) + (p['bonus'] as int),
                             bonusSilver: p['bonus'] as int,
                           ),
                         );
                       },
                       childCount: others.length,
                     ),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
@@ -175,7 +180,8 @@ class TopUpPage extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
                     child: Card(
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18)),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Row(
@@ -187,15 +193,18 @@ class TopUpPage extends StatelessWidget {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(14),
                                 color: Colors.indigo.shade50,
-                                border: Border.all(color: Colors.indigo.shade100),
+                                border:
+                                    Border.all(color: Colors.indigo.shade100),
                               ),
-                              child: Icon(Icons.lock_outline, color: Colors.indigo.shade400),
+                              child: Icon(Icons.lock_outline,
+                                  color: Colors.indigo.shade400),
                             ),
                             const SizedBox(width: 12),
                             const Expanded(
                               child: Text(
                                 "Demo checkout: Pay Now → coins add avtayi.\nPayment gateway next ✅",
-                                style: TextStyle(fontWeight: FontWeight.w800, height: 1.35),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w800, height: 1.35),
                               ),
                             ),
                           ],
@@ -242,7 +251,8 @@ class TopUpPage extends StatelessWidget {
                         color: Colors.amber.shade50,
                         border: Border.all(color: Colors.amber.shade200),
                       ),
-                      child: const Center(child: Text("🥈", style: TextStyle(fontSize: 20))),
+                      child: const Center(
+                          child: Text("🥈", style: TextStyle(fontSize: 20))),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -251,12 +261,15 @@ class TopUpPage extends StatelessWidget {
                         children: [
                           Text(
                             "Checkout",
-                            style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w800),
+                            style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             "Pack $label",
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w900),
                           ),
                         ],
                       ),
@@ -271,7 +284,11 @@ class TopUpPage extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Colors.pink.shade400, Colors.purple.shade500, Colors.indigo.shade600],
+                      colors: [
+                        Colors.pink.shade400,
+                        Colors.purple.shade500,
+                        Colors.indigo.shade600
+                      ],
                     ),
                   ),
                   child: Row(
@@ -279,12 +296,16 @@ class TopUpPage extends StatelessWidget {
                       const Expanded(
                         child: Text(
                           "You will receive",
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+                          style: TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w900),
                         ),
                       ),
                       Text(
                         "$totalSilver 🥈",
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22),
                       ),
                     ],
                   ),
@@ -301,7 +322,9 @@ class TopUpPage extends StatelessWidget {
                     ),
                     child: Text(
                       "Bonus included: +$bonusSilver Silver 🎁",
-                      style: TextStyle(fontWeight: FontWeight.w900, color: Colors.green.shade800),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: Colors.green.shade800),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -314,20 +337,25 @@ class TopUpPage extends StatelessWidget {
                       if (context.mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Success ✅ Added +$totalSilver 🥈 Silver")),
+                          SnackBar(
+                              content: Text(
+                                  "Success ✅ Added +$totalSilver 🥈 Silver")),
                         );
                       }
                     } catch (e) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e")));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Failed: $e")));
                       }
                     }
                   },
                   icon: const Icon(Icons.payment),
-                  label: Text("Pay Now ($label)", style: const TextStyle(fontWeight: FontWeight.w900)),
+                  label: Text("Pay Now ($label)",
+                      style: const TextStyle(fontWeight: FontWeight.w900)),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
               ],
@@ -353,7 +381,11 @@ class _HeroBalanceCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.pink.shade400, Colors.purple.shade500, Colors.indigo.shade600],
+          colors: [
+            Colors.pink.shade400,
+            Colors.purple.shade500,
+            Colors.indigo.shade600
+          ],
         ),
         boxShadow: [
           BoxShadow(
@@ -375,19 +407,24 @@ class _HeroBalanceCard extends StatelessWidget {
                   color: Colors.white.withOpacity(0.18),
                   border: Border.all(color: Colors.white.withOpacity(0.22)),
                 ),
-                child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
+                child: const Icon(Icons.account_balance_wallet,
+                    color: Colors.white, size: 20),
               ),
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
                   "Top up Silver",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
                   color: Colors.white.withOpacity(0.18),
@@ -395,7 +432,10 @@ class _HeroBalanceCard extends StatelessWidget {
                 ),
                 child: Text(
                   country.toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12),
                 ),
               ),
             ],
@@ -418,12 +458,18 @@ class _HeroBalanceCard extends StatelessWidget {
                     children: [
                       const Text(
                         "Balance",
-                        style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 12),
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         silver,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -431,7 +477,8 @@ class _HeroBalanceCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
                     color: Colors.black.withOpacity(0.14),
@@ -439,7 +486,10 @@ class _HeroBalanceCard extends StatelessWidget {
                   ),
                   child: const Text(
                     "Instant",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12),
                   ),
                 ),
               ],
@@ -496,10 +546,15 @@ class _FeaturedPackCard extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Colors.pink.shade400, Colors.purple.shade500, Colors.indigo.shade600],
+                    colors: [
+                      Colors.pink.shade400,
+                      Colors.purple.shade500,
+                      Colors.indigo.shade600
+                    ],
                   ),
                 ),
-                child: const Center(child: Text("🥈", style: TextStyle(fontSize: 24))),
+                child: const Center(
+                    child: Text("🥈", style: TextStyle(fontSize: 24))),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -511,13 +566,15 @@ class _FeaturedPackCard extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         _Chip(text: badge, mode: _ChipMode.purple),
-                        if (bonus > 0) _Chip(text: "+$bonus bonus", mode: _ChipMode.green),
+                        if (bonus > 0)
+                          _Chip(text: "+$bonus bonus", mode: _ChipMode.green),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Text(
                       "$total Silver",
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.w900),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -526,14 +583,16 @@ class _FeaturedPackCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   color: Colors.black87,
                 ),
                 child: Text(
                   "Buy $price",
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w900),
                 ),
               )
             ],
@@ -595,7 +654,8 @@ class _PackCardGrid extends StatelessWidget {
                   Expanded(
                     child: Text(
                       "$total",
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 22),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -604,7 +664,10 @@ class _PackCardGrid extends StatelessWidget {
               ),
               Text(
                 "Silver",
-                style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w800, fontSize: 12),
+                style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12),
               ),
               const Spacer(),
               Container(
@@ -615,13 +678,18 @@ class _PackCardGrid extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Colors.pink.shade400, Colors.purple.shade500, Colors.indigo.shade600],
+                    colors: [
+                      Colors.pink.shade400,
+                      Colors.purple.shade500,
+                      Colors.indigo.shade600
+                    ],
                   ),
                 ),
                 child: Center(
                   child: Text(
                     "Buy $price",
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w900),
                   ),
                 ),
               ),
@@ -667,7 +735,11 @@ class _Chip extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: fg, letterSpacing: 0.2),
+        style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 11,
+            color: fg,
+            letterSpacing: 0.2),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
