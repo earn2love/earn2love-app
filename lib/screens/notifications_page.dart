@@ -229,7 +229,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFAE8BFF).withOpacity(0.26),
+            color: const Color(0xFFAE8BFF).withValues(alpha: 0.26),
             blurRadius: 22,
             offset: const Offset(0, 10),
           ),
@@ -241,7 +241,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: Colors.white.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(18),
             ),
             alignment: Alignment.center,
@@ -271,7 +271,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       ? '$unreadCount unread alerts waiting for you'
                       : 'You are all caught up',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.92),
+                    color: Colors.white.withValues(alpha: 0.92),
                     fontSize: 12.8,
                     fontWeight: FontWeight.w600,
                   ),
@@ -283,7 +283,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             TextButton(
               onPressed: _markAllAsRead,
               style: TextButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(0.18),
+                backgroundColor: Colors.white.withValues(alpha: 0.18),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -339,7 +339,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFD8C9F4).withOpacity(0.30),
+                    color: const Color(0xFFD8C9F4).withValues(alpha: 0.30),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -400,7 +400,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         decoration: BoxDecoration(
-          color: isRead ? Colors.white.withOpacity(0.88) : Colors.white,
+          color: isRead ? Colors.white.withValues(alpha: 0.88) : Colors.white,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: isRead ? const Color(0xFFF0EAF8) : const Color(0xFFE8DDFC),
@@ -408,7 +408,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD8CBEF).withOpacity(isRead ? 0.14 : 0.20),
+              color: const Color(0xFFD8CBEF)
+                  .withValues(alpha: isRead ? 0.14 : 0.20),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),

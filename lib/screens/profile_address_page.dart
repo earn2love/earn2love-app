@@ -124,7 +124,7 @@ class _ProfileAddressPageState extends State<ProfileAddressPage> {
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.12),
+                      color: Colors.orange.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(Icons.location_on, color: Colors.orange),

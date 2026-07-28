@@ -374,8 +374,8 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _blockedByMe
-            ? Colors.red.shade900.withOpacity(0.2)
-            : Colors.orange.shade900.withOpacity(0.2),
+            ? Colors.red.shade900.withValues(alpha: 0.2)
+            : Colors.orange.shade900.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: _blockedByMe ? Colors.redAccent : Colors.orangeAccent,

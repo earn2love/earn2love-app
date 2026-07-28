@@ -245,12 +245,13 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                               borderRadius: BorderRadius.circular(999),
                               gradient: LinearGradient(colors: buttonGradient),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.86),
+                                color: Colors.white.withValues(alpha: 0.86),
                                 width: 1.3,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: buttonGradient.first.withOpacity(0.42),
+                                  color: buttonGradient.first
+                                      .withValues(alpha: 0.42),
                                   blurRadius: 24,
                                   offset: const Offset(0, 10),
                                 ),
@@ -309,10 +310,10 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.30),
+            color: Colors.white.withValues(alpha: 0.30),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: Colors.white.withOpacity(0.68),
+              color: Colors.white.withValues(alpha: 0.68),
             ),
           ),
           child: const Row(
@@ -609,13 +610,13 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
             ),
             border: Border.all(
               color: selected
-                  ? Colors.white.withOpacity(0.98)
-                  : Colors.white.withOpacity(0.82),
+                  ? Colors.white.withValues(alpha: 0.98)
+                  : Colors.white.withValues(alpha: 0.82),
               width: selected ? 1.5 : 1.1,
             ),
             boxShadow: [
               BoxShadow(
-                color: colors.first.withOpacity(0.28),
+                color: colors.first.withValues(alpha: 0.28),
                 blurRadius: 18,
                 offset: const Offset(0, 9),
               ),
@@ -648,12 +649,12 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.92),
+                  color: Colors.white.withValues(alpha: 0.92),
                   width: 2.4,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.white.withOpacity(0.18),
+                    color: Colors.white.withValues(alpha: 0.18),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -693,12 +694,12 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                 shape: BoxShape.circle,
                 gradient: LinearGradient(colors: topRightColors),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.84),
+                  color: Colors.white.withValues(alpha: 0.84),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: topRightColors.first.withOpacity(0.30),
+                    color: topRightColors.first.withValues(alpha: 0.30),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -722,12 +723,12 @@ class _VibeSelectionPageState extends State<VibeSelectionPage> {
                   borderRadius: BorderRadius.circular(999),
                   gradient: LinearGradient(colors: priceColors),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.78),
+                    color: Colors.white.withValues(alpha: 0.78),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: priceColors.first.withOpacity(0.24),
+                      color: priceColors.first.withValues(alpha: 0.24),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -769,12 +770,12 @@ class _ChipPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         gradient: LinearGradient(colors: colors),
         border: Border.all(
-          color: Colors.white.withOpacity(0.68),
+          color: Colors.white.withValues(alpha: 0.68),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: colors.first.withOpacity(0.18),
+            color: colors.first.withValues(alpha: 0.18),
             blurRadius: 7,
             offset: const Offset(0, 3),
           ),
@@ -861,7 +862,7 @@ class _DreamyBg extends StatelessWidget {
         child: Icon(
           Icons.favorite_rounded,
           size: e[2],
-          color: Colors.white.withOpacity(0.30),
+          color: Colors.white.withValues(alpha: 0.30),
         ),
       );
     }).toList();
@@ -884,7 +885,7 @@ class _DreamyBg extends StatelessWidget {
         child: Icon(
           Icons.auto_awesome_rounded,
           size: e[2],
-          color: Colors.white.withOpacity(0.56),
+          color: Colors.white.withValues(alpha: 0.56),
         ),
       );
     }).toList();

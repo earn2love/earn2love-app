@@ -1242,7 +1242,7 @@ class _LoginPageState extends State<LoginPage>
 
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(0.60),
+        color: Colors.black.withValues(alpha: 0.60),
         child: Center(child: content),
       ),
     );
@@ -1341,7 +1341,7 @@ class _LoginPageState extends State<LoginPage>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.black12),
             ),
@@ -1392,7 +1392,7 @@ class _LoginPageState extends State<LoginPage>
               decoration: InputDecoration(
                 hintText: "Phone number / Email",
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.85),
+                fillColor: Colors.white.withValues(alpha: 0.85),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 16,
@@ -1447,7 +1447,7 @@ class _LoginPageState extends State<LoginPage>
               decoration: InputDecoration(
                 hintText: isEmail ? "Check email link" : "Enter OTP",
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.85),
+                fillColor: Colors.white.withValues(alpha: 0.85),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 16,
@@ -1526,7 +1526,7 @@ class _LoginPageState extends State<LoginPage>
         decoration: InputDecoration(
           hintText: hint,
           filled: true,
-          fillColor: Colors.white.withOpacity(0.85),
+          fillColor: Colors.white.withValues(alpha: 0.85),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 16,

@@ -144,7 +144,7 @@ class _SettingsPageState extends State<SettingsPage> {
         border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.18),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -172,7 +172,7 @@ class _SettingsPageState extends State<SettingsPage> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: _purple.withOpacity(0.28),
+            color: _purple.withValues(alpha: 0.28),
             blurRadius: 22,
             offset: const Offset(0, 12),
           ),
@@ -184,7 +184,7 @@ class _SettingsPageState extends State<SettingsPage> {
             width: 74,
             height: 74,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: Colors.white.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(22),
               image: photo.isNotEmpty
                   ? DecorationImage(
@@ -219,7 +219,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.92),
+                    color: Colors.white.withValues(alpha: 0.92),
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -228,7 +228,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   'Privacy • Requests • Calls • Notifications',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.86),
+                    color: Colors.white.withValues(alpha: 0.86),
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                   ),

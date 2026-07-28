@@ -284,7 +284,7 @@ class _ChatListPageState extends State<ChatListPage> {
 
     await showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.28),
+      barrierColor: Colors.black.withValues(alpha: 0.28),
       builder: (_) {
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -298,7 +298,7 @@ class _ChatListPageState extends State<ChatListPage> {
                 borderRadius: BorderRadius.circular(22),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.14),
+                    color: Colors.black.withValues(alpha: 0.14),
                     blurRadius: 22,
                     offset: const Offset(0, 10),
                   ),
@@ -386,8 +386,8 @@ class _ChatListPageState extends State<ChatListPage> {
           boxShadow: [
             BoxShadow(
               color: selected
-                  ? const Color(0xFF8D67FF).withOpacity(0.14)
-                  : Colors.black.withOpacity(0.025),
+                  ? const Color(0xFF8D67FF).withValues(alpha: 0.14)
+                  : Colors.black.withValues(alpha: 0.025),
               blurRadius: selected ? 10 : 6,
               offset: const Offset(0, 3),
             ),
@@ -430,7 +430,7 @@ class _ChatListPageState extends State<ChatListPage> {
         color: const Color(0xFFF7F2FB),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

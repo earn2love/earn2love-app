@@ -1063,8 +1063,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                               border: Border.all(color: Colors.black12),
                               boxShadow: [
                                 BoxShadow(
-                                  color:
-                                      const Color(0xFFD8CBEF).withOpacity(0.12),
+                                  color: const Color(0xFFD8CBEF)
+                                      .withValues(alpha: 0.12),
                                   blurRadius: 14,
                                   offset: const Offset(0, 8),
                                 ),
@@ -2141,9 +2141,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.deepPurple.withOpacity(0.07),
+        color: Colors.deepPurple.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.18)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
@@ -2251,7 +2251,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.04),
+        color: Colors.black.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -2323,7 +2323,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.88),
+            color: Colors.white.withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: const Color(0xFFE6DDF7)),
           ),
@@ -2365,7 +2365,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
               height: 180,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF8D67FF).withOpacity(0.05),
+                color: const Color(0xFF8D67FF).withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -2377,7 +2377,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
               height: 140,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFFF5DA2).withOpacity(0.045),
+                color: const Color(0xFFFF5DA2).withValues(alpha: 0.045),
               ),
             ),
           ),
@@ -2389,7 +2389,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
               height: 160,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF8D67FF).withOpacity(0.04),
+                color: const Color(0xFF8D67FF).withValues(alpha: 0.04),
               ),
             ),
           ),
@@ -2447,7 +2447,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD8CBEF).withOpacity(0.08),
+              color: const Color(0xFFD8CBEF).withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -2977,14 +2977,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.98),
+                                    color: Colors.white.withValues(alpha: 0.98),
                                     borderRadius: BorderRadius.circular(28),
                                     border: Border.all(
                                       color: const Color(0xFFE5D8FA),
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.04),
+                                        color: Colors.black
+                                            .withValues(alpha: 0.04),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       ),
@@ -3167,7 +3168,7 @@ class _ChatPatternPainter extends CustomPainter {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
-      ..color = const Color(0xFF8D67FF).withOpacity(0.35);
+      ..color = const Color(0xFF8D67FF).withValues(alpha: 0.35);
 
     const gap = 42.0;
 

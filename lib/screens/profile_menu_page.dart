@@ -69,7 +69,8 @@ class ProfileMenuPage extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: (iconColor ?? Colors.deepPurple).withOpacity(0.12),
+          backgroundColor:
+              (iconColor ?? Colors.deepPurple).withValues(alpha: 0.12),
           child: Icon(icon, color: iconColor ?? Colors.deepPurple),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
@@ -170,7 +171,7 @@ class ProfileMenuPage extends StatelessWidget {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: Colors.red.withOpacity(0.12),
+                backgroundColor: Colors.red.withValues(alpha: 0.12),
                 child: const Icon(Icons.logout, color: Colors.red),
               ),
               title: const Text("Logout",

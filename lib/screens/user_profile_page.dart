@@ -248,7 +248,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.95),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.95),
                                       width: 2,
                                     ),
                                   ),
@@ -258,7 +259,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                         ? null
                                         : NetworkImage(photo),
                                     backgroundColor:
-                                        Colors.white.withOpacity(0.18),
+                                        Colors.white.withValues(alpha: 0.18),
                                     child: photo.isEmpty
                                         ? const Icon(
                                             Icons.person,
@@ -393,7 +394,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           decoration: BoxDecoration(
                             border: Border(
                               top: BorderSide(
-                                color: Colors.white.withOpacity(0.22),
+                                color: Colors.white.withValues(alpha: 0.22),
                                 width: 0.8,
                               ),
                             ),
@@ -420,7 +421,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
               ),
               Container(
                 height: 1,
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
               ),
               Expanded(
                 child: _buildTabBody(),
@@ -447,9 +448,9 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = filled
-        ? Colors.white.withOpacity(onTap == null ? 0.12 : 0.18)
+        ? Colors.white.withValues(alpha: onTap == null ? 0.12 : 0.18)
         : Colors.transparent;
-    final border = Colors.white.withOpacity(0.30);
+    final border = Colors.white.withValues(alpha: 0.30);
 
     return Material(
       color: Colors.transparent,
@@ -716,7 +717,7 @@ class _UserMediaGridStream extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(7),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.40),
+                              color: Colors.black.withValues(alpha: 0.40),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.play_arrow,
@@ -887,7 +888,7 @@ class _SimpleVideoPlayerState extends State<_SimpleVideoPlayer> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.35),
+                color: Colors.black.withValues(alpha: 0.35),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

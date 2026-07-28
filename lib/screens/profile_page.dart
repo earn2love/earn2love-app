@@ -680,10 +680,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                 child: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.18),
+                                    color: Colors.white.withValues(alpha: 0.18),
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.30),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.30),
                                     ),
                                   ),
                                   child: const Icon(
@@ -738,7 +739,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                             shape: BoxShape.circle,
                                             border: Border.all(
                                               color: Colors.white
-                                                  .withOpacity(0.95),
+                                                  .withValues(alpha: 0.95),
                                               width: 2,
                                             ),
                                           ),
@@ -747,8 +748,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                             backgroundImage: photo.isEmpty
                                                 ? null
                                                 : NetworkImage(photo),
-                                            backgroundColor:
-                                                Colors.white.withOpacity(0.18),
+                                            backgroundColor: Colors.white
+                                                .withValues(alpha: 0.18),
                                             child: photo.isEmpty
                                                 ? const Icon(
                                                     Icons.person,
@@ -770,7 +771,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                             decoration: BoxDecoration(
                                               shape: BoxShape.circle,
                                               color: Colors.black
-                                                  .withOpacity(0.82),
+                                                  .withValues(alpha: 0.82),
                                               border: Border.all(
                                                 color: Colors.white,
                                                 width: 2,
@@ -827,7 +828,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             decoration: BoxDecoration(
                               border: Border(
                                 top: BorderSide(
-                                  color: Colors.white.withOpacity(0.22),
+                                  color: Colors.white.withValues(alpha: 0.22),
                                   width: 0.8,
                                 ),
                               ),
@@ -859,7 +860,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 Container(
                   height: 1,
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                 ),
                 Expanded(
                   child: _buildTabBody(),
@@ -1117,7 +1118,7 @@ class _MediaGridStream extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(7),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.40),
+                              color: Colors.black.withValues(alpha: 0.40),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.play_arrow,
@@ -1126,7 +1127,7 @@ class _MediaGridStream extends StatelessWidget {
                         ),
                       if (flagged)
                         Container(
-                          color: Colors.black.withOpacity(0.35),
+                          color: Colors.black.withValues(alpha: 0.35),
                           child: const Center(
                             child: Text(
                               'Warning',
@@ -1716,7 +1717,7 @@ class _AutoPlayVideoState extends State<_AutoPlayVideo> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.35),
+                color: Colors.black.withValues(alpha: 0.35),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

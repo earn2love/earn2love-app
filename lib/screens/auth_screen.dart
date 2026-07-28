@@ -389,7 +389,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.55),
+                  color: Colors.white.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: Colors.black12),
                 ),
@@ -475,7 +475,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 Container(
                   height: 54,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: Colors.black12),
                   ),
@@ -581,7 +581,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: green.withOpacity(0.35),
+                        backgroundColor: green.withValues(alpha: 0.35),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -598,7 +598,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Country: ${selectedCountry?.name ?? 'United Kingdom'}',
-                  style: TextStyle(color: Colors.black.withOpacity(0.55)),
+                  style: TextStyle(color: Colors.black.withValues(alpha: 0.55)),
                 ),
               ] else ...[
                 _roundedField(
@@ -659,7 +659,7 @@ class _AuthScreenState extends State<AuthScreen> {
       height: 54,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
+        color: Colors.white.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.black12),
       ),

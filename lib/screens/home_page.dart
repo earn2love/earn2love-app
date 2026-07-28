@@ -397,7 +397,7 @@ class _HomePageState extends State<HomePage> {
           BoxShadow(
             blurRadius: 16,
             offset: const Offset(0, 8),
-            color: Colors.purple.withOpacity(0.18),
+            color: Colors.purple.withValues(alpha: 0.18),
           ),
         ],
       ),
@@ -419,13 +419,13 @@ class _HomePageState extends State<HomePage> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.95),
+                    color: Colors.white.withValues(alpha: 0.95),
                     width: 2,
                   ),
                 ),
                 child: CircleAvatar(
                   radius: 28,
-                  backgroundColor: Colors.white.withOpacity(0.12),
+                  backgroundColor: Colors.white.withValues(alpha: 0.12),
                   backgroundImage:
                       myPhoto.isEmpty ? null : NetworkImage(myPhoto),
                   child: myPhoto.isEmpty
@@ -475,7 +475,7 @@ class _HomePageState extends State<HomePage> {
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white.withOpacity(0.95),
+                              color: Colors.white.withValues(alpha: 0.95),
                             ),
                           ),
                         ),
@@ -508,13 +508,13 @@ class _HomePageState extends State<HomePage> {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.96),
+                            color: Colors.white.withValues(alpha: 0.96),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
-                                color: Colors.black.withOpacity(0.10),
+                                color: Colors.black.withValues(alpha: 0.10),
                               ),
                             ],
                           ),
@@ -576,7 +576,7 @@ class _HomePageState extends State<HomePage> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w900,
-                              color: Colors.white.withOpacity(0.98),
+                              color: Colors.white.withValues(alpha: 0.98),
                             ),
                           ),
                         ),
@@ -612,13 +612,13 @@ class _HomePageState extends State<HomePage> {
                         height: 48,
                         margin: const EdgeInsets.only(top: 0),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.96),
+                          color: Colors.white.withValues(alpha: 0.96),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               blurRadius: 10,
                               offset: const Offset(0, 4),
-                              color: Colors.black.withOpacity(0.10),
+                              color: Colors.black.withValues(alpha: 0.10),
                             ),
                           ],
                         ),
@@ -1147,7 +1147,7 @@ class _HomePageState extends State<HomePage> {
           BoxShadow(
             blurRadius: 14,
             offset: const Offset(0, 8),
-            color: const Color(0xFFC6B5DC).withOpacity(0.25),
+            color: const Color(0xFFC6B5DC).withValues(alpha: 0.25),
           ),
         ],
       ),
@@ -1391,7 +1391,7 @@ class _PlanSelectSheet extends StatelessWidget {
             BoxShadow(
               blurRadius: 22,
               offset: const Offset(0, 12),
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
             ),
           ],
         ),

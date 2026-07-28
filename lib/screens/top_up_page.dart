@@ -391,7 +391,7 @@ class _HeroBalanceCard extends StatelessWidget {
           BoxShadow(
             blurRadius: 18,
             offset: const Offset(0, 10),
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
           ),
         ],
       ),
@@ -404,8 +404,9 @@ class _HeroBalanceCard extends StatelessWidget {
                 width: 40,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  color: Colors.white.withOpacity(0.18),
-                  border: Border.all(color: Colors.white.withOpacity(0.22)),
+                  color: Colors.white.withValues(alpha: 0.18),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.22)),
                 ),
                 child: const Icon(Icons.account_balance_wallet,
                     color: Colors.white, size: 20),
@@ -427,8 +428,9 @@ class _HeroBalanceCard extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
-                  color: Colors.white.withOpacity(0.18),
-                  border: Border.all(color: Colors.white.withOpacity(0.22)),
+                  color: Colors.white.withValues(alpha: 0.18),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.22)),
                 ),
                 child: Text(
                   country.toUpperCase(),
@@ -445,8 +447,8 @@ class _HeroBalanceCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              color: Colors.white.withOpacity(0.14),
-              border: Border.all(color: Colors.white.withOpacity(0.18)),
+              color: Colors.white.withValues(alpha: 0.14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
             ),
             child: Row(
               children: [
@@ -481,8 +483,9 @@ class _HeroBalanceCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
-                    color: Colors.black.withOpacity(0.14),
-                    border: Border.all(color: Colors.white.withOpacity(0.18)),
+                    color: Colors.black.withValues(alpha: 0.14),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.18)),
                   ),
                   child: const Text(
                     "Instant",

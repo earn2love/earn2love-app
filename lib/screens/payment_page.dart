@@ -195,7 +195,7 @@ class _PaymentPageState extends State<PaymentPage> {
               padding: const EdgeInsets.all(16),
               child: Card(
                 elevation: 8,
-                shadowColor: accentColor.withOpacity(0.18),
+                shadowColor: accentColor.withValues(alpha: 0.18),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),

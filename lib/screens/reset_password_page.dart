@@ -73,7 +73,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     return InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: Colors.white.withOpacity(0.85),
+      fillColor: Colors.white.withValues(alpha: 0.85),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -303,7 +303,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.85),
+                        color: Colors.white.withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: Colors.black12),
                       ),

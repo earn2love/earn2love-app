@@ -80,7 +80,7 @@ class _ProfilePersonalPageState extends State<ProfilePersonalPage> {
     return names[m - 1];
   }
 
-  Color _soft(Color c) => c.withOpacity(0.12);
+  Color _soft(Color c) => c.withValues(alpha: 0.12);
 
   // Age output: "25y 7m 26d"
   String _ageText(int y, int m, int d) {
