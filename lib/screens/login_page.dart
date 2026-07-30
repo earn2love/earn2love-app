@@ -584,6 +584,7 @@ class _LoginPageState extends State<LoginPage>
     });
 
     try {
+      debugPrint("EMAIL STEP 1: Signup email process started.");
       final auth = FirebaseAuth.instance;
       final current = auth.currentUser;
 
@@ -595,6 +596,9 @@ class _LoginPageState extends State<LoginPage>
       }
 
       User? user = auth.currentUser;
+      debugPrint(
+        "EMAIL STEP 2: Current user before creation: ${user?.uid ?? 'none'}",
+      );
 
       if (user == null) {
         final tempPass = _randomTempPassword();
@@ -617,10 +621,55 @@ class _LoginPageState extends State<LoginPage>
         return;
       }
 
-      await ensureUserDoc(country: country);
-      await _setCountryPricingOnUserDoc(user.uid);
-      await _savePendingEmailState(email);
-      await user.sendEmailVerification();
+      if (mounted) {
+        setState(() {
+          status = "Account created. Sending verification email...";
+        });
+      }
+
+      debugPrint("EMAIL STEP 3: Sending verification email...");
+
+      try {
+        await user.sendEmailVerification().timeout(
+              const Duration(seconds: 20),
+            );
+        debugPrint("EMAIL STEP 4: Verification email request completed.");
+      } on TimeoutException {
+        debugPrint("EMAIL TIMEOUT: Verification request exceeded 20 seconds.");
+        if (mounted) {
+          setState(() {
+            status =
+                "Email request timed out. Check internet and try Send Link again.";
+          });
+        }
+        return;
+      } on FirebaseAuthException catch (e) {
+        debugPrint("EMAIL FIREBASE ERROR: ${e.code} ${e.message}");
+        if (mounted) {
+          setState(() {
+            status = "Email error: ${e.code} ${e.message ?? ''}".trim();
+          });
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          status = "Email sent. Saving account information...";
+        });
+      }
+
+      await _savePendingEmailState(email).timeout(
+        const Duration(seconds: 10),
+      );
+
+      await ensureUserDoc(country: country).timeout(
+        const Duration(seconds: 10),
+      );
+
+      await _setCountryPricingOnUserDoc(user.uid).timeout(
+        const Duration(seconds: 10),
+      );
 
       if (!mounted) return;
       setState(() {
@@ -768,27 +817,45 @@ class _LoginPageState extends State<LoginPage>
           }
         },
         verificationFailed: (FirebaseAuthException e) {
-          setState(() => status = "OTP failed: ${e.code} ${e.message}");
+          if (!mounted) return;
+
+          setState(() {
+            sendingOtp = false;
+            status = "OTP failed: ${e.code} ${e.message ?? ''}";
+          });
         },
         codeSent: (String verId, int? token) {
+          if (!mounted) return;
+
           verificationId = verId;
           resendToken = token;
+
           setState(() {
+            sendingOtp = false;
             otpSent = true;
             otpVerified = false;
             lockId = true;
             lockDial = true;
-            status = "OTP sent ✅ Enter OTP and tap Verify OTP.";
+            status = "OTP sent ✅ Enter the code sent to $fullPhone.";
           });
         },
         codeAutoRetrievalTimeout: (String verId) {
           verificationId = verId;
+
+          if (!mounted) return;
+
+          setState(() {
+            sendingOtp = false;
+          });
         },
       );
     } catch (e) {
-      setState(() => status = "$e");
-    } finally {
-      if (mounted) setState(() => sendingOtp = false);
+      if (!mounted) return;
+
+      setState(() {
+        sendingOtp = false;
+        status = "OTP error: $e";
+      });
     }
   }
 

@@ -236,15 +236,26 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         titleSpacing: 16,
         title: Row(
           children: [
-            Image.asset('assets/images/earn2love_icon.png',
-                width: _appBarIcon, height: _appBarIcon),
-            const SizedBox(width: 10),
-            const Text(
-              'Earn2Love',
-              style: TextStyle(
-                  fontSize: _appBarTitle,
-                  fontWeight: FontWeight.w900,
-                  color: purple),
+            Image.asset(
+              'assets/images/earn2love_icon.png',
+              width: _appBarIcon,
+              height: _appBarIcon,
+            ),
+            const SizedBox(width: 8),
+            const Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Earn2Love',
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: _appBarTitle,
+                    fontWeight: FontWeight.w900,
+                    color: purple,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
