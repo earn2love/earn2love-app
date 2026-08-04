@@ -16,6 +16,7 @@ import '../chat/services/message_service.dart';
 import '../chat/services/presence_service.dart';
 import '../chat/services/typing_service.dart';
 import '../chat/widgets/message_bubble.dart';
+import '../chat/widgets/message_input.dart';
 import '../chat/widgets/message_list.dart';
 
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
@@ -2664,192 +2665,30 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                           isSameDay: _isSameDay,
                         ),
                       ),
-                      SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 6, 8, 10),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.98),
-                                    borderRadius: BorderRadius.circular(28),
-                                    border: Border.all(
-                                      color: const Color(0xFFE5D8FA),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.04),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      IconButton(
-                                        tooltip: 'Colors',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: _anyBlocked
-                                            ? null
-                                            : () {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                    content:
-                                                        Text('Coming soon'),
-                                                  ),
-                                                );
-                                                _msgFocusNode.requestFocus();
-                                              },
-                                        icon: Icon(
-                                          Icons.palette_outlined,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: ConstrainedBox(
-                                          constraints: const BoxConstraints(
-                                            minHeight: 40,
-                                            maxHeight: 120,
-                                          ),
-                                          child: TextField(
-                                            key: _composerFieldKey,
-                                            controller: msgCtrl,
-                                            focusNode: _msgFocusNode,
-                                            enabled:
-                                                !_anyBlocked && !_isRecording,
-                                            minLines: 1,
-                                            maxLines: 5,
-                                            textCapitalization:
-                                                TextCapitalization.sentences,
-                                            keyboardType:
-                                                TextInputType.multiline,
-                                            textInputAction:
-                                                TextInputAction.newline,
-                                            onChanged: _onTypingChanged,
-                                            decoration: InputDecoration(
-                                              hintText: _anyBlocked
-                                                  ? (_blockedByMe
-                                                      ? 'You blocked this user'
-                                                      : 'You are blocked')
-                                                  : 'Message',
-                                              border: InputBorder.none,
-                                              isDense: true,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 2,
-                                                vertical: 10,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      if (!_hasTypedText)
-                                        IconButton(
-                                          tooltip: _sendingImage
-                                              ? 'Sending...'
-                                              : 'Camera',
-                                          visualDensity: VisualDensity.compact,
-                                          onPressed:
-                                              (_anyBlocked || _sendingImage)
-                                                  ? null
-                                                  : _pickAndSendImageOrRequest,
-                                          icon: Icon(
-                                            Icons.camera_alt_outlined,
-                                            color: _anyBlocked
-                                                ? Colors.grey.shade400
-                                                : Colors.grey.shade700,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 48,
-                                height: 48,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: (_hasTypedText ||
-                                            _sendingText ||
-                                            !_isRecording)
-                                        ? const LinearGradient(
-                                            colors: [
-                                              Color(0xFF8D67FF),
-                                              Color(0xFFFF5DA2),
-                                            ],
-                                          )
-                                        : null,
-                                    color: _isRecording ? Colors.red : null,
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      customBorder: const CircleBorder(),
-                                      onTap: (_anyBlocked || _sendingText)
-                                          ? null
-                                          : () async {
-                                              if (_hasTypedText) {
-                                                await _send();
-                                                return;
-                                              }
-
-                                              if (_isRecording) {
-                                                await _stopAndSendVoice();
-                                                if (mounted) {
-                                                  _msgFocusNode.requestFocus();
-                                                }
-                                              } else {
-                                                await _startVoiceRecording();
-                                              }
-                                            },
-                                      child: Center(
-                                        child: _sendingText
-                                            ? const SizedBox(
-                                                width: 18,
-                                                height: 18,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: Colors.white,
-                                                ),
-                                              )
-                                            : Icon(
-                                                _hasTypedText
-                                                    ? Icons.send_rounded
-                                                    : (_isRecording
-                                                        ? Icons.stop
-                                                        : Icons.mic),
-                                                color: Colors.white,
-                                                size: 22,
-                                              ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (_isRecording) ...[
-                                const SizedBox(width: 6),
-                                IconButton(
-                                  tooltip: 'Cancel recording',
-                                  onPressed: _cancelVoiceRecording,
-                                  icon: const Icon(Icons.close),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                      ChatMessageInput(
+                        fieldKey: _composerFieldKey,
+                        controller: msgCtrl,
+                        focusNode: _msgFocusNode,
+                        isBlocked: _anyBlocked,
+                        blockedByCurrentUser: _blockedByMe,
+                        isRecording: _isRecording,
+                        hasTypedText: _hasTypedText,
+                        sendingText: _sendingText,
+                        sendingImage: _sendingImage,
+                        onTypingChanged: _onTypingChanged,
+                        onSend: _send,
+                        onPickImage: _pickAndSendImageOrRequest,
+                        onStartRecording: _startVoiceRecording,
+                        onStopAndSendRecording: _stopAndSendVoice,
+                        onCancelRecording: _cancelVoiceRecording,
+                        onColorPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Coming soon'),
+                            ),
+                          );
+                          _msgFocusNode.requestFocus();
+                        },
                       ),
                     ],
                   ),
