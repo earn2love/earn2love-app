@@ -202,6 +202,36 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
   }
 
   Future<void> _clearChatForMe() async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('Clear chat for me?'),
+              content: const Text(
+                'This hides existing messages only for your account. '
+                'The other participant will keep their messages.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Clear chat'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed) return;
+
     await _savePrefs({
       'clearedAt': FieldValue.serverTimestamp(),
     });
@@ -399,7 +429,10 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
         backgroundColor: _bg,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Chat Settings'),
+        title: const Text(
+          'Conversation Settings',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -408,83 +441,139 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
               children: [
                 _headerCard(),
                 _blockedInfo(),
-                const SizedBox(height: 16),
-                _sectionTitle('Notifications & Privacy'),
+                const SizedBox(height: 18),
+                _sectionTitle('Conversation'),
                 _groupCard([
+                  _navTile(
+                    icon: Icons.auto_delete_outlined,
+                    title: 'Disappearing messages',
+                    subtitle:
+                        'Current setting: ${_disappearLabel(_disappearMode)}',
+                    onTap: _showDisappearPicker,
+                  ),
                   _switchTile(
                     icon: Icons.notifications_off_outlined,
-                    title: 'Mute notifications',
-                    subtitle: 'Silence alerts only for this chat',
+                    title: 'Mute conversation',
+                    subtitle:
+                        'Silence notifications only for this conversation',
                     value: _muteNotifications,
                     onChanged: _setMute,
                   ),
                   _switchTile(
-                    icon: Icons.done_all,
+                    icon: Icons.done_all_rounded,
                     title: 'Read receipts',
-                    subtitle: 'Show seen status in this chat',
+                    subtitle: 'Show seen status only in this conversation',
                     value: _readReceipts,
-                    onChanged: (v) => _savePrefs({'readReceipts': v}),
+                    onChanged: (value) => _savePrefs({'readReceipts': value}),
                   ),
                   _switchTile(
                     icon: Icons.circle_outlined,
-                    title: 'Show online status',
-                    subtitle: 'Show online / last seen in this chat',
+                    title: 'Online status',
+                    subtitle: 'Show online and last-seen information here',
                     value: _showOnlineStatus,
-                    onChanged: (v) => _savePrefs({'showOnlineStatus': v}),
-                  ),
-                  _navTile(
-                    icon: Icons.auto_delete_outlined,
-                    title: 'Disappear messages',
-                    subtitle: 'Current: ${_disappearLabel(_disappearMode)}',
-                    onTap: _showDisappearPicker,
+                    onChanged: (value) =>
+                        _savePrefs({'showOnlineStatus': value}),
                   ),
                 ]),
                 const SizedBox(height: 16),
-                _sectionTitle('Requests & Calls'),
+                _sectionTitle('Requests and calls'),
                 _groupCard([
                   _switchTile(
                     icon: Icons.image_outlined,
-                    title: 'Allow image requests',
-                    subtitle: 'This user can send image requests',
+                    title: 'Image requests',
+                    subtitle: 'Allow this user to send image requests',
                     value: _allowImageRequests,
-                    onChanged: (v) => _savePrefs({'allowImageRequests': v}),
+                    onChanged: (value) =>
+                        _savePrefs({'allowImageRequests': value}),
                   ),
                   _switchTile(
                     icon: Icons.phone_outlined,
-                    title: 'Allow audio call requests',
-                    subtitle: 'This user can send audio call requests',
+                    title: 'Audio call requests',
+                    subtitle: 'Allow this user to request an audio call',
                     value: _allowAudioRequests,
-                    onChanged: (v) => _savePrefs({'allowAudioRequests': v}),
+                    onChanged: (value) =>
+                        _savePrefs({'allowAudioRequests': value}),
                   ),
                   _switchTile(
                     icon: Icons.video_call_outlined,
-                    title: 'Allow video call requests',
-                    subtitle: 'This user can send video call requests',
+                    title: 'Video call requests',
+                    subtitle: 'Allow this user to request a video call',
                     value: _allowVideoRequests,
-                    onChanged: (v) => _savePrefs({'allowVideoRequests': v}),
+                    onChanged: (value) =>
+                        _savePrefs({'allowVideoRequests': value}),
                   ),
                 ]),
                 const SizedBox(height: 16),
-                _sectionTitle('Media'),
+                _sectionTitle('Media and storage'),
                 _groupCard([
                   _switchTile(
                     icon: Icons.download_outlined,
-                    title: 'Media auto download',
-                    subtitle: 'Download images automatically',
+                    title: 'Media auto-download',
+                    subtitle: 'Download supported images automatically',
                     value: _mediaAutoDownload,
-                    onChanged: (v) => _savePrefs({'mediaAutoDownload': v}),
+                    onChanged: (value) =>
+                        _savePrefs({'mediaAutoDownload': value}),
                   ),
                 ]),
                 const SizedBox(height: 16),
-                _sectionTitle('Chat'),
+                _sectionTitle('Safety status'),
                 _groupCard([
-                  _navTile(
-                    icon: Icons.delete_sweep_outlined,
-                    title: 'Clear chat for me',
-                    subtitle: 'Hide old messages only on your side',
-                    onTap: _clearChatForMe,
+                  ListTile(
+                    leading: Icon(
+                      _anyBlocked
+                          ? Icons.block_rounded
+                          : Icons.verified_user_outlined,
+                      color:
+                          _anyBlocked ? Colors.redAccent : Colors.greenAccent,
+                    ),
+                    title: Text(
+                      _anyBlocked
+                          ? 'Conversation restricted'
+                          : 'Conversation active',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _blockedByMe
+                          ? 'You have blocked this user.'
+                          : _blockedByOther
+                              ? 'This user has restricted the conversation.'
+                              : 'Block and report controls are available from the chat menu.',
+                      style: const TextStyle(color: _muted),
+                    ),
                   ),
                 ]),
+                const SizedBox(height: 16),
+                _sectionTitle('Danger zone'),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF211419),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: const Color(0x55FF5F76),
+                    ),
+                  ),
+                  child: ListTile(
+                    onTap: _saving ? null : _clearChatForMe,
+                    leading: const Icon(
+                      Icons.delete_sweep_outlined,
+                      color: Color(0xFFFF6B81),
+                    ),
+                    title: const Text(
+                      'Clear chat for me',
+                      style: TextStyle(
+                        color: Color(0xFFFF6B81),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Hide existing messages only on your account',
+                      style: TextStyle(color: _muted),
+                    ),
+                  ),
+                ),
               ],
             ),
     );

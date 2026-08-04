@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 
 import 'blocked_users_page.dart';
 import 'report_history_page.dart';
+import '../notifications_page.dart';
+import '../profile_menu_page.dart';
+import '../support_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -226,7 +229,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Privacy • Requests • Calls • Notifications',
+                  'Account • Chats • Calls • Games • Safety',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.86),
                     fontSize: 12.5,
@@ -387,6 +390,40 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<bool> _confirmAction({
+    required String title,
+    required String message,
+    required String actionLabel,
+    bool destructive = false,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: Text(title),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: destructive
+                      ? FilledButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        )
+                      : null,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(actionLabel),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+  }
+
   Widget _logoutTile() {
     return Container(
       decoration: BoxDecoration(
@@ -399,6 +436,15 @@ class _SettingsPageState extends State<SettingsPage> {
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: () async {
+            final confirmed = await _confirmAction(
+              title: 'Log out',
+              message: 'Are you sure you want to log out from this device?',
+              actionLabel: 'Log out',
+              destructive: true,
+            );
+
+            if (!confirmed) return;
+
             await FirebaseAuth.instance.signOut();
           },
           child: const Padding(
@@ -416,7 +462,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    'Logout',
+                    'Log out',
                     style: TextStyle(
                       color: Color(0xFFFF6B81),
                       fontSize: 16,
@@ -479,44 +525,82 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   _profileHeader(),
                   const SizedBox(height: 18),
-                  _sectionTitle('Profile & Privacy'),
+                  _sectionTitle('Account'),
                   _groupCard([
+                    _navTile(
+                      icon: Icons.manage_accounts_outlined,
+                      iconColor: _purple,
+                      title: 'Profile and account',
+                      subtitle:
+                          'Personal details, photos, bio, contact and address',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ProfileMenuPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    _dividerLine(),
                     _switchTile(
                       settingKey: 'privateProfile',
                       icon: Icons.lock_outline_rounded,
                       iconColor: _gold,
                       title: 'Private profile',
-                      subtitle: 'Limit profile visibility to approved users',
+                      subtitle:
+                          'Only approved users can access your full profile',
                       value: privateProfile,
                     ),
-                    _switchTile(
-                      settingKey: 'showOnlineStatus',
-                      icon: Icons.circle_outlined,
-                      iconColor: _green,
-                      title: 'Show online status',
-                      subtitle: 'Let others see when you are online',
-                      value: showOnlineStatus,
-                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  _sectionTitle('Chats'),
+                  _groupCard([
                     _switchTile(
                       settingKey: 'readReceipts',
                       icon: Icons.done_all_rounded,
                       iconColor: _blue,
                       title: 'Read receipts',
-                      subtitle: 'Show when messages are seen',
+                      subtitle: 'Show other users when you have read a message',
                       value: readReceipts,
                     ),
-                  ]),
-                  const SizedBox(height: 16),
-                  _sectionTitle('Requests & Calls'),
-                  _groupCard([
+                    _switchTile(
+                      settingKey: 'showOnlineStatus',
+                      icon: Icons.circle_outlined,
+                      iconColor: _green,
+                      title: 'Online status',
+                      subtitle:
+                          'Allow other users to see online and last-seen status',
+                      value: showOnlineStatus,
+                    ),
                     _switchTile(
                       settingKey: 'allowImageRequests',
                       icon: Icons.image_outlined,
                       iconColor: _blue,
                       title: 'Image requests',
-                      subtitle: 'Allow users to send image requests',
+                      subtitle:
+                          'Allow users to request images in conversations',
                       value: allowImageRequests,
                     ),
+                    _switchTile(
+                      settingKey: 'mediaAutoDownload',
+                      icon: Icons.download_outlined,
+                      iconColor: _purple,
+                      title: 'Media auto-download',
+                      subtitle: 'Download supported chat media automatically',
+                      value: mediaAutoDownload,
+                    ),
+                    _switchTile(
+                      settingKey: 'pinImportantChats',
+                      icon: Icons.push_pin_outlined,
+                      iconColor: _gold,
+                      title: 'Pin important chats',
+                      subtitle: 'Keep priority conversations near the top',
+                      value: pinImportantChats,
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  _sectionTitle('Calls'),
+                  _groupCard([
                     _switchTile(
                       settingKey: 'allowAudioCalls',
                       icon: Icons.phone_outlined,
@@ -535,42 +619,43 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ]),
                   const SizedBox(height: 16),
-                  _sectionTitle('Chat Settings'),
+                  _sectionTitle('Games and Meera'),
                   _groupCard([
                     _switchTile(
                       settingKey: 'aiChatEnabled',
-                      icon: Icons.smart_toy_outlined,
-                      iconColor: _gold,
-                      title: 'AI Chat',
-                      subtitle: 'Enable AI chat access and suggestions',
+                      icon: Icons.auto_awesome_outlined,
+                      iconColor: _pink,
+                      title: 'Meera assistant',
+                      subtitle:
+                          'Enable Meera assistance and AI-hosted experiences',
                       value: aiChatEnabled,
                     ),
-                    _switchTile(
-                      settingKey: 'mediaAutoDownload',
-                      icon: Icons.download_outlined,
-                      iconColor: _blue,
-                      title: 'Media auto download',
-                      subtitle: 'Download media automatically',
-                      value: mediaAutoDownload,
-                    ),
-                    _switchTile(
-                      settingKey: 'pinImportantChats',
-                      icon: Icons.push_pin_outlined,
-                      iconColor: _green,
-                      title: 'Pin important chats',
-                      subtitle: 'Keep priority conversations at the top',
-                      value: pinImportantChats,
+                    _navTile(
+                      icon: Icons.sports_esports_outlined,
+                      iconColor: _purple,
+                      title: 'Games preferences',
+                      subtitle:
+                          'Game language, comfort and Play Together controls',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Games preferences will open from the Games tab.',
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ]),
                   const SizedBox(height: 16),
-                  _sectionTitle('Notification Settings'),
+                  _sectionTitle('Notifications'),
                   _groupCard([
                     _switchTile(
                       settingKey: 'messageNotifications',
                       icon: Icons.chat_bubble_outline_rounded,
                       iconColor: _pink,
                       title: 'Message notifications',
-                      subtitle: 'Popup or banner for new messages',
+                      subtitle: 'Receive alerts when a new message arrives',
                       value: messageNotifications,
                     ),
                     _switchTile(
@@ -578,7 +663,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.mark_email_unread_outlined,
                       iconColor: _blue,
                       title: 'Request notifications',
-                      subtitle: 'Image and call request alerts',
+                      subtitle: 'Receive friend, image and call request alerts',
                       value: requestNotifications,
                     ),
                     _switchTile(
@@ -586,21 +671,34 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.notifications_active_outlined,
                       iconColor: _green,
                       title: 'Call notifications',
-                      subtitle: 'Incoming call and response alerts',
+                      subtitle: 'Receive incoming-call and call-status alerts',
                       value: callNotifications,
+                    ),
+                    _dividerLine(),
+                    _navTile(
+                      icon: Icons.tune_rounded,
+                      iconColor: _purple,
+                      title: 'Notification centre',
+                      subtitle: 'Review recent app notifications',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsPage(),
+                          ),
+                        );
+                      },
                     ),
                   ]),
                   const SizedBox(height: 16),
-                  _sectionTitle('Safety'),
+                  _sectionTitle('Privacy and safety'),
                   _groupCard([
                     _navTile(
                       icon: Icons.block_outlined,
                       iconColor: _red,
                       title: 'Blocked users',
-                      subtitle: 'View and unblock blocked profiles',
+                      subtitle: 'Review and unblock profiles you have blocked',
                       onTap: () {
-                        Navigator.push(
-                          context,
+                        Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const BlockedUsersPage(),
                           ),
@@ -612,12 +710,44 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.flag_outlined,
                       iconColor: _blue,
                       title: 'Report history',
-                      subtitle: 'Reports made by you and against you',
+                      subtitle: 'Review reports and their current status',
                       onTap: () {
-                        Navigator.push(
-                          context,
+                        Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const ReportHistoryPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  _sectionTitle('Help and support'),
+                  _groupCard([
+                    _navTile(
+                      icon: Icons.support_agent_outlined,
+                      iconColor: _pink,
+                      title: 'Meera Support',
+                      subtitle: 'Get AI assistance or submit a support ticket',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SupportPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    _dividerLine(),
+                    _navTile(
+                      icon: Icons.policy_outlined,
+                      iconColor: _gold,
+                      title: 'Legal and community rules',
+                      subtitle: 'Privacy, terms and community standards',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Legal documents are available from the profile area.',
+                            ),
                           ),
                         );
                       },
