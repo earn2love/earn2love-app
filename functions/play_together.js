@@ -745,6 +745,7 @@ function publicSession(sessionId, session) {
     guestComfort: session.guestComfort || "standard",
     effectiveComfort:
         session.effectiveComfort || "standard",
+    adultEligible: session.adultEligible === true,
     hostReady: session.hostReady === true,
     guestReady: session.guestReady === true,
     currentRound: Number(session.currentRound || 0),

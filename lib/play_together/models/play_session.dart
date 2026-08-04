@@ -57,6 +57,7 @@ class PlaySession {
     required this.hostComfort,
     required this.guestComfort,
     required this.effectiveComfort,
+    required this.adultEligible,
     required this.hostReady,
     required this.guestReady,
     required this.currentRound,
@@ -81,6 +82,7 @@ class PlaySession {
   final String hostComfort;
   final String guestComfort;
   final String effectiveComfort;
+  final bool adultEligible;
 
   final bool hostReady;
   final bool guestReady;
@@ -111,6 +113,7 @@ class PlaySession {
       hostComfort: (map['hostComfort'] ?? 'standard').toString(),
       guestComfort: (map['guestComfort'] ?? 'standard').toString(),
       effectiveComfort: (map['effectiveComfort'] ?? 'standard').toString(),
+      adultEligible: map['adultEligible'] == true,
       hostReady: map['hostReady'] == true,
       guestReady: map['guestReady'] == true,
       currentRound: (map['currentRound'] as num?)?.toInt() ?? 0,
