@@ -4,14 +4,14 @@ import { ChevronLeft, PanelLeftClose, PanelLeft, ExternalLink } from "lucide-rea
 import { NAV_GROUPS } from "@/config/modules";
 import { usePendingCounts } from "@/context/PendingCountsContext";
 import { useAuth } from "@/context/AuthContext";
+import { roleCanSeeItem } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const { counts } = usePendingCounts();
   const { admin } = useAuth();
-  const isSuper = admin?.role === "super_admin";
-  const visibleItems = (items) => items.filter((i) => !i.superAdminOnly || isSuper);
+  const visibleItems = (items) => items.filter((i) => roleCanSeeItem(admin?.role, i));
 
   return (
     <aside

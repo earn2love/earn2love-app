@@ -3,6 +3,7 @@ import {
   Coins, ArrowLeftRight, BanknoteArrowDown, Phone, ListChecks, Megaphone,
   UserPlus, MessagesSquare, ShieldCheck, Globe, Bell, UserCog, ScrollText,
   Settings, LineChart, LifeBuoy, FileText, Smartphone, BriefcaseBusiness, KeyRound,
+  Gamepad2, Bot, Building2, CalendarDays, ReceiptText, UserRound,
 } from "lucide-react";
 
 // Sidebar navigation, grouped.
@@ -46,7 +47,86 @@ export const NAV_GROUPS = [
   {
     group: "App",
     items: [
-      { label: "App Configuration", icon: Smartphone, to: "/app-config", key: "app-config" },
+      {
+        label: "App Configuration",
+        icon: Smartphone,
+        to: "/app-config",
+        key: "app-config",
+        roles: ["super_admin", "finance_admin"],
+      },
+      {
+        label: "Call Configuration",
+        icon: Phone,
+        to: "/call-config",
+        key: "call-config",
+        roles: ["super_admin", "finance_admin"],
+      },
+      {
+        label: "Games",
+        icon: Gamepad2,
+        to: "/games",
+        key: "games",
+        roles: ["super_admin"],
+      },
+      {
+        label: "AI Profiles",
+        icon: Bot,
+        to: "/ai-profiles",
+        key: "ai-profiles",
+        roles: ["super_admin"],
+      },
+    ],
+  },
+  {
+    group: "HR Portal",
+    items: [
+      {
+        label: "HR Dashboard",
+        icon: Building2,
+        to: "/hr",
+        key: "hr-dashboard",
+        roles: ["hr_admin", "hr_manager", "payroll_admin"],
+      },
+      {
+        label: "Employees",
+        icon: BriefcaseBusiness,
+        to: "/employees",
+        key: "employees",
+        roles: ["hr_admin", "hr_manager", "payroll_admin", "super_admin"],
+      },
+      {
+        label: "Attendance",
+        icon: CalendarDays,
+        to: "/hr",
+        key: "attendance",
+        roles: ["hr_admin", "hr_manager"],
+      },
+      {
+        label: "Payroll",
+        icon: ReceiptText,
+        to: "/hr",
+        key: "payroll",
+        roles: ["hr_admin", "payroll_admin"],
+      },
+    ],
+  },
+  {
+    group: "Employee Portal",
+    items: [
+      {
+        label: "My Dashboard",
+        icon: UserRound,
+        to: "/employee",
+        key: "employee-dashboard",
+        roles: ["employee"],
+      },
+      {
+        label: "My Profile",
+        icon: UserRound,
+        to: "/profile",
+        key: "profile",
+        roles: ["employee"],
+      },
     ],
   },
   {

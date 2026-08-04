@@ -2,7 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Heart } from "lucide-react";
 
-export function ProtectedRoute({ children }) {
+export function ProtectedRoute({ children, roles }) {
   const { admin, ready } = useAuth();
   if (!ready) {
     return (
@@ -15,5 +15,10 @@ export function ProtectedRoute({ children }) {
     );
   }
   if (!admin) return <Navigate to="/login" replace />;
+
+  if (roles && !roles.includes(admin.role)) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 }

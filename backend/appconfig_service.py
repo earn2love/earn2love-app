@@ -85,3 +85,106 @@ def update_config(data, author=""):
     allowed["updatedBy"] = author
     ref.set(allowed, merge=True)
     return get_config()
+
+CALL_DOC = ("appConfig", "calls")
+
+CALL_DEFAULTS = {
+    "enabled": True,
+    "audio": {
+        "enabled": True,
+        "callerPerMinute": 10,
+        "receiverRewardPercent": 20,
+    },
+    "video": {
+        "enabled": True,
+        "callerPerMinute": 25,
+        "receiverRewardPercent": 20,
+    },
+    "billingIncrementSeconds": 60,
+    "minimumBillableSeconds": 1,
+}
+
+
+def _clamp_int(value, fallback, minimum, maximum):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = fallback
+    return min(maximum, max(minimum, number))
+
+
+def _sanitize_call_type(raw, defaults):
+    source = raw if isinstance(raw, dict) else {}
+    return {
+        "enabled": source.get("enabled", True) is not False,
+        "callerPerMinute": _clamp_int(
+            source.get("callerPerMinute"),
+            defaults["callerPerMinute"],
+            1,
+            100000,
+        ),
+        "receiverRewardPercent": _clamp_int(
+            source.get("receiverRewardPercent"),
+            defaults["receiverRewardPercent"],
+            0,
+            100,
+        ),
+    }
+
+
+def sanitize_call_config(data):
+    source = data if isinstance(data, dict) else {}
+    return {
+        "enabled": source.get("enabled", True) is not False,
+        "audio": _sanitize_call_type(
+            source.get("audio"),
+            CALL_DEFAULTS["audio"],
+        ),
+        "video": _sanitize_call_type(
+            source.get("video"),
+            CALL_DEFAULTS["video"],
+        ),
+        "billingIncrementSeconds": _clamp_int(
+            source.get("billingIncrementSeconds"),
+            CALL_DEFAULTS["billingIncrementSeconds"],
+            1,
+            3600,
+        ),
+        "minimumBillableSeconds": _clamp_int(
+            source.get("minimumBillableSeconds"),
+            CALL_DEFAULTS["minimumBillableSeconds"],
+            0,
+            3600,
+        ),
+    }
+
+
+def get_call_config(seed_if_missing=True):
+    ref = get_db().collection(CALL_DOC[0]).document(CALL_DOC[1])
+    snap = ref.get()
+
+    if not snap.exists:
+        if not seed_if_missing:
+            return None
+
+        payload = sanitize_call_config(CALL_DEFAULTS)
+        payload["createdAt"] = _now()
+        payload["updatedAt"] = _now()
+        payload["updatedBy"] = "system"
+        ref.set(payload)
+        return _serialize(payload)
+
+    return _serialize(snap.to_dict())
+
+
+def update_call_config(data, author=""):
+    payload = sanitize_call_config(data)
+    payload["updatedAt"] = _now()
+    payload["updatedBy"] = author
+
+    get_db().collection(CALL_DOC[0]).document(CALL_DOC[1]).set(
+        payload,
+        merge=True,
+    )
+
+    return get_call_config()

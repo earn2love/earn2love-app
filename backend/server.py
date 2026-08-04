@@ -16,6 +16,7 @@ import firebase_service as fb
 import firestore_repo as repo
 import documents_service as docs
 import appconfig_service as appcfg
+import game_ai_service as gameai
 import support_service as support
 import hr_service as hr
 import notifications_service as notif
@@ -112,6 +113,27 @@ async def get_current_admin(request: Request) -> dict:
     }
 
 
+def require_view(admin: dict, module: str):
+    """Require role permission to view a backend module."""
+    allowed = hr.can(admin["role"], module, "view")
+
+    if allowed is None:
+        # Static fallback roles currently describe write access.
+        # For known admin roles, allow reading only when the role has
+        # module access or is super_admin.
+        if admin["role"] == "super_admin":
+            allowed = True
+        else:
+            static = fb.role_permissions(admin["role"])
+            allowed = static == "*" or module in static
+
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your role ({admin['role']}) cannot view {module}",
+        )
+
+
 def require_write(admin: dict, module: str):
     # The stored permissions matrix is the source of truth; fall back to static defaults.
     allowed = hr.can(admin["role"], module, "edit")
@@ -166,12 +188,14 @@ RESERVED = {"page", "page_size", "search", "sort", "order"}
 @api.get("/resources/{module}")
 async def list_resource(module: str, request: Request, admin: dict = Depends(get_current_admin),
                         page: int = 1, page_size: int = 15, search: str = ""):
+    require_view(admin, module)
     extra = {k: v for k, v in request.query_params.items() if k not in RESERVED and v and v != "All"}
     return repo.list_module(module, page=page, page_size=page_size, search=search, extra_filters=extra)
 
 
 @api.get("/resources/{module}/{item_id}")
 async def get_resource(module: str, item_id: str, admin: dict = Depends(get_current_admin)):
+    require_view(admin, module)
     doc = repo.get_module_doc(module, item_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Not found")
@@ -346,11 +370,13 @@ async def support_status(cid: str, body: SupportAgentAction, request: Request,
 @api.get("/employees")
 async def employees_list(search: str = "", role: str | None = None,
                          admin: dict = Depends(get_current_admin)):
+    require_view(admin, "employees")
     return {"items": hr.list_employees(search, role), "roles": hr.ROLES}
 
 
 @api.get("/employees/{eid}")
 async def employees_get(eid: str, admin: dict = Depends(get_current_admin)):
+    require_view(admin, "employees")
     e = hr.get_employee(eid)
     if not e:
         raise HTTPException(status_code=404, detail="Employee not found")
@@ -422,8 +448,10 @@ async def create_my_profile(body: dict, request: Request, admin: dict = Depends(
     existing = hr.get_employee_by_email(admin["email"])
     if existing:
         return existing
+
+    body = dict(body or {})
     body["email"] = admin["email"]
-    body.setdefault("role", admin["role"])
+    body["role"] = admin["role"]
     e = hr.create_employee(body, admin["email"])
     audit(admin, "add-to-profile", "employees", e["id"], e["id"], None, e.get("employeeCode"), None, request)
     return e
@@ -431,15 +459,192 @@ async def create_my_profile(body: dict, request: Request, admin: dict = Depends(
 
 @api.get("/app-config")
 async def app_config_get(admin: dict = Depends(get_current_admin)):
+    require_view(admin, "app-config")
     return appcfg.get_config()
 
 
 @api.put("/app-config")
 async def app_config_update(body: dict, request: Request,
                             admin: dict = Depends(get_current_admin)):
+    require_write(admin, "app-config")
     cfg = appcfg.update_config(body, admin["email"])
     audit(admin, "update", "app-config", "current", "current", None, "app config saved", None, request)
     return cfg
+
+
+
+@api.get("/call-config")
+async def call_config_get(admin: dict = Depends(get_current_admin)):
+    require_view(admin, "call-config")
+    return appcfg.get_call_config()
+
+
+@api.put("/call-config")
+async def call_config_update(
+    body: dict,
+    request: Request,
+    admin: dict = Depends(get_current_admin),
+):
+    if admin["role"] != "super_admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only super_admin can change call pricing",
+        )
+
+    previous = appcfg.get_call_config()
+    config = appcfg.update_call_config(body, admin["email"])
+
+    audit(
+        admin,
+        "update",
+        "call-config",
+        "calls",
+        "calls",
+        previous,
+        config,
+        "call configuration saved",
+        request,
+    )
+
+    return config
+
+
+@api.get("/games")
+async def games_list(
+    search: str = "",
+    admin: dict = Depends(get_current_admin),
+):
+    if not hr.can(admin["role"], "games", "view"):
+        raise HTTPException(status_code=403, detail="Games access denied")
+    return {"items": gameai.list_items(gameai.GAME_COLLECTION, search)}
+
+
+@api.post("/games")
+async def games_save(
+    body: dict,
+    request: Request,
+    admin: dict = Depends(get_current_admin),
+):
+    if not hr.can(admin["role"], "games", "edit"):
+        raise HTTPException(status_code=403, detail="Games edit access denied")
+
+    item = gameai.save_item(
+        gameai.GAME_COLLECTION,
+        body,
+        admin["email"],
+    )
+
+    audit(
+        admin,
+        "save",
+        "games",
+        item.get("name", ""),
+        item["id"],
+        None,
+        item,
+        request=request,
+    )
+
+    return item
+
+
+@api.delete("/games/{item_id}")
+async def games_delete(
+    item_id: str,
+    request: Request,
+    admin: dict = Depends(get_current_admin),
+):
+    if not hr.can(admin["role"], "games", "edit"):
+        raise HTTPException(status_code=403, detail="Games edit access denied")
+
+    if not gameai.delete_item(gameai.GAME_COLLECTION, item_id):
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    audit(
+        admin,
+        "delete",
+        "games",
+        item_id,
+        item_id,
+        request=request,
+    )
+
+    return {"ok": True}
+
+
+@api.get("/ai-profiles")
+async def ai_profiles_list(
+    search: str = "",
+    admin: dict = Depends(get_current_admin),
+):
+    if not hr.can(admin["role"], "ai-profiles", "view"):
+        raise HTTPException(status_code=403, detail="AI Profiles access denied")
+
+    return {
+        "items": gameai.list_items(
+            gameai.AI_COLLECTION,
+            search,
+        )
+    }
+
+
+@api.post("/ai-profiles")
+async def ai_profiles_save(
+    body: dict,
+    request: Request,
+    admin: dict = Depends(get_current_admin),
+):
+    if not hr.can(admin["role"], "ai-profiles", "edit"):
+        raise HTTPException(
+            status_code=403,
+            detail="AI Profiles edit access denied",
+        )
+
+    item = gameai.save_item(
+        gameai.AI_COLLECTION,
+        body,
+        admin["email"],
+    )
+
+    audit(
+        admin,
+        "save",
+        "ai-profiles",
+        item.get("name", ""),
+        item["id"],
+        None,
+        item,
+        request=request,
+    )
+
+    return item
+
+
+@api.delete("/ai-profiles/{item_id}")
+async def ai_profiles_delete(
+    item_id: str,
+    request: Request,
+    admin: dict = Depends(get_current_admin),
+):
+    if not hr.can(admin["role"], "ai-profiles", "edit"):
+        raise HTTPException(
+            status_code=403,
+            detail="AI Profiles edit access denied",
+        )
+
+    if not gameai.delete_item(gameai.AI_COLLECTION, item_id):
+        raise HTTPException(status_code=404, detail="AI Profile not found")
+
+    audit(
+        admin,
+        "delete",
+        "ai-profiles",
+        item_id,
+        item_id,
+        request=request,
+    )
+
+    return {"ok": True}
 
 
 @api.get("/documents")

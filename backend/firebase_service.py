@@ -58,7 +58,7 @@ def verify_id_token(token: str) -> dict:
 
 
 # ---- Roles & permissions (Firebase custom claims) ----
-ROLES = ["super_admin", "moderator", "support_agent", "finance_admin", "verification_agent"]
+ROLES = ["super_admin", "moderator", "support_agent", "finance_admin", "verification_agent", "hr_admin", "hr_manager", "payroll_admin", "employee"]
 
 # module keys the role may WRITE to. "*" = all.
 ROLE_PERMISSIONS = {
@@ -67,6 +67,10 @@ ROLE_PERMISSIONS = {
     "support_agent": {"support-tickets", "notifications", "users"},
     "finance_admin": {"payments", "withdrawals", "wallets", "transactions", "conversions", "subscriptions"},
     "verification_agent": {"verification", "liveness", "identity", "users"},
+    "hr_admin": {"employees", "hr", "payroll", "attendance", "leave"},
+    "hr_manager": {"employees", "hr", "attendance", "leave"},
+    "payroll_admin": {"employees", "payroll", "payslips"},
+    "employee": {"employee-self-service"},
 }
 
 

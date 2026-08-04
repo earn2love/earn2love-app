@@ -10,12 +10,14 @@ from firebase_service import get_db
 COLL = "employees"
 PERM_DOC = ("appConfig", "rolePermissions")
 
-ROLES = ["super_admin", "moderator", "support_agent", "finance_admin", "verification_agent"]
+ROLES = ["super_admin", "moderator", "support_agent", "finance_admin", "verification_agent", "hr_admin", "hr_manager", "payroll_admin", "employee"]
 PERM_MODULES = [
     "users", "reports", "moderation", "verification", "identity", "subscriptions",
     "payments", "wallets", "transactions", "conversions", "withdrawals", "calls",
     "tasks", "friend-requests", "chats", "notifications", "support", "documents",
-    "app-config", "employees", "permissions",
+    "app-config", "call-config", "employees", "permissions",
+    "games", "ai-profiles", "hr", "attendance", "leave",
+    "payroll", "payslips", "employee-self-service",
 ]
 
 # Default matrix: super_admin = full; others scoped to their domain.
@@ -27,6 +29,14 @@ DEFAULT_PERMISSIONS = {
     "finance_admin": {m: {"view": True, "edit": m in ("payments", "wallets", "transactions", "conversions", "withdrawals", "subscriptions")} for m in PERM_MODULES},
     "verification_agent": {m: {"view": m in ("users", "verification", "identity", "reports", "documents"),
                                "edit": m in ("verification", "identity")} for m in PERM_MODULES},
+    "hr_admin": {m: {"view": m in ("employees", "hr", "attendance", "leave", "payroll", "payslips", "documents"),
+                     "edit": m in ("employees", "hr", "attendance", "leave", "payroll", "payslips")} for m in PERM_MODULES},
+    "hr_manager": {m: {"view": m in ("employees", "hr", "attendance", "leave", "documents"),
+                       "edit": m in ("employees", "hr", "attendance", "leave")} for m in PERM_MODULES},
+    "payroll_admin": {m: {"view": m in ("employees", "payroll", "payslips", "documents"),
+                          "edit": m in ("payroll", "payslips")} for m in PERM_MODULES},
+    "employee": {m: {"view": m in ("employee-self-service", "documents"),
+                     "edit": m == "employee-self-service"} for m in PERM_MODULES},
 }
 
 

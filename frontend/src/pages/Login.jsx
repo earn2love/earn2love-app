@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { homeForRole } from "@/lib/portal";
 
 export default function Login() {
   const { loginEmail, loginGoogle, admin } = useAuth();
@@ -20,7 +21,7 @@ export default function Login() {
 
   // Redirect only once AuthContext has committed the admin (avoids race with onAuthStateChanged).
   useEffect(() => {
-    if (admin) navigate("/", { replace: true });
+    if (admin) navigate(homeForRole(admin.role), { replace: true });
   }, [admin, navigate]);
 
   const submit = async (e) => {

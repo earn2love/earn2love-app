@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { LogOut, Menu, Search, Bell, UserCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { roleCanSeeItem } from "@/lib/portal";
 import { usePendingCounts } from "@/context/PendingCountsContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NAV_GROUPS } from "@/config/modules";
@@ -55,7 +56,7 @@ export function Topbar({ title, subtitle }) {
               {NAV_GROUPS.map((grp) => (
                 <div key={grp.group}>
                   <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">{grp.group}</p>
-                  {grp.items.filter((item) => !item.superAdminOnly || admin?.role === "super_admin").map((item) => {
+                  {grp.items.filter((item) => roleCanSeeItem(admin?.role, item)).map((item) => {
                     const Icon = item.icon;
                     const active = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
                     return (
