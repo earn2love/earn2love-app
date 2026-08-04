@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/call_session.dart';
 import '../services/agora_service.dart';
 import '../services/call_service.dart';
-import '../../play_together/screens/play_together_page.dart';
+import '../../play_together/widgets/in_call_play_overlay.dart';
 
 class AudioCallPage extends StatefulWidget {
   const AudioCallPage({
@@ -41,6 +41,8 @@ class _AudioCallPageState extends State<AudioCallPage> {
   bool _remoteJoined = false;
   bool _everRemoteJoined = false;
   bool _ending = false;
+  bool _playOverlayVisible = false;
+  bool _playOverlayMinimized = false;
   int _durationSeconds = 0;
   String _serverStatus = 'ringing';
   String? _error;
@@ -243,20 +245,37 @@ class _AudioCallPageState extends State<AudioCallPage> {
     setState(() => _speakerEnabled = enabled);
   }
 
-  Future<void> _openPlayTogether() async {
+  void _openPlayTogether() {
     if (_ending || !_remoteJoined) return;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const PlayTogetherPage(),
-      ),
-    );
+    setState(() {
+      _playOverlayVisible = true;
+      _playOverlayMinimized = false;
+    });
+  }
 
-    if (!mounted || _ending) return;
+  void _minimizePlayTogether() {
+    if (!_playOverlayVisible) return;
 
     setState(() {
-      _muted = widget.agoraService.muted;
-      _speakerEnabled = widget.agoraService.speakerEnabled;
+      _playOverlayMinimized = true;
+    });
+  }
+
+  void _restorePlayTogether() {
+    if (!_playOverlayVisible) return;
+
+    setState(() {
+      _playOverlayMinimized = false;
+    });
+  }
+
+  void _closePlayTogether() {
+    if (!_playOverlayVisible) return;
+
+    setState(() {
+      _playOverlayVisible = false;
+      _playOverlayMinimized = false;
     });
   }
 
@@ -320,113 +339,128 @@ class _AudioCallPageState extends State<AudioCallPage> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF17111F),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 40, 24, 30),
-            child: Column(
-              children: [
-                const Spacer(),
-                CircleAvatar(
-                  radius: 62,
-                  backgroundColor: Colors.white12,
-                  backgroundImage: widget.otherPhotoUrl.trim().isEmpty
-                      ? null
-                      : NetworkImage(widget.otherPhotoUrl),
-                  child: widget.otherPhotoUrl.trim().isEmpty
-                      ? const Icon(
-                          Icons.person,
-                          size: 70,
-                          color: Colors.white70,
-                        )
-                      : null,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  widget.otherName.trim().isEmpty ? 'User' : widget.otherName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _statusLabel,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _durationLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 22),
-                FilledButton.icon(
-                  onPressed:
-                      _ending || !_remoteJoined ? null : _openPlayTogether,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF4D91),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 13,
-                    ),
-                  ),
-                  icon: const Icon(
-                    Icons.sports_esports_outlined,
-                  ),
-                  label: const Text(
-                    'Play Together',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                if (!_remoteJoined) ...[
-                  const SizedBox(height: 7),
-                  const Text(
-                    'Available after your partner joins',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 40, 24, 30),
+                child: Column(
                   children: [
-                    _CallControl(
-                      icon: _muted ? Icons.mic_off : Icons.mic,
-                      label: _muted ? 'Unmute' : 'Mute',
-                      active: _muted,
-                      onTap: _ending ? null : _toggleMute,
+                    const Spacer(),
+                    CircleAvatar(
+                      radius: 62,
+                      backgroundColor: Colors.white12,
+                      backgroundImage: widget.otherPhotoUrl.trim().isEmpty
+                          ? null
+                          : NetworkImage(widget.otherPhotoUrl),
+                      child: widget.otherPhotoUrl.trim().isEmpty
+                          ? const Icon(
+                              Icons.person,
+                              size: 70,
+                              color: Colors.white70,
+                            )
+                          : null,
                     ),
-                    _CallControl(
-                      icon: _speakerEnabled ? Icons.volume_up : Icons.hearing,
-                      label: 'Speaker',
-                      active: _speakerEnabled,
-                      onTap: _ending ? null : _toggleSpeaker,
+                    const SizedBox(height: 24),
+                    Text(
+                      widget.otherName.trim().isEmpty
+                          ? 'User'
+                          : widget.otherName,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    _CallControl(
-                      icon: Icons.call_end,
-                      label: 'End',
-                      destructive: true,
-                      onTap: _ending ? null : _endCall,
+                    const SizedBox(height: 10),
+                    Text(
+                      _statusLabel,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _durationLabel,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    FilledButton.icon(
+                      onPressed:
+                          _ending || !_remoteJoined ? null : _openPlayTogether,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF4D91),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 13,
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.sports_esports_outlined,
+                      ),
+                      label: const Text(
+                        'Play Together',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (!_remoteJoined) ...[
+                      const SizedBox(height: 7),
+                      const Text(
+                        'Available after your partner joins',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _CallControl(
+                          icon: _muted ? Icons.mic_off : Icons.mic,
+                          label: _muted ? 'Unmute' : 'Mute',
+                          active: _muted,
+                          onTap: _ending ? null : _toggleMute,
+                        ),
+                        _CallControl(
+                          icon:
+                              _speakerEnabled ? Icons.volume_up : Icons.hearing,
+                          label: 'Speaker',
+                          active: _speakerEnabled,
+                          onTap: _ending ? null : _toggleSpeaker,
+                        ),
+                        _CallControl(
+                          icon: Icons.call_end,
+                          label: 'End',
+                          destructive: true,
+                          onTap: _ending ? null : _endCall,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
+            InCallPlayOverlay(
+              visible: _playOverlayVisible,
+              minimized: _playOverlayMinimized,
+              callTypeLabel: 'Audio call',
+              onClose: _closePlayTogether,
+              onMinimize: _minimizePlayTogether,
+              onRestore: _restorePlayTogether,
+            ),
+          ],
         ),
       ),
     );

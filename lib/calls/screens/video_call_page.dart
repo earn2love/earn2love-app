@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import '../models/call_session.dart';
 import '../services/agora_service.dart';
 import '../services/call_service.dart';
-import '../../play_together/screens/play_together_page.dart';
+import '../../play_together/widgets/in_call_play_overlay.dart';
 
 class VideoCallPage extends StatefulWidget {
   const VideoCallPage({
@@ -45,6 +45,8 @@ class _VideoCallPageState extends State<VideoCallPage> {
   bool _remoteJoined = false;
   bool _everRemoteJoined = false;
   bool _ending = false;
+  bool _playOverlayVisible = false;
+  bool _playOverlayMinimized = false;
 
   int _durationSeconds = 0;
   int? _remoteUid;
@@ -248,21 +250,37 @@ class _VideoCallPageState extends State<VideoCallPage> {
     await widget.agoraService.switchCamera();
   }
 
-  Future<void> _openPlayTogether() async {
+  void _openPlayTogether() {
     if (_ending || !_remoteJoined) return;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const PlayTogetherPage(),
-      ),
-    );
+    setState(() {
+      _playOverlayVisible = true;
+      _playOverlayMinimized = false;
+    });
+  }
 
-    if (!mounted || _ending) return;
+  void _minimizePlayTogether() {
+    if (!_playOverlayVisible) return;
 
     setState(() {
-      _muted = widget.agoraService.muted;
-      _speakerEnabled = widget.agoraService.speakerEnabled;
-      _cameraEnabled = widget.agoraService.cameraEnabled;
+      _playOverlayMinimized = true;
+    });
+  }
+
+  void _restorePlayTogether() {
+    if (!_playOverlayVisible) return;
+
+    setState(() {
+      _playOverlayMinimized = false;
+    });
+  }
+
+  void _closePlayTogether() {
+    if (!_playOverlayVisible) return;
+
+    setState(() {
+      _playOverlayVisible = false;
+      _playOverlayMinimized = false;
     });
   }
 
@@ -493,6 +511,14 @@ class _VideoCallPageState extends State<VideoCallPage> {
                   ),
                 ),
               ),
+            ),
+            InCallPlayOverlay(
+              visible: _playOverlayVisible,
+              minimized: _playOverlayMinimized,
+              callTypeLabel: 'Video call',
+              onClose: _closePlayTogether,
+              onMinimize: _minimizePlayTogether,
+              onRestore: _restorePlayTogether,
             ),
             Positioned(
               left: 14,
