@@ -18,6 +18,8 @@ import '../chat/services/typing_service.dart';
 import '../chat/widgets/message_bubble.dart';
 import '../chat/widgets/message_input.dart';
 import '../chat/widgets/message_list.dart';
+import '../chat/widgets/reply_banner.dart';
+import '../chat/widgets/typing_indicator.dart';
 
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
 import 'package:earn2love_app/screens/settings/report_page.dart';
@@ -2076,91 +2078,23 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Widget _replyPreview() {
-    if (_replyingTo == null) return const SizedBox.shrink();
-
-    final senderId = asString(_replyingTo!['senderId']);
-    final senderName = senderId == uid ? 'You' : 'Reply';
-    final type = asString(_replyingTo!['type'], def: 'text');
-    final text = type == 'image'
-        ? '📷 Photo'
-        : type == 'voice'
-            ? '🎤 Voice message'
-            : asString(_replyingTo!['text']);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.deepPurple.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 38,
-            decoration: BoxDecoration(
-              color: Colors.deepPurple,
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  senderName,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.deepPurple,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => setState(() => _replyingTo = null),
-            icon: const Icon(Icons.close),
-          ),
-        ],
-      ),
+    return ChatReplyBanner(
+      replyingTo: _replyingTo,
+      currentUid: uid,
+      onClose: () {
+        if (!mounted) return;
+        setState(() => _replyingTo = null);
+      },
     );
   }
 
   Widget _typingLine(bool online, Timestamp? lastSeen) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: roomRef.snapshots(),
-      builder: (context, snap) {
-        final typingRaw = snap.data?.data()?['typing'];
-        final typingMap = typingRaw is Map
-            ? typingRaw.map((k, v) => MapEntry(k.toString(), v))
-            : <String, dynamic>{};
-
-        final otherTyping = typingMap[widget.otherUid] == true;
-
-        return Text(
-          otherTyping
-              ? 'typing...'
-              : (online ? 'online' : _formatLastSeenLine(lastSeen)),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 12,
-            color: otherTyping ? Colors.green : Colors.black54,
-            fontWeight: otherTyping ? FontWeight.w700 : FontWeight.w500,
-          ),
-        );
-      },
+    return ChatTypingIndicator(
+      roomStream: roomRef.snapshots(),
+      otherUid: widget.otherUid,
+      online: online,
+      lastSeen: lastSeen,
+      formatLastSeen: _formatLastSeenLine,
     );
   }
 
