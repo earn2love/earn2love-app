@@ -107,6 +107,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
   bool get _anyBlocked => _blockedByMe || _blockedByOther;
   bool get _isFriends => _friendStatus == 'accepted';
+  // ignore: unused_element
   bool get _canUseLockedFeatures => _isFriends && _meHasEligiblePlan;
 
   DocumentReference<Map<String, dynamic>> get meRef =>
@@ -333,6 +334,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     return _globalAllowVideoCalls();
   }
 
+  // ignore: unused_element
   bool _chatReadReceiptsEnabled() {
     if (_myChatPrefs.containsKey('readReceipts')) {
       return asBool(_myChatPrefs['readReceipts'], def: true);
@@ -340,6 +342,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     return _globalReadReceipts();
   }
 
+  // ignore: unused_element
   bool _chatShowOnlineStatusEnabled() {
     if (_myChatPrefs.containsKey('showOnlineStatus')) {
       return asBool(_myChatPrefs['showOnlineStatus'], def: true);
@@ -360,12 +363,14 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
+  // ignore: unused_element
   String _blockedComposerHint() {
     if (_blockedByMe) return 'You blocked this user';
     if (_blockedByOther) return 'You cannot send messages to this user';
     return 'Message';
   }
 
+  // ignore: unused_element
   Future<void> _openChatRoomSettings() async {
     await Navigator.push(
       context,
@@ -378,6 +383,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
+  // ignore: unused_element
   Future<void> _openReportPage() async {
     await Navigator.push(
       context,
@@ -387,6 +393,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
+  // ignore: unused_element
   Future<void> _openRulesPage() async {
     await Navigator.push(
       context,
@@ -1390,6 +1397,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
+  // ignore: unused_element
   void _showUpgradeSnack() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1700,6 +1708,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     await _audioPlayer.setSpeed(speed);
   }
 
+  // ignore: unused_element
   Future<void> _clearChatForMe() async {
     await myChatPrefsRef.set({
       'clearedAt': FieldValue.serverTimestamp(),
@@ -2501,6 +2510,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
+  // ignore: unused_element
   Future<void> _addCallLog({
     required String callType,
     required int durationSeconds,
@@ -2736,15 +2746,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.mic, color: Colors.red),
-                          SizedBox(width: 8),
+                          const Icon(Icons.mic, color: Colors.red),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Recording voice message... '
                               '${_formatRecordingDuration(_recordingElapsedSeconds)}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontWeight: FontWeight.w900),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                           ),
                         ],
