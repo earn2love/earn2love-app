@@ -12,10 +12,12 @@ const {
 const DEFAULT_CALL_CONFIG = Object.freeze({
   enabled: true,
   audio: Object.freeze({
+    enabled: true,
     callerPerMinute: 10,
     receiverRewardPercent: 20,
   }),
   video: Object.freeze({
+    enabled: true,
     callerPerMinute: 25,
     receiverRewardPercent: 20,
   }),
@@ -23,6 +25,13 @@ const DEFAULT_CALL_CONFIG = Object.freeze({
   minimumBillableSeconds: 1,
 });
 
+/**
+ * Convert a value to a finite number.
+ *
+ * @param {*} value Raw value.
+ * @param {number} fallback Fallback value.
+ * @return {number} Parsed or fallback number.
+ */
 function asNumber(value, fallback) {
   const number = Number(value);
 
@@ -33,6 +42,15 @@ function asNumber(value, fallback) {
   return number;
 }
 
+/**
+ * Clamp an integer to an allowed range.
+ *
+ * @param {*} value Raw value.
+ * @param {number} fallback Fallback value.
+ * @param {number} minimum Minimum value.
+ * @param {number} maximum Maximum value.
+ * @return {number} Sanitized integer.
+ */
 function clampInteger(
     value,
     fallback,
@@ -49,6 +67,12 @@ function clampInteger(
   );
 }
 
+/**
+ * Sanitize the complete call configuration.
+ *
+ * @param {Object=} raw Raw configuration.
+ * @return {Object} Sanitized configuration.
+ */
 function sanitizeCallConfig(raw) {
   const source = raw || {};
   const audio = source.audio || {};
@@ -57,6 +81,7 @@ function sanitizeCallConfig(raw) {
   return {
     enabled: source.enabled !== false,
     audio: {
+      enabled: audio.enabled !== false,
       callerPerMinute: clampInteger(
           audio.callerPerMinute,
           DEFAULT_CALL_CONFIG.audio.callerPerMinute,
@@ -71,6 +96,7 @@ function sanitizeCallConfig(raw) {
       ),
     },
     video: {
+      enabled: video.enabled !== false,
       callerPerMinute: clampInteger(
           video.callerPerMinute,
           DEFAULT_CALL_CONFIG.video.callerPerMinute,
@@ -99,6 +125,11 @@ function sanitizeCallConfig(raw) {
   };
 }
 
+/**
+ * Load or seed the call configuration.
+ *
+ * @return {Promise<Object>} Current configuration.
+ */
 async function loadCallConfig() {
   const reference = db()
       .collection("appConfig")
@@ -126,6 +157,12 @@ async function loadCallConfig() {
   );
 }
 
+/**
+ * Require a super-admin callable request.
+ *
+ * @param {Object} request Callable request.
+ * @return {string} Authenticated admin UID.
+ */
 function assertSuperAdmin(request) {
   const token = request.auth && request.auth.token;
   const role = token && token.role;
@@ -144,6 +181,13 @@ function assertSuperAdmin(request) {
   return request.auth.uid;
 }
 
+/**
+ * Validate and save call configuration.
+ *
+ * @param {Object} request Callable request.
+ * @param {Object} rawConfig Raw configuration.
+ * @return {Promise<Object>} Saved configuration.
+ */
 async function saveCallConfig(
     request,
     rawConfig,

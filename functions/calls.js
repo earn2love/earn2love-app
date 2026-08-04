@@ -177,6 +177,15 @@ exports.startCall = onCall(
 
       const typeConfig = config[type];
 
+      if (!typeConfig || typeConfig.enabled === false) {
+        throw new HttpsError(
+            "failed-precondition",
+            type === "audio" ?
+              "Audio calls are currently disabled" :
+              "Video calls are currently disabled",
+        );
+      }
+
       if (callerBalance <
           typeConfig.callerPerMinute) {
         throw new HttpsError(
