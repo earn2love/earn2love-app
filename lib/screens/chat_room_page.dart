@@ -219,7 +219,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     _listenMyDoc();
     _listenMyPrefs();
     _listenRequests();
-    _listenMyTier();
     _listenRoomBlockState();
     _listenFriendStatus();
     _markRoomRead();
@@ -442,18 +441,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(seconds: 2), () async {
       await _setTyping(false);
-    });
-  }
-
-  void _listenMyTier() {
-    // kept intentionally because original logic used this listener too
-    meRef.snapshots().listen((snap) {
-      final me = snap.data() ?? {};
-      final tier = asString(me['tier'] ?? me['subTier'], def: 'casual');
-      final can = hasFriendshipOrLove(tier);
-      if (mounted && can != _meHasEligiblePlan) {
-        setState(() => _meHasEligiblePlan = can);
-      }
     });
   }
 
