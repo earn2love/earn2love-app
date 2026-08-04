@@ -1,6 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/meera_message.dart';
+import '../models/meera_profile_coach.dart';
 
 class MeeraServiceException implements Exception {
   const MeeraServiceException(this.message);
@@ -68,6 +69,24 @@ class MeeraService {
         'Meera request failed: $error',
       );
     }
+  }
+
+  Future<MeeraProfileCoachResult> analyseProfile({
+    String languageMode = 'auto',
+    String requestedLanguage = '',
+  }) async {
+    final result = await _call(
+      'analyseMeeraProfile',
+      {
+        'languageMode': languageMode,
+        if (requestedLanguage.trim().isNotEmpty)
+          'requestedLanguage': requestedLanguage.trim(),
+      },
+    );
+
+    return MeeraProfileCoachResult.fromMap(
+      result,
+    );
   }
 
   Future<List<MeeraConversationSummary>> listConversations() async {

@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../ai/screens/meera_profile_coach_page.dart';
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -290,38 +292,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _openNameEditor() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Edit name'),
-        content: TextField(
-          controller: _nameCtrl,
-          autofocus: true,
-          maxLength: 30,
-          decoration: const InputDecoration(hintText: 'Enter your name'),
-          onChanged: (_) => _nameDirty = true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Done'),
-          ),
-        ],
-      ),
-    );
-
-    if (ok == true) {
-      setState(() => _isEditingName = false);
-      await _saveNameIfNeeded();
-      _snack('Name updated ✅');
-    }
-  }
-
   Future<void> _openProfileEditor() async {
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -403,151 +373,6 @@ class _ProfilePageState extends State<ProfilePage> {
       _isEditingBio = false;
       _snack('Profile updated ✅');
       if (mounted) setState(() {});
-    }
-  }
-
-  Future<void> _openBioEditor() async {
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            void addInterest() {
-              final raw = _interestCtrl.text.trim();
-              if (raw.isEmpty) return;
-
-              final items = raw
-                  .split(',')
-                  .map((e) => e.trim())
-                  .where((e) => e.isNotEmpty)
-                  .toList();
-
-              for (final item in items) {
-                if (!_interests.contains(item)) {
-                  _interests.add(item);
-                }
-              }
-              _interestCtrl.clear();
-              _bioDirty = true;
-              setSheetState(() {});
-            }
-
-            void removeInterest(String value) {
-              _interests.remove(value);
-              _bioDirty = true;
-              setSheetState(() {});
-            }
-
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  10,
-                  16,
-                  MediaQuery.of(context).viewInsets.bottom + 16,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Edit bio',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _bioCtrl,
-                        maxLines: 4,
-                        maxLength: 140,
-                        decoration: InputDecoration(
-                          hintText: 'Write something simple and attractive...',
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onChanged: (_) => _bioDirty = true,
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _interestCtrl,
-                              decoration: InputDecoration(
-                                hintText: 'music, travel, gym',
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              onSubmitted: (_) => addInterest(),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: addInterest,
-                            child: const Text('Add'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (_interests.isEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: const Text(
-                            'No interests added yet.',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        )
-                      else
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _interests.map((i) {
-                            return Chip(
-                              label: Text(i),
-                              onDeleted: () => removeInterest(i),
-                            );
-                          }).toList(),
-                        ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Save Bio'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (ok == true) {
-      setState(() => _isEditingBio = false);
-      await _saveBioIfNeeded();
-      _snack('Bio updated ✅');
     }
   }
 
@@ -666,6 +491,43 @@ class _ProfilePageState extends State<ProfilePage> {
                                   style: const TextStyle(
                                     fontSize: 21,
                                     fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(
+                                  999,
+                                ),
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const MeeraProfileCoachPage(),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(
+                                    right: 8,
+                                  ),
+                                  padding: const EdgeInsets.all(
+                                    8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.30,
+                                      ),
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.auto_awesome_rounded,
+                                    size: 16,
                                     color: Colors.white,
                                   ),
                                 ),

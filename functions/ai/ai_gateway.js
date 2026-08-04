@@ -30,6 +30,10 @@ const {
 } = require("./meera_assistant");
 
 const {
+  generateProfileCoaching,
+} = require("./meera_profile_coach");
+
+const {
   createConversation,
   ensureConversation,
   saveConversationMessage,
@@ -44,6 +48,130 @@ const {
   deleteMemory,
   clearMemories,
 } = require("./meera_persistence");
+
+exports.analyseMeeraProfile = onCall(
+    {
+      secrets: ["OPENAI_API_KEY"],
+      timeoutSeconds: 45,
+      memory: "256MiB",
+    },
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      const account =
+          await assertAccountUsable(uid);
+
+      const accountData =
+          account.data || {};
+
+      const tier = String(
+          accountData.tier ||
+          accountData.subTier ||
+          "casual",
+      ).trim().toLowerCase();
+
+      const usage = await reserveAiUsage(
+          uid,
+          "profileCoach",
+          tier,
+      );
+
+      const mediaSnapshot =
+          await account.reference
+              .collection("media")
+              .limit(100)
+              .get();
+
+      let photoCount = 0;
+      let videoCount = 0;
+
+      for (const document of mediaSnapshot.docs) {
+        const media = document.data() || {};
+
+        if (media.type === "photo") {
+          photoCount += 1;
+        } else if (media.type === "video") {
+          videoCount += 1;
+        }
+      }
+
+      const interests =
+          Array.isArray(accountData.interests) ?
+            accountData.interests :
+            [];
+
+      const languages =
+          Array.isArray(accountData.languages) ?
+            accountData.languages :
+            [];
+
+      const result =
+          await generateProfileCoaching({
+            profile: {
+              displayName:
+                  accountData.displayName ||
+                  accountData.name ||
+                  "",
+              bio:
+                  accountData.bio || "",
+              interests,
+              languages,
+              hasProfilePhoto:
+                  Boolean(
+                      accountData.photoUrl ||
+                      accountData.profilePhoto,
+                  ),
+              mediaPhotoCount: photoCount,
+              mediaVideoCount: videoCount,
+              country:
+                  accountData.country || "",
+              profileCompletion:
+                  Number(
+                      accountData
+                          .profileCompletion ||
+                      0,
+                  ),
+            },
+            language: {
+              languageMode:
+                  request.data &&
+                  request.data.languageMode ||
+                  accountData
+                      .meeraLanguageMode ||
+                  "auto",
+              requestedLanguage:
+                  request.data &&
+                  request.data.requestedLanguage,
+              preferredLanguage:
+                  accountData
+                      .meeraPreferredLanguage ||
+                  accountData.appLanguage ||
+                  "",
+              appLanguage:
+                  accountData.appLanguage ||
+                  "en",
+              allowMixedLanguage:
+                  accountData
+                      .meeraAllowMixedLanguage !==
+                  false,
+              tonePreference:
+                  accountData
+                      .meeraTonePreference ||
+                  "friendly",
+              scriptPreference:
+                  accountData
+                      .meeraScriptPreference ||
+                  "natural",
+            },
+          });
+
+      return {
+        ...result,
+        usage,
+      };
+    },
+);
 
 exports.createMeeraConversation = onCall(
     async (request) => {
