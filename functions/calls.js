@@ -388,3 +388,216 @@ exports.endCall = onCall(
       );
     },
 );
+
+exports.acceptCall = onCall(
+    async (request) => {
+      const currentUid = assertAuth(request);
+      const callId = asString(
+          request.data && request.data.callId,
+      );
+
+      if (!callId) {
+        throw new HttpsError(
+            "invalid-argument",
+            "callId required",
+        );
+      }
+
+      const callReference =
+          db().collection("calls").doc(callId);
+
+      return db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(callReference);
+
+            if (!snapshot.exists) {
+              throw new HttpsError(
+                  "not-found",
+                  "Call not found",
+              );
+            }
+
+            const call = snapshot.data() || {};
+
+            if (call.calleeUid !== currentUid) {
+              throw new HttpsError(
+                  "permission-denied",
+                  "Only the receiver can accept this call",
+              );
+            }
+
+            if (call.status === "accepted" ||
+                call.status === "connected") {
+              return {
+                ok: true,
+                alreadyAccepted: true,
+                callId,
+                channelName: call.channelName,
+                type: call.type,
+                callerUid: call.callerUid,
+                calleeUid: call.calleeUid,
+              };
+            }
+
+            if (call.status !== "ringing") {
+              throw new HttpsError(
+                  "failed-precondition",
+                  "Call is no longer available",
+              );
+            }
+
+            transaction.set(
+                callReference,
+                {
+                  status: "accepted",
+                  acceptedBy: currentUid,
+                  acceptedAt: timestamp(),
+                  updatedAt: timestamp(),
+                },
+                {merge: true},
+            );
+
+            return {
+              ok: true,
+              alreadyAccepted: false,
+              callId,
+              channelName: call.channelName,
+              type: call.type,
+              callerUid: call.callerUid,
+              calleeUid: call.calleeUid,
+            };
+          },
+      );
+    },
+);
+
+exports.rejectCall = onCall(
+    async (request) => {
+      const currentUid = assertAuth(request);
+      const callId = asString(
+          request.data && request.data.callId,
+      );
+
+      if (!callId) {
+        throw new HttpsError(
+            "invalid-argument",
+            "callId required",
+        );
+      }
+
+      const callReference =
+          db().collection("calls").doc(callId);
+
+      return db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(callReference);
+
+            if (!snapshot.exists) {
+              throw new HttpsError(
+                  "not-found",
+                  "Call not found",
+              );
+            }
+
+            const call = snapshot.data() || {};
+
+            if (call.calleeUid !== currentUid) {
+              throw new HttpsError(
+                  "permission-denied",
+                  "Only the receiver can reject this call",
+              );
+            }
+
+            if (call.status !== "ringing") {
+              return {
+                ok: true,
+                alreadyHandled: true,
+              };
+            }
+
+            transaction.set(
+                callReference,
+                {
+                  status: "rejected",
+                  rejectedBy: currentUid,
+                  rejectedAt: timestamp(),
+                  updatedAt: timestamp(),
+                },
+                {merge: true},
+            );
+
+            return {
+              ok: true,
+              alreadyHandled: false,
+            };
+          },
+      );
+    },
+);
+
+exports.cancelCall = onCall(
+    async (request) => {
+      const currentUid = assertAuth(request);
+      const callId = asString(
+          request.data && request.data.callId,
+      );
+
+      if (!callId) {
+        throw new HttpsError(
+            "invalid-argument",
+            "callId required",
+        );
+      }
+
+      const callReference =
+          db().collection("calls").doc(callId);
+
+      return db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(callReference);
+
+            if (!snapshot.exists) {
+              throw new HttpsError(
+                  "not-found",
+                  "Call not found",
+              );
+            }
+
+            const call = snapshot.data() || {};
+
+            if (call.callerUid !== currentUid) {
+              throw new HttpsError(
+                  "permission-denied",
+                  "Only the caller can cancel this call",
+              );
+            }
+
+            if (call.status !== "ringing") {
+              return {
+                ok: true,
+                alreadyHandled: true,
+              };
+            }
+
+            transaction.set(
+                callReference,
+                {
+                  status: "cancelled",
+                  cancelledBy: currentUid,
+                  cancelledAt: timestamp(),
+                  updatedAt: timestamp(),
+                },
+                {merge: true},
+            );
+
+            return {
+              ok: true,
+              alreadyHandled: false,
+            };
+          },
+      );
+    },
+);

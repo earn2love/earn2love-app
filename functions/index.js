@@ -122,3 +122,7 @@ exports.generateAgoraToken =
     calls.generateAgoraToken;
 exports.startCall = calls.startCall;
 exports.endCall = calls.endCall;
+
+exports.acceptCall = calls.acceptCall;
+exports.rejectCall = calls.rejectCall;
+exports.cancelCall = calls.cancelCall;
