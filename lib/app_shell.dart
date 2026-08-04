@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'ai/screens/meera_chat_page.dart';
+
 import 'play_together/screens/play_together_page.dart';
 import 'screens/chat_list_page.dart';
 import 'screens/home_page.dart';
@@ -30,6 +32,22 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(
         index: _index,
         children: _pages,
+      ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'global_meera_button',
+        tooltip: 'Ask Meera',
+        backgroundColor: const Color(0xFF7B4EFF),
+        foregroundColor: Colors.white,
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const MeeraChatPage(),
+            ),
+          );
+        },
+        child: const Icon(
+          Icons.auto_awesome_rounded,
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
