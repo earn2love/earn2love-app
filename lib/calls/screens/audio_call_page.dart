@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/call_session.dart';
@@ -30,14 +31,17 @@ class _AudioCallPageState extends State<AudioCallPage> {
   StreamSubscription<CallStatus>? _statusSub;
   StreamSubscription<int>? _remoteSub;
   StreamSubscription<String>? _errorSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _callStateSub;
   Timer? _timer;
 
   CallStatus _status = CallStatus.preparing;
   bool _muted = false;
   bool _speakerEnabled = true;
   bool _remoteJoined = false;
+  bool _everRemoteJoined = false;
   bool _ending = false;
   int _durationSeconds = 0;
+  String _serverStatus = 'ringing';
   String? _error;
 
   @override
@@ -47,27 +51,35 @@ class _AudioCallPageState extends State<AudioCallPage> {
   }
 
   Future<void> _start() async {
+    _listenToServerCallState();
+
     _statusSub = widget.agoraService.statusStream.listen((status) {
       if (!mounted) return;
 
       setState(() {
         _status = status;
       });
-
-      if (status == CallStatus.connected && _timer == null) {
-        _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-          if (!mounted) return;
-          setState(() => _durationSeconds++);
-        });
-      }
     });
 
     _remoteSub = widget.agoraService.remoteUserStream.listen((uid) {
-      if (!mounted) return;
+      if (!mounted || _ending) return;
+
+      final joined = uid > 0;
+      final remoteLeftAfterConnection = !joined && _everRemoteJoined;
 
       setState(() {
-        _remoteJoined = uid > 0;
+        _remoteJoined = joined;
+
+        if (joined) {
+          _everRemoteJoined = true;
+        }
       });
+
+      if (joined) {
+        _startConnectedTimer();
+      } else if (remoteLeftAfterConnection) {
+        unawaited(_endCall());
+      }
     });
 
     _errorSub = widget.agoraService.errorStream.listen((message) {
@@ -108,6 +120,85 @@ class _AudioCallPageState extends State<AudioCallPage> {
         _error = error.toString();
       });
     }
+  }
+
+  void _startConnectedTimer() {
+    if (_timer != null || !_everRemoteJoined) return;
+
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (!mounted || _ending) return;
+
+        setState(() {
+          _durationSeconds++;
+        });
+      },
+    );
+  }
+
+  void _listenToServerCallState() {
+    _callStateSub?.cancel();
+
+    _callStateSub = FirebaseFirestore.instance
+        .collection('calls')
+        .doc(widget.session.callId)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        if (!mounted || _ending || !snapshot.exists) return;
+
+        final data = snapshot.data() ?? <String, dynamic>{};
+        final status = data['status']?.toString().trim() ?? '';
+
+        if (status.isEmpty) return;
+
+        _serverStatus = status;
+
+        if (status == 'rejected') {
+          unawaited(
+            _finishWithoutBilling('Call rejected'),
+          );
+        } else if (status == 'cancelled') {
+          unawaited(
+            _finishWithoutBilling('Call cancelled'),
+          );
+        } else if (status == 'ended') {
+          unawaited(
+            _finishWithoutBilling('Call ended'),
+          );
+        }
+      },
+      onError: (Object error) {
+        debugPrint('Call state listener error: $error');
+      },
+    );
+  }
+
+  Future<void> _finishWithoutBilling(
+    String message,
+  ) async {
+    if (_ending) return;
+
+    _ending = true;
+    _timer?.cancel();
+
+    if (mounted) {
+      setState(() {
+        _status = CallStatus.ended;
+        _error = message;
+      });
+    }
+
+    try {
+      await widget.agoraService.leave();
+    } catch (_) {
+      // Continue closing even if Agora already disconnected.
+    }
+
+    if (!mounted) return;
+
+    Navigator.of(context).pop(_durationSeconds);
   }
 
   String get _statusLabel {
@@ -160,10 +251,20 @@ class _AudioCallPageState extends State<AudioCallPage> {
     try {
       await widget.agoraService.leave();
 
-      await widget.callService.endCall(
-        callId: widget.session.callId,
-        durationSeconds: _durationSeconds,
-      );
+      final unansweredRingingCall = widget.session.isCaller &&
+          !_everRemoteJoined &&
+          _serverStatus == 'ringing';
+
+      if (unansweredRingingCall) {
+        await widget.callService.cancelCall(
+          callId: widget.session.callId,
+        );
+      } else {
+        await widget.callService.endCall(
+          callId: widget.session.callId,
+          durationSeconds: _everRemoteJoined ? _durationSeconds : 0,
+        );
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -22,6 +22,10 @@ import '../chat/widgets/message_list.dart';
 import '../chat/widgets/reply_banner.dart';
 import '../chat/widgets/typing_indicator.dart';
 import '../chat/widgets/voice_message_player.dart';
+import '../calls/models/call_session.dart';
+import '../calls/screens/audio_call_page.dart';
+import '../calls/services/agora_service.dart';
+import '../calls/services/call_service.dart';
 
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
 import 'package:earn2love_app/screens/settings/report_page.dart';
@@ -746,6 +750,85 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
+  Future<Map<String, String>> _loadCallUserIdentity(
+    String userId,
+  ) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      final data = snapshot.data() ?? <String, dynamic>{};
+
+      final rawName = asString(
+        data['displayName'] ?? data['name'],
+        def: 'User',
+      );
+
+      final photo = asString(
+        data['photoUrl'] ?? data['profilePhoto'],
+      );
+
+      return <String, String>{
+        'name': rawName.isEmpty ? 'User' : rawName,
+        'photo': photo,
+      };
+    } catch (_) {
+      return const <String, String>{
+        'name': 'User',
+        'photo': '',
+      };
+    }
+  }
+
+  Future<void> _openRealAudioCall(
+    CallSession session,
+  ) async {
+    if (!mounted) return;
+
+    final remoteUid = session.isCaller ? session.calleeUid : session.callerUid;
+
+    final identity = await _loadCallUserIdentity(remoteUid);
+
+    if (!mounted) return;
+
+    final duration = await Navigator.of(context).push<int>(
+      MaterialPageRoute<int>(
+        builder: (_) => AudioCallPage(
+          session: session,
+          otherName: identity['name'] ?? 'User',
+          otherPhotoUrl: identity['photo'] ?? '',
+          callService: CallService(),
+          agoraService: AgoraService(),
+        ),
+      ),
+    );
+
+    if (!mounted || duration == null) return;
+
+    try {
+      final callSnapshot = await FirebaseFirestore.instance
+          .collection('calls')
+          .doc(session.callId)
+          .get();
+
+      final callData = callSnapshot.data() ?? <String, dynamic>{};
+
+      final storedDuration = asInt(callData['durationSeconds']);
+
+      final charge = session.isCaller ? asInt(callData['charge']) : 0;
+
+      await _addCallLog(
+        callType: 'audio',
+        durationSeconds: storedDuration > 0 ? storedDuration : duration,
+        cost: charge,
+      );
+    } catch (error) {
+      debugPrint('Audio call log creation failed: $error');
+    }
+  }
+
   Future<void> _acceptRequest(String id) async {
     if (_anyBlocked) {
       if (!mounted) return;
@@ -815,13 +898,71 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         return;
       }
 
+      if (type == 'audio_call_request') {
+        final callId = asString(data['callId']);
+
+        if (callId.isEmpty) {
+          await reqRef.doc(id).set({
+            'status': 'rejected_invalid_call',
+            'handledAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          await _decrementCounter(
+            meRef,
+            'pendingCallRequests',
+          );
+
+          if (!mounted) return;
+
+          setState(() => _activeBanner = null);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'This audio call request is invalid.',
+              ),
+            ),
+          );
+          return;
+        }
+
+        try {
+          final session = await CallService().acceptCall(
+            callId: callId,
+          );
+
+          await reqRef.doc(id).set({
+            'status': 'accepted',
+            'handledAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          await _decrementCounter(
+            meRef,
+            'pendingCallRequests',
+          );
+
+          if (!mounted) return;
+
+          setState(() => _activeBanner = null);
+
+          await _openRealAudioCall(session);
+        } on CallServiceException catch (error) {
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.message),
+            ),
+          );
+        }
+
+        return;
+      }
+
       int cost = 0;
       String reason = '';
 
-      if (type == 'audio_call_request') {
-        cost = 10;
-        reason = 'audio_call';
-      } else if (type == 'video_call_request') {
+      if (type == 'video_call_request') {
         cost = 25;
         reason = 'video_call';
       }
@@ -900,6 +1041,22 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     final type = asString(data['type']);
     final toUid = asString(data['toUid']);
     final status = asString(data['status']);
+
+    if (status == 'pending' && type == 'audio_call_request') {
+      final callId = asString(data['callId']);
+
+      if (callId.isNotEmpty) {
+        try {
+          await CallService().rejectCall(
+            callId: callId,
+          );
+        } catch (error) {
+          debugPrint(
+            'Server audio-call rejection failed: $error',
+          );
+        }
+      }
+    }
 
     if (status == 'pending') {
       await reqRef.doc(id).set({
@@ -991,6 +1148,67 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(denyMessage)),
       );
+      return;
+    }
+
+    if (type == 'audio_call_request') {
+      CallSession? session;
+
+      try {
+        session = await CallService().startCall(
+          calleeUid: widget.otherUid,
+          type: CallType.audio,
+        );
+
+        await reqRef.add({
+          'fromUid': uid,
+          'toUid': widget.otherUid,
+          'type': type,
+          'status': 'pending',
+          'callId': session.callId,
+          'channelName': session.channelName,
+          'callType': session.type.apiValue,
+          'ratePerMinute': session.ratePerMinute,
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAt': Timestamp.fromDate(
+            DateTime.now().add(_requestExpiryDuration),
+          ),
+        });
+
+        await _incrementCounter(
+          otherRef,
+          'pendingCallRequests',
+        );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Audio call request sent ✅'),
+          ),
+        );
+
+        await _openRealAudioCall(session);
+      } catch (error) {
+        if (session != null) {
+          try {
+            await CallService().cancelCall(
+              callId: session.callId,
+            );
+          } catch (_) {}
+        }
+
+        if (!mounted) return;
+
+        final message = error is CallServiceException
+            ? error.message
+            : 'Audio call could not start: $error';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+
       return;
     }
 
