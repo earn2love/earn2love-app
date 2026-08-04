@@ -141,6 +141,118 @@ class CallService {
     }
   }
 
+  Future<CallSession> acceptCall({
+    required String callId,
+  }) async {
+    final cleanCallId = callId.trim();
+
+    if (cleanCallId.isEmpty) {
+      throw const CallServiceException(
+        'The call ID is invalid.',
+        code: 'invalid-call',
+      );
+    }
+
+    try {
+      final callable = _functions.httpsCallable('acceptCall');
+
+      final response = await callable.call<Map<String, dynamic>>(
+        <String, dynamic>{
+          'callId': cleanCallId,
+        },
+      );
+
+      final data = Map<String, dynamic>.from(response.data);
+
+      return CallSession(
+        callId: _requiredString(data['callId'], 'callId'),
+        channelName: _requiredString(
+          data['channelName'],
+          'channelName',
+        ),
+        type: CallType.fromValue(data['type']),
+        callerUid: _requiredString(
+          data['callerUid'],
+          'callerUid',
+        ),
+        calleeUid: _requiredString(
+          data['calleeUid'],
+          'calleeUid',
+        ),
+        ratePerMinute: 0,
+        isCaller: false,
+      );
+    } on FirebaseFunctionsException catch (error) {
+      throw CallServiceException(
+        error.message ?? 'The call could not be accepted.',
+        code: error.code,
+        originalError: error,
+      );
+    } catch (error) {
+      if (error is CallServiceException) rethrow;
+
+      throw CallServiceException(
+        'The call could not be accepted: $error',
+        originalError: error,
+      );
+    }
+  }
+
+  Future<void> rejectCall({
+    required String callId,
+  }) async {
+    await _updateCallState(
+      functionName: 'rejectCall',
+      callId: callId,
+    );
+  }
+
+  Future<void> cancelCall({
+    required String callId,
+  }) async {
+    await _updateCallState(
+      functionName: 'cancelCall',
+      callId: callId,
+    );
+  }
+
+  Future<void> _updateCallState({
+    required String functionName,
+    required String callId,
+  }) async {
+    final cleanCallId = callId.trim();
+
+    if (cleanCallId.isEmpty) {
+      throw const CallServiceException(
+        'The call ID is invalid.',
+        code: 'invalid-call',
+      );
+    }
+
+    try {
+      final callable = _functions.httpsCallable(functionName);
+
+      await callable.call<Map<String, dynamic>>(
+        <String, dynamic>{
+          'callId': cleanCallId,
+        },
+      );
+    } on FirebaseFunctionsException catch (error) {
+      throw CallServiceException(
+        error.message ?? 'The call could not be updated.',
+        code: error.code,
+        originalError: error,
+      );
+    } catch (error) {
+      if (error is CallServiceException) rethrow;
+
+      throw CallServiceException(
+        'The call could not be updated: $error',
+        originalError: error,
+      );
+    }
+  }
+
   Future<EndCallResult> endCall({
     required String callId,
     required int durationSeconds,
