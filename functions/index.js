@@ -5,6 +5,7 @@ const admin = require("firebase-admin");
 const Stripe = require("stripe");
 const calls = require("./calls");
 const playTogether = require("./play_together");
+const aiGateway = require("./ai/ai_gateway");
 
 admin.initializeApp();
 setGlobalOptions({maxInstances: 10});
@@ -153,3 +154,9 @@ exports.replacePlayPrompt =
     playTogether.replacePlayPrompt;
 exports.nextPlayPrompt =
     playTogether.nextPlayPrompt;
+
+// Shared AI Gateway
+exports.askUserSupportAssistant =
+    aiGateway.askUserSupportAssistant;
+exports.askAdminAssistant =
+    aiGateway.askAdminAssistant;
