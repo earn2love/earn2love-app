@@ -37,6 +37,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Earn2Love uses the camera for video calls.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Earn2Love uses the microphone for audio and video calls.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
