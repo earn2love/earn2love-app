@@ -12,6 +12,15 @@ const {
   assertAccountUsable,
 } = require("./call_util");
 
+const {
+  generatePlayPrompt,
+  generateHostReaction,
+} = require("./ai/play_prompts");
+
+const {
+  reserveAiUsage,
+} = require("./ai/ai_usage_limits");
+
 const TIER_RANK = Object.freeze({
   casual: 0,
   friendship: 1,
@@ -701,6 +710,172 @@ function createPrompt(session) {
 }
 
 /**
+ * Returns the tier used for AI request limits.
+ *
+ * @param {Object} account Account data.
+ * @return {string} Supported usage tier.
+ */
+function resolveAiTier(account) {
+  return normalizeTier(
+      account.tier ||
+      account.subTier ||
+      account.subscriptionPlan,
+  );
+}
+
+/**
+ * Creates an OpenAI prompt or a curated fallback.
+ *
+ * The OpenAI request is intentionally executed outside Firestore
+ * transactions. Any provider, schema, timeout or usage-limit error
+ * falls back to the existing curated prompt engine.
+ *
+ * @param {Object} options Prompt-generation options.
+ * @param {Object} options.session Current Play Together session.
+ * @param {string} options.uid User requesting generation.
+ * @param {string} options.tier User subscription tier.
+ * @param {number} options.targetRound Target round number.
+ * @return {Promise<Object>} Stored prompt payload.
+ */
+async function buildPromptWithFallback({
+  session,
+  uid,
+  tier,
+  targetRound,
+}) {
+  try {
+    await reserveAiUsage(
+        uid,
+        "playTogetherPrompt",
+        tier,
+    );
+
+    const generated = await generatePlayPrompt({
+      experienceId: session.experienceId,
+      experienceTitle: session.experienceTitle,
+      language: session.language || "en",
+      comfortLevel:
+          session.effectiveComfort || "standard",
+      currentRound: targetRound,
+      maximumRounds:
+          Number(session.maxRounds || 10),
+      usedPromptTexts:
+          Array.isArray(session.usedPromptTexts) ?
+          session.usedPromptTexts :
+          [],
+    });
+
+    return {
+      id: `ai_${crypto.randomUUID()}`,
+      type: generated.type,
+      text: generated.text,
+      comfort:
+          session.effectiveComfort || "standard",
+      language: session.language || "en",
+      source: "openai",
+      hostIntroduction:
+          generated.hostIntroduction || "",
+      followUpHint:
+          generated.followUpHint || "",
+      visualTheme:
+          generated.visualTheme || "",
+      consentReminder:
+          generated.consentReminder || "",
+      createdAt: Date.now(),
+    };
+  } catch (error) {
+    console.warn(
+        "Play Together AI prompt fallback:",
+        error && error.message ?
+        error.message :
+        String(error),
+    );
+
+    const fallback = createPrompt(session);
+
+    return {
+      ...fallback,
+      id: `fallback_${crypto.randomUUID()}`,
+      source: "curated_fallback",
+    };
+  }
+}
+
+/**
+ * Generates an optional reaction to both player responses.
+ *
+ * A failed reaction must never prevent the next game round.
+ *
+ * @param {Object} options Reaction options.
+ * @param {Object} options.session Current session.
+ * @param {string} options.uid Requesting user ID.
+ * @param {string} options.tier User tier.
+ * @return {Promise<Object|null>} AI reaction or null.
+ */
+async function buildHostReaction({
+  session,
+  uid,
+  tier,
+}) {
+  try {
+    await reserveAiUsage(
+        uid,
+        "playTogetherReaction",
+        tier,
+    );
+
+    const hostResponse =
+        session.hostResponse || {};
+
+    const guestResponse =
+        session.guestResponse || {};
+
+    return await generateHostReaction({
+      experienceId: session.experienceId,
+      language: session.language || "en",
+      prompt:
+          session.currentPrompt &&
+          session.currentPrompt.text ?
+          session.currentPrompt.text :
+          "",
+      firstResponse: hostResponse.skipped === true ?
+          "Skipped" :
+          String(hostResponse.text || ""),
+      secondResponse: guestResponse.skipped === true ?
+          "Skipped" :
+          String(guestResponse.text || ""),
+    });
+  } catch (error) {
+    console.warn(
+        "Play Together AI reaction skipped:",
+        error && error.message ?
+        error.message :
+        String(error),
+    );
+
+    return null;
+  }
+}
+
+/**
+ * Returns whether an abandoned generation lock can be reclaimed.
+ *
+ * @param {Object} session Session data.
+ * @return {boolean} Whether the lock is stale.
+ */
+function generationLockExpired(session) {
+  const startedAt = Number(
+      session.generationStartedAtMs || 0,
+  );
+
+  if (startedAt <= 0) {
+    return true;
+  }
+
+  return Date.now() - startedAt > 45000;
+}
+
+/**
  * Finds an experience.
  *
  * @param {string} experienceId Experience ID.
@@ -755,6 +930,11 @@ function publicSession(sessionId, session) {
     guestResponse: session.guestResponse || null,
     replacementCount:
         Number(session.replacementCount || 0),
+    hostReaction: session.hostReaction || null,
+    generationState:
+        session.status === "generating" ?
+        "generating" :
+        "idle",
     createdAt: session.createdAt || null,
   };
 }
@@ -856,6 +1036,10 @@ exports.createPlaySession = onCall(
         guestResponse: null,
         replacementCount: 0,
         usedPromptIds: [],
+        usedPromptTexts: [],
+        hostReaction: null,
+        generationToken: null,
+        generationStartedAtMs: null,
         promptVersion: 0,
         createdAt: timestamp(),
         updatedAt: timestamp(),
@@ -969,14 +1153,27 @@ exports.joinPlaySession = onCall(
 );
 
 exports.setPlayReady = onCall(
+    {
+      secrets: ["OPENAI_API_KEY"],
+      timeoutSeconds: 30,
+      memory: "256MiB",
+    },
     async (request) => {
       const uid = assertAuth(request);
+      const account =
+          await assertAccountUsable(uid);
+
+      const tier = resolveAiTier(account.data);
+
       const sessionId = String(
-          request.data && request.data.sessionId || "",
+          request.data &&
+          request.data.sessionId ||
+          "",
       ).trim();
 
       const ready =
-          request.data && request.data.ready === true;
+          request.data &&
+          request.data.ready === true;
 
       if (!sessionId) {
         throw new HttpsError(
@@ -989,83 +1186,184 @@ exports.setPlayReady = onCall(
           .collection("playSessions")
           .doc(sessionId);
 
-      await db().runTransaction(async (transaction) => {
-        const snapshot =
-            await transaction.get(reference);
+      const generationToken =
+          crypto.randomUUID();
 
-        if (!snapshot.exists) {
-          throw new HttpsError(
-              "not-found",
-              "Play session not found",
-          );
-        }
+      let generationSession = null;
 
-        const session = snapshot.data() || {};
-        const isHost = session.hostUid === uid;
-        const isGuest = session.guestUid === uid;
+      await db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(reference);
 
-        if (!isHost && !isGuest) {
-          throw new HttpsError(
-              "permission-denied",
-              "You are not part of this session",
-          );
-        }
+            if (!snapshot.exists) {
+              throw new HttpsError(
+                  "not-found",
+                  "Play session not found",
+              );
+            }
 
-        const update = {
-          updatedAt: timestamp(),
-        };
+            const session =
+                snapshot.data() || {};
 
-        if (isHost) {
-          update.hostReady = ready;
-        }
+            const isHost =
+                session.hostUid === uid;
 
-        if (isGuest) {
-          update.guestReady = ready;
-        }
+            const isGuest =
+                session.guestUid === uid;
 
-        const hostReady = isHost ?
-          ready :
-          session.hostReady === true;
+            if (!isHost && !isGuest) {
+              throw new HttpsError(
+                  "permission-denied",
+                  "You are not part of this session",
+              );
+            }
 
-        const guestReady = isGuest ?
-          ready :
-          session.guestReady === true;
+            const update = {
+              updatedAt: timestamp(),
+            };
 
-        if (session.guestUid &&
-            hostReady &&
-            guestReady) {
-          const effective = effectiveComfort(
-              session.hostComfort,
-              session.guestComfort,
-              session.adultEligible === true,
-          );
+            if (isHost) {
+              update.hostReady = ready;
+            }
 
-          const prompt = createPrompt({
-            ...session,
-            effectiveComfort: effective,
-          });
+            if (isGuest) {
+              update.guestReady = ready;
+            }
 
-          update.status = "playing";
-          update.effectiveComfort = effective;
-          update.currentRound =
-              Number(session.currentRound || 0) + 1;
-          update.currentPrompt = prompt;
-          update.usedPromptIds = [
-            ...(session.usedPromptIds || []),
-            prompt.id,
-          ];
-          update.hostResponse = null;
-          update.guestResponse = null;
-          update.startedAt =
-              session.startedAt || timestamp();
-        } else {
-          update.status = "waiting";
-        }
+            const hostReady = isHost ?
+              ready :
+              session.hostReady === true;
 
-        transaction.update(reference, update);
-      });
+            const guestReady = isGuest ?
+              ready :
+              session.guestReady === true;
 
-      const updated = await reference.get();
+            if (!ready) {
+              update.status = "waiting";
+              update.generationToken = null;
+              update.generationStartedAtMs = null;
+
+              transaction.update(
+                  reference,
+                  update,
+              );
+              return;
+            }
+
+            const canGenerate =
+                session.guestUid &&
+                hostReady &&
+                guestReady &&
+                (
+                  session.status === "waiting" ||
+                  (
+                    session.status === "generating" &&
+                    generationLockExpired(session)
+                  )
+                );
+
+            if (!canGenerate) {
+              transaction.update(
+                  reference,
+                  update,
+              );
+              return;
+            }
+
+            const effective = effectiveComfort(
+                session.hostComfort,
+                session.guestComfort,
+                session.adultEligible === true,
+            );
+
+            generationSession = {
+              ...session,
+              hostReady,
+              guestReady,
+              effectiveComfort: effective,
+            };
+
+            update.status = "generating";
+            update.effectiveComfort = effective;
+            update.generationToken =
+                generationToken;
+            update.generationStartedAtMs =
+                Date.now();
+
+            transaction.update(
+                reference,
+                update,
+            );
+          },
+      );
+
+      if (generationSession) {
+        const targetRound =
+            Number(
+                generationSession.currentRound || 0,
+            ) + 1;
+
+        const prompt =
+            await buildPromptWithFallback({
+              session: generationSession,
+              uid,
+              tier,
+              targetRound,
+            });
+
+        await db().runTransaction(
+            async (transaction) => {
+              const snapshot =
+                  await transaction.get(reference);
+
+              if (!snapshot.exists) {
+                return;
+              }
+
+              const current =
+                  snapshot.data() || {};
+
+              if (
+                current.status !== "generating" ||
+                current.generationToken !==
+                    generationToken
+              ) {
+                return;
+              }
+
+              transaction.update(reference, {
+                status: "playing",
+                currentRound: targetRound,
+                currentPrompt: prompt,
+                usedPromptIds: [
+                  ...(current.usedPromptIds || []),
+                  prompt.id,
+                ],
+                usedPromptTexts: [
+                  ...(current.usedPromptTexts || []),
+                  prompt.text,
+                ].slice(-50),
+                hostResponse: null,
+                guestResponse: null,
+                hostReaction: null,
+                generationToken: null,
+                generationStartedAtMs: null,
+                startedAt:
+                    current.startedAt ||
+                    timestamp(),
+                promptVersion:
+                    Number(
+                        current.promptVersion || 0,
+                    ) + 1,
+                updatedAt: timestamp(),
+              });
+            },
+        );
+      }
+
+      const updated =
+          await reference.get();
 
       return publicSession(
           updated.id,
@@ -1305,69 +1603,153 @@ exports.skipPlayPrompt = onCall(
 );
 
 exports.replacePlayPrompt = onCall(
+    {
+      secrets: ["OPENAI_API_KEY"],
+      timeoutSeconds: 30,
+      memory: "256MiB",
+    },
     async (request) => {
       const uid = assertAuth(request);
+      const account =
+          await assertAccountUsable(uid);
+
+      const tier = resolveAiTier(account.data);
+
       const sessionId = String(
-          request.data && request.data.sessionId || "",
+          request.data &&
+          request.data.sessionId ||
+          "",
       ).trim();
 
       const reference = db()
           .collection("playSessions")
           .doc(sessionId);
 
-      await db().runTransaction(async (transaction) => {
-        const snapshot =
-            await transaction.get(reference);
+      const generationToken =
+          crypto.randomUUID();
 
-        if (!snapshot.exists) {
-          throw new HttpsError(
-              "not-found",
-              "Play session not found",
-          );
-        }
+      let generationSession = null;
 
-        const session = snapshot.data() || {};
-        const participants =
-            Array.isArray(session.participants) ?
-            session.participants :
-            [];
+      await db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(reference);
 
-        if (!participants.includes(uid)) {
-          throw new HttpsError(
-              "permission-denied",
-              "You are not part of this session",
-          );
-        }
+            if (!snapshot.exists) {
+              throw new HttpsError(
+                  "not-found",
+                  "Play session not found",
+              );
+            }
 
-        const replacementCount =
-            Number(session.replacementCount || 0);
+            const session =
+                snapshot.data() || {};
 
-        if (replacementCount >= 5) {
-          throw new HttpsError(
-              "resource-exhausted",
-              "Replacement limit reached",
-          );
-        }
+            const participants =
+                Array.isArray(session.participants) ?
+                session.participants :
+                [];
 
-        const prompt = createPrompt(session);
+            if (!participants.includes(uid)) {
+              throw new HttpsError(
+                  "permission-denied",
+                  "You are not part of this session",
+              );
+            }
 
-        transaction.update(reference, {
-          currentPrompt: prompt,
-          usedPromptIds: [
-            ...(session.usedPromptIds || []),
-            prompt.id,
-          ],
-          hostResponse: null,
-          guestResponse: null,
-          replacementCount:
-              replacementCount + 1,
-          promptVersion:
-              Number(session.promptVersion || 0) + 1,
-          updatedAt: timestamp(),
-        });
-      });
+            if (session.status !== "playing") {
+              throw new HttpsError(
+                  "failed-precondition",
+                  "Session is not currently playing",
+              );
+            }
 
-      const updated = await reference.get();
+            const replacementCount =
+                Number(
+                    session.replacementCount || 0,
+                );
+
+            if (replacementCount >= 5) {
+              throw new HttpsError(
+                  "resource-exhausted",
+                  "Replacement limit reached",
+              );
+            }
+
+            generationSession = session;
+
+            transaction.update(reference, {
+              status: "generating",
+              generationToken,
+              generationStartedAtMs:
+                  Date.now(),
+              updatedAt: timestamp(),
+            });
+          },
+      );
+
+      const prompt =
+          await buildPromptWithFallback({
+            session: generationSession,
+            uid,
+            tier,
+            targetRound:
+                Number(
+                    generationSession.currentRound || 1,
+                ),
+          });
+
+      await db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(reference);
+
+            if (!snapshot.exists) {
+              return;
+            }
+
+            const current =
+                snapshot.data() || {};
+
+            if (
+              current.status !== "generating" ||
+              current.generationToken !==
+                  generationToken
+            ) {
+              return;
+            }
+
+            transaction.update(reference, {
+              status: "playing",
+              currentPrompt: prompt,
+              usedPromptIds: [
+                ...(current.usedPromptIds || []),
+                prompt.id,
+              ],
+              usedPromptTexts: [
+                ...(current.usedPromptTexts || []),
+                prompt.text,
+              ].slice(-50),
+              hostResponse: null,
+              guestResponse: null,
+              hostReaction: null,
+              replacementCount:
+                  Number(
+                      current.replacementCount || 0,
+                  ) + 1,
+              generationToken: null,
+              generationStartedAtMs: null,
+              promptVersion:
+                  Number(
+                      current.promptVersion || 0,
+                  ) + 1,
+              updatedAt: timestamp(),
+            });
+          },
+      );
+
+      const updated =
+          await reference.get();
 
       return publicSession(
           updated.id,
@@ -1377,81 +1759,186 @@ exports.replacePlayPrompt = onCall(
 );
 
 exports.nextPlayPrompt = onCall(
+    {
+      secrets: ["OPENAI_API_KEY"],
+      timeoutSeconds: 30,
+      memory: "256MiB",
+    },
     async (request) => {
       const uid = assertAuth(request);
+      const account =
+          await assertAccountUsable(uid);
+
+      const tier = resolveAiTier(account.data);
+
       const sessionId = String(
-          request.data && request.data.sessionId || "",
+          request.data &&
+          request.data.sessionId ||
+          "",
       ).trim();
 
       const reference = db()
           .collection("playSessions")
           .doc(sessionId);
 
-      await db().runTransaction(async (transaction) => {
-        const snapshot =
-            await transaction.get(reference);
+      const generationToken =
+          crypto.randomUUID();
 
-        if (!snapshot.exists) {
-          throw new HttpsError(
-              "not-found",
-              "Play session not found",
-          );
-        }
+      let generationSession = null;
+      let shouldComplete = false;
 
-        const session = snapshot.data() || {};
-        const participants =
-            Array.isArray(session.participants) ?
-            session.participants :
-            [];
+      await db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(reference);
 
-        if (!participants.includes(uid)) {
-          throw new HttpsError(
-              "permission-denied",
-              "You are not part of this session",
-          );
-        }
+            if (!snapshot.exists) {
+              throw new HttpsError(
+                  "not-found",
+                  "Play session not found",
+              );
+            }
 
-        if (!session.hostResponse ||
-            !session.guestResponse) {
-          throw new HttpsError(
-              "failed-precondition",
-              "Both players must answer or skip",
-          );
-        }
+            const session =
+                snapshot.data() || {};
 
-        const currentRound =
-            Number(session.currentRound || 0);
+            const participants =
+                Array.isArray(session.participants) ?
+                session.participants :
+                [];
 
-        const maxRounds =
-            Number(session.maxRounds || 10);
+            if (!participants.includes(uid)) {
+              throw new HttpsError(
+                  "permission-denied",
+                  "You are not part of this session",
+              );
+            }
 
-        if (currentRound >= maxRounds) {
-          transaction.update(reference, {
-            status: "completed",
-            completedAt: timestamp(),
-            updatedAt: timestamp(),
-          });
-          return;
-        }
+            if (session.status !== "playing") {
+              throw new HttpsError(
+                  "failed-precondition",
+                  "Session is not currently playing",
+              );
+            }
 
-        const prompt = createPrompt(session);
+            if (
+              !session.hostResponse ||
+              !session.guestResponse
+            ) {
+              throw new HttpsError(
+                  "failed-precondition",
+                  "Both players must answer or skip",
+              );
+            }
 
-        transaction.update(reference, {
-          currentRound: currentRound + 1,
-          currentPrompt: prompt,
-          usedPromptIds: [
-            ...(session.usedPromptIds || []),
-            prompt.id,
-          ],
-          hostResponse: null,
-          guestResponse: null,
-          promptVersion:
-              Number(session.promptVersion || 0) + 1,
-          updatedAt: timestamp(),
-        });
-      });
+            const currentRound =
+                Number(session.currentRound || 0);
 
-      const updated = await reference.get();
+            const maxRounds =
+                Number(session.maxRounds || 10);
+
+            if (currentRound >= maxRounds) {
+              shouldComplete = true;
+
+              transaction.update(reference, {
+                status: "completed",
+                completedAt: timestamp(),
+                updatedAt: timestamp(),
+              });
+
+              return;
+            }
+
+            generationSession = session;
+
+            transaction.update(reference, {
+              status: "generating",
+              generationToken,
+              generationStartedAtMs:
+                  Date.now(),
+              updatedAt: timestamp(),
+            });
+          },
+      );
+
+      if (shouldComplete) {
+        const completed =
+            await reference.get();
+
+        return publicSession(
+            completed.id,
+            completed.data() || {},
+        );
+      }
+
+      const targetRound =
+          Number(
+              generationSession.currentRound || 0,
+          ) + 1;
+
+      const [prompt, reaction] =
+          await Promise.all([
+            buildPromptWithFallback({
+              session: generationSession,
+              uid,
+              tier,
+              targetRound,
+            }),
+            buildHostReaction({
+              session: generationSession,
+              uid,
+              tier,
+            }),
+          ]);
+
+      await db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(reference);
+
+            if (!snapshot.exists) {
+              return;
+            }
+
+            const current =
+                snapshot.data() || {};
+
+            if (
+              current.status !== "generating" ||
+              current.generationToken !==
+                  generationToken
+            ) {
+              return;
+            }
+
+            transaction.update(reference, {
+              status: "playing",
+              currentRound: targetRound,
+              currentPrompt: prompt,
+              usedPromptIds: [
+                ...(current.usedPromptIds || []),
+                prompt.id,
+              ],
+              usedPromptTexts: [
+                ...(current.usedPromptTexts || []),
+                prompt.text,
+              ].slice(-50),
+              hostResponse: null,
+              guestResponse: null,
+              hostReaction: reaction,
+              generationToken: null,
+              generationStartedAtMs: null,
+              promptVersion:
+                  Number(
+                      current.promptVersion || 0,
+                  ) + 1,
+              updatedAt: timestamp(),
+            });
+          },
+      );
+
+      const updated =
+          await reference.get();
 
       return publicSession(
           updated.id,
