@@ -92,6 +92,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   bool _meHasEligiblePlan = false;
   bool _blockedByMe = false;
   bool _blockedByOther = false;
+  bool _otherTyping = false;
   String _friendStatus = '';
 
   Map<String, dynamic> _myGlobalSettings = <String, dynamic>{};
@@ -459,17 +460,24 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   void _listenRoomBlockState() {
     _roomSub?.cancel();
     _roomSub = roomRef.snapshots().listen((snap) {
-      final data = snap.data() ?? {};
+      final data = snap.data() ?? <String, dynamic>{};
+
       final blockedBy = asMap(data['blockedBy']);
+      final typing = asMap(data['typing']);
 
       final byMe = blockedBy[uid] == true;
       final byOther = blockedBy[widget.otherUid] == true;
+      final otherTyping = typing[widget.otherUid] == true;
 
       if (!mounted) return;
-      if (byMe != _blockedByMe || byOther != _blockedByOther) {
+
+      if (byMe != _blockedByMe ||
+          byOther != _blockedByOther ||
+          otherTyping != _otherTyping) {
         setState(() {
           _blockedByMe = byMe;
           _blockedByOther = byOther;
+          _otherTyping = otherTyping;
         });
       }
     });
@@ -2270,8 +2278,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
   Widget _typingLine(bool online, Timestamp? lastSeen) {
     return ChatTypingIndicator(
-      roomStream: roomRef.snapshots(),
-      otherUid: widget.otherUid,
+      isTyping: _otherTyping,
       online: online,
       lastSeen: lastSeen,
       formatLastSeen: _formatLastSeenLine,
