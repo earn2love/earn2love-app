@@ -4,6 +4,7 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const Stripe = require("stripe");
 const calls = require("./calls");
+const playTogether = require("./play_together");
 
 admin.initializeApp();
 setGlobalOptions({maxInstances: 10});
@@ -128,3 +129,17 @@ exports.rejectCall = calls.rejectCall;
 exports.cancelCall = calls.cancelCall;
 exports.getCallConfig = calls.getCallConfig;
 exports.updateCallConfig = calls.updateCallConfig;
+
+// Play Together
+exports.getPlayExperiences =
+    playTogether.getPlayExperiences;
+exports.createPlaySession =
+    playTogether.createPlaySession;
+exports.joinPlaySession =
+    playTogether.joinPlaySession;
+exports.setPlayReady =
+    playTogether.setPlayReady;
+exports.getPlaySession =
+    playTogether.getPlaySession;
+exports.leavePlaySession =
+    playTogether.leavePlaySession;

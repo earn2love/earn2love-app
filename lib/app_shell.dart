@@ -3,6 +3,7 @@ import 'screens/home_page.dart';
 import 'screens/chat_list_page.dart';
 import 'screens/earn_page.dart';
 import 'screens/wallet_page.dart';
+import 'play_together/screens/play_together_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -18,6 +19,7 @@ class _AppShellState extends State<AppShell> {
     HomePage(),
     WalletPage(),
     ChatListPage(),
+    PlayTogetherPage(),
     EarnPage(),
   ];
 
@@ -49,6 +51,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.chat_bubble_outline),
             activeIcon: Icon(Icons.chat_bubble),
             label: 'Chat',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sports_esports_outlined),
+            activeIcon: Icon(Icons.sports_esports),
+            label: 'Play',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.monetization_on_outlined),
