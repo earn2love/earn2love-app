@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class ChatMessageBubble extends StatelessWidget {
@@ -127,10 +128,20 @@ class ChatMessageBubble extends StatelessWidget {
                       maxWidth: 220,
                       maxHeight: 260,
                     ),
-                    child: Image.network(
-                      imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      fadeInDuration: const Duration(milliseconds: 160),
+                      placeholder: (_, __) => const SizedBox(
+                        width: 180,
+                        height: 120,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => Container(
                         width: 180,
                         height: 120,
                         alignment: Alignment.center,

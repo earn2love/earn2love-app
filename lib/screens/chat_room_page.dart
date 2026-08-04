@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:just_audio/just_audio.dart';
@@ -2106,12 +2107,20 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         child: InteractiveViewer(
           minScale: 1,
           maxScale: 4,
-          child: Image.network(
-            url,
+          child: CachedNetworkImage(
+            imageUrl: url,
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const SizedBox(
+            placeholder: (_, __) => const SizedBox(
               height: 240,
-              child: Center(child: Text('Image failed to load')),
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+            errorWidget: (_, __, ___) => const SizedBox(
+              height: 240,
+              child: Center(
+                child: Text('Image failed to load'),
+              ),
             ),
           ),
         ),
