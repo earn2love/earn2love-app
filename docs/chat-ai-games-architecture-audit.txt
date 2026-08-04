@@ -1,0 +1,540 @@
+EARN2LOVE CHAT + AI + GAMES ARCHITECTURE AUDIT
+Generated: Tue  4 Aug 2026 02:03:09 BST
+
+CURRENT BRANCH
+chat-ai-games-architecture
+
+LATEST COMMIT
+42a5f8f Configure Firebase and iOS production setup
+
+FLUTTER VERSION
+Flutter 3.41.6 • channel [user-branch] • unknown source
+Framework • revision db50e20168 (4 months ago) • 2026-03-25 16:21:00 -0700
+Engine • hash 5cdd32777948fa7a648fac915f8da7120ac7e97a (revision 425cfb54d0) (4 months ago) • 2026-03-25 20:14:42.000Z
+Tools • Dart 3.11.4 • DevTools 2.54.2
+
+PROJECT STRUCTURE
+functions/.eslintrc.js
+functions/.gitignore
+functions/index.js
+functions/package-lock.json
+functions/package.json
+lib/app_shell.dart
+lib/firebase_options.dart
+lib/main.dart
+lib/screens/.bash_history
+lib/screens/.emulator_console_auth_token
+lib/screens/.gitconfig
+lib/screens/.lesshst
+lib/screens/archived_chats_page.dart
+lib/screens/auth_gate.dart
+lib/screens/auth_screen.dart
+lib/screens/chat_list_page.dart
+lib/screens/chat_page.dart
+lib/screens/chat_room_page.dart
+lib/screens/earn_page.dart
+lib/screens/home_page.dart
+lib/screens/login_page.dart
+lib/screens/media_post_viewer_page.dart
+lib/screens/media_viewer_page.dart
+lib/screens/notifications_page.dart
+lib/screens/payment_page.dart
+lib/screens/profile_address_page.dart
+lib/screens/profile_bio_page.dart
+lib/screens/profile_contact_page.dart
+lib/screens/profile_menu_page.dart
+lib/screens/profile_page.dart
+lib/screens/profile_personal_page.dart
+lib/screens/profile_photo_privacy_page.dart
+lib/screens/requests_page.dart
+lib/screens/reset_password_page.dart
+lib/screens/settings/blocked_users_page.dart
+lib/screens/settings/chat_room_settings_page.dart
+lib/screens/settings/report_history_page.dart
+lib/screens/settings/report_page.dart
+lib/screens/settings/rules_page.dart
+lib/screens/settings/settings_page.dart
+lib/screens/support_page.dart
+lib/screens/top_up_page.dart
+lib/screens/upload_photo_page.dart
+lib/screens/upload_video_page.dart
+lib/screens/user_profile_page.dart
+lib/screens/users_page.dart
+lib/screens/vibe_selection_page.dart
+lib/screens/video_player_page.dart
+lib/screens/wallet_history_page.dart
+lib/screens/wallet_page.dart
+lib/screens/withdraw_page.dart
+lib/services/coin_service.dart
+lib/services/locale_service.dart
+lib/services/streak_service.dart
+lib/widgets/heart_avatar.dart
+
+CHAT FILES
+lib/screens/archived_chats_page.dart
+lib/screens/chat_list_page.dart
+lib/screens/chat_page.dart
+lib/screens/chat_room_page.dart
+lib/screens/media_post_viewer_page.dart
+lib/screens/media_viewer_page.dart
+lib/screens/notifications_page.dart
+lib/screens/settings/chat_room_settings_page.dart
+lib/screens/upload_video_page.dart
+lib/screens/video_player_page.dart
+
+CHAT COLLECTIONS AND QUERIES
+lib/screens/settings/chat_room_settings_page.dart:7:class ChatRoomSettingsPage extends StatefulWidget {
+lib/screens/settings/chat_room_settings_page.dart:11:  const ChatRoomSettingsPage({
+lib/screens/settings/chat_room_settings_page.dart:18:  State<ChatRoomSettingsPage> createState() => _ChatRoomSettingsPageState();
+lib/screens/settings/chat_room_settings_page.dart:21:class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
+lib/screens/settings/chat_room_settings_page.dart:34:      FirebaseFirestore.instance.collection('chatRooms').doc(widget.roomId);
+lib/screens/settings/chat_room_settings_page.dart:55:  bool _showOnlineStatus = true;
+lib/screens/settings/chat_room_settings_page.dart:56:  bool _allowImageRequests = true;
+lib/screens/settings/chat_room_settings_page.dart:57:  bool _allowAudioRequests = true;
+lib/screens/settings/chat_room_settings_page.dart:58:  bool _allowVideoRequests = true;
+lib/screens/settings/chat_room_settings_page.dart:91:        'showOnlineStatus': true,
+lib/screens/settings/chat_room_settings_page.dart:92:        'allowImageRequests': true,
+lib/screens/settings/chat_room_settings_page.dart:93:        'allowAudioRequests': true,
+lib/screens/settings/chat_room_settings_page.dart:94:        'allowVideoRequests': true,
+lib/screens/settings/chat_room_settings_page.dart:104:    _otherSub = _otherRef.snapshots().listen((snap) {
+lib/screens/settings/chat_room_settings_page.dart:123:    _prefSub = _chatPrefRef.snapshots().listen((snap) {
+lib/screens/settings/chat_room_settings_page.dart:133:        _showOnlineStatus = _bool(data['showOnlineStatus'], def: true);
+lib/screens/settings/chat_room_settings_page.dart:134:        _allowImageRequests = _bool(data['allowImageRequests'], def: true);
+lib/screens/settings/chat_room_settings_page.dart:135:        _allowAudioRequests = _bool(data['allowAudioRequests'], def: true);
+lib/screens/settings/chat_room_settings_page.dart:136:        _allowVideoRequests = _bool(data['allowVideoRequests'], def: true);
+lib/screens/settings/chat_room_settings_page.dart:146:    _roomSub = _roomRef.snapshots().listen((snap) {
+lib/screens/settings/chat_room_settings_page.dart:430:                    title: 'Show online status',
+lib/screens/settings/chat_room_settings_page.dart:431:                    subtitle: 'Show online / last seen in this chat',
+lib/screens/settings/chat_room_settings_page.dart:432:                    value: _showOnlineStatus,
+lib/screens/settings/chat_room_settings_page.dart:433:                    onChanged: (v) => _savePrefs({'showOnlineStatus': v}),
+lib/screens/settings/chat_room_settings_page.dart:437:                    title: 'Disappear messages',
+lib/screens/settings/chat_room_settings_page.dart:443:                _sectionTitle('Requests & Calls'),
+lib/screens/settings/chat_room_settings_page.dart:447:                    title: 'Allow image requests',
+lib/screens/settings/chat_room_settings_page.dart:448:                    subtitle: 'This user can send image requests',
+lib/screens/settings/chat_room_settings_page.dart:449:                    value: _allowImageRequests,
+lib/screens/settings/chat_room_settings_page.dart:450:                    onChanged: (v) => _savePrefs({'allowImageRequests': v}),
+lib/screens/settings/chat_room_settings_page.dart:454:                    title: 'Allow audio call requests',
+lib/screens/settings/chat_room_settings_page.dart:455:                    subtitle: 'This user can send audio call requests',
+lib/screens/settings/chat_room_settings_page.dart:456:                    value: _allowAudioRequests,
+lib/screens/settings/chat_room_settings_page.dart:457:                    onChanged: (v) => _savePrefs({'allowAudioRequests': v}),
+lib/screens/settings/chat_room_settings_page.dart:461:                    title: 'Allow video call requests',
+lib/screens/settings/chat_room_settings_page.dart:462:                    subtitle: 'This user can send video call requests',
+lib/screens/settings/chat_room_settings_page.dart:463:                    value: _allowVideoRequests,
+lib/screens/settings/chat_room_settings_page.dart:464:                    onChanged: (v) => _savePrefs({'allowVideoRequests': v}),
+lib/screens/settings/chat_room_settings_page.dart:484:                    subtitle: 'Hide old messages only on your side',
+lib/screens/settings/blocked_users_page.dart:33:          FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
+lib/screens/settings/blocked_users_page.dart:62:        stream: _blockedRef.orderBy('createdAt', descending: true).snapshots(),
+lib/screens/settings/settings_page.dart:57:    _meSub = _meRef.snapshots().listen((snap) {
+lib/screens/settings/settings_page.dart:229:                  'Privacy • Requests • Calls • Notifications',
+lib/screens/settings/settings_page.dart:442:    final showOnlineStatus = _bool('showOnlineStatus', def: true);
+lib/screens/settings/settings_page.dart:445:    final allowImageRequests = _bool('allowImageRequests', def: false);
+lib/screens/settings/settings_page.dart:493:                      settingKey: 'showOnlineStatus',
+lib/screens/settings/settings_page.dart:496:                      title: 'Show online status',
+lib/screens/settings/settings_page.dart:497:                      subtitle: 'Let others see when you are online',
+lib/screens/settings/settings_page.dart:498:                      value: showOnlineStatus,
+lib/screens/settings/settings_page.dart:505:                      subtitle: 'Show when messages are seen',
+lib/screens/settings/settings_page.dart:510:                  _sectionTitle('Requests & Calls'),
+lib/screens/settings/settings_page.dart:513:                      settingKey: 'allowImageRequests',
+lib/screens/settings/settings_page.dart:516:                      title: 'Image requests',
+lib/screens/settings/settings_page.dart:517:                      subtitle: 'Allow users to send image requests',
+lib/screens/settings/settings_page.dart:518:                      value: allowImageRequests,
+lib/screens/settings/settings_page.dart:524:                      title: 'Audio call requests',
+lib/screens/settings/settings_page.dart:525:                      subtitle: 'Allow users to send audio call requests',
+lib/screens/settings/settings_page.dart:532:                      title: 'Video call requests',
+lib/screens/settings/settings_page.dart:533:                      subtitle: 'Allow users to send video call requests',
+lib/screens/settings/settings_page.dart:573:                      subtitle: 'Popup or banner for new messages',
+lib/screens/settings/report_history_page.dart:28:          .orderBy('createdAt', descending: true)
+lib/screens/settings/report_history_page.dart:29:          .snapshots();
+lib/screens/settings/report_history_page.dart:33:          .orderBy('createdAt', descending: true)
+lib/screens/settings/report_history_page.dart:34:          .snapshots();
+lib/screens/wallet_page.dart:401:            'Send casual-level requests',
+lib/screens/wallet_page.dart:750:            "• Each chat: minimum 10 messages\n\n"
+lib/screens/wallet_page.dart:772:        stream: userRef.snapshots(),
+lib/screens/notifications_page.dart:32:        'readAt': FieldValue.serverTimestamp(),
+lib/screens/notifications_page.dart:63:      'readAt': FieldValue.serverTimestamp(),
+lib/screens/notifications_page.dart:322:          _filterChip('request', 'Requests'),
+lib/screens/notifications_page.dart:561:              .orderBy('createdAt', descending: true)
+lib/screens/notifications_page.dart:562:              .snapshots(),
+lib/screens/top_up_page.dart:83:          stream: meRef.snapshots(),
+lib/screens/media_post_viewer_page.dart:192:                stream: mediaRef.snapshots(),
+lib/screens/media_post_viewer_page.dart:199:                    stream: likeRef.snapshots(),
+lib/screens/wallet_history_page.dart:210:        .orderBy('createdAt', descending: true)
+lib/screens/wallet_history_page.dart:211:        .limit(400);
+lib/screens/wallet_history_page.dart:292:              stream: q.snapshots(),
+lib/screens/login_page.dart:516:          await users.where('phone', isEqualTo: fullPhone).limit(1).get();
+lib/screens/login_page.dart:526:          .limit(1)
+lib/screens/login_page.dart:537:          .limit(3)
+lib/screens/login_page.dart:555:          .limit(1)
+lib/screens/login_page.dart:1083:          await users.where('phone', isEqualTo: fullPhone).limit(1).get();
+lib/screens/login_page.dart:1093:          .limit(1)
+lib/screens/login_page.dart:1104:          .limit(3)
+lib/screens/login_page.dart:1173:        case 'too-many-requests':
+lib/screens/requests_page.dart:8:class RequestsPage extends StatelessWidget {
+lib/screens/requests_page.dart:9:  const RequestsPage({super.key});
+lib/screens/requests_page.dart:13:  /// Stable doc id for friend requests (same either direction)
+lib/screens/requests_page.dart:29:        .collection('friendRequests')
+lib/screens/requests_page.dart:40:    final rooms = FirebaseFirestore.instance.collection('chatRooms');
+lib/screens/requests_page.dart:44:        await rooms.where('participants', arrayContains: uid).limit(50).get();
+lib/screens/requests_page.dart:82:        .collection('friendRequests')
+lib/screens/requests_page.dart:93:  Stream<QuerySnapshot<Map<String, dynamic>>> _incomingRequests() {
+lib/screens/requests_page.dart:95:        .collection('friendRequests')
+lib/screens/requests_page.dart:98:        .orderBy('createdAt', descending: true)
+lib/screens/requests_page.dart:99:        .limit(200)
+lib/screens/requests_page.dart:100:        .snapshots();
+lib/screens/requests_page.dart:111:      appBar: AppBar(title: const Text("Requests")),
+lib/screens/requests_page.dart:113:        stream: _incomingRequests(),
+lib/screens/requests_page.dart:122:            return const Center(child: Text("No requests yet."));
+lib/screens/earn_page.dart:77:        stream: userRef.snapshots(),
+lib/screens/home_page.dart:22:enum _HomeFilter { all, online, nearby, newest }
+lib/screens/home_page.dart:132:        .orderBy('updatedAt', descending: true)
+lib/screens/home_page.dart:133:        .limit(300)
+lib/screens/home_page.dart:134:        .snapshots();
+lib/screens/home_page.dart:144:        .collection('friendRequests')
+lib/screens/home_page.dart:221:    final rooms = FirebaseFirestore.instance.collection('chatRooms');
+lib/screens/home_page.dart:224:        .limit(100)
+lib/screens/home_page.dart:253:    final existingMsgs = await roomRef.collection('messages').limit(1).get();
+lib/screens/home_page.dart:257:      await roomRef.collection('messages').add({
+lib/screens/home_page.dart:317:        'isOnline': rand.nextBool(),
+lib/screens/home_page.dart:329:      case _HomeFilter.online:
+lib/screens/home_page.dart:330:        return list.where((u) => asBool(u['isOnline'], def: true)).toList();
+lib/screens/home_page.dart:358:  bool _resolveOnline(Map<String, dynamic> u, int index) {
+lib/screens/home_page.dart:359:    if (u.containsKey('isOnline')) return asBool(u['isOnline'], def: true);
+lib/screens/home_page.dart:592:                      .snapshots(),
+lib/screens/home_page.dart:746:                    title: 'Online',
+lib/screens/home_page.dart:747:                    selected: _selectedFilter == _HomeFilter.online,
+lib/screens/home_page.dart:750:                        setState(() => _selectedFilter = _HomeFilter.online),
+lib/screens/home_page.dart:1019:    final isOnline = _resolveOnline(u, index);
+lib/screens/home_page.dart:1031:        isOnline: isOnline,
+lib/screens/home_page.dart:1096:      stream: _friendReqDoc(myUid, id).snapshots(),
+lib/screens/home_page.dart:1110:          isOnline: isOnline,
+lib/screens/home_page.dart:1136:    required bool isOnline,
+lib/screens/home_page.dart:1201:                              color: isOnline
+lib/screens/home_page.dart:1260:        stream: myRef.snapshots(),
+lib/screens/chat_list_page.dart:29:      FirebaseFirestore.instance.collection('chatRooms');
+lib/screens/chat_list_page.dart:32:      FirebaseFirestore.instance.collection('friendRequests');
+lib/screens/chat_list_page.dart:69:  String _fmtLastSeen(Timestamp? ts, bool online) {
+lib/screens/chat_list_page.dart:70:    if (online) return 'online';
+lib/screens/chat_list_page.dart:605:    required bool online,
+lib/screens/chat_list_page.dart:606:    required Timestamp? lastSeen,
+lib/screens/chat_list_page.dart:617:    final statusText = _fmtLastSeen(lastSeen, online);
+lib/screens/chat_list_page.dart:675:                          color: online ? Colors.green : Colors.grey.shade400,
+lib/screens/chat_list_page.dart:736:                                  color: online
+lib/screens/chat_list_page.dart:856:              stream: friendReqRef.snapshots(),
+lib/screens/chat_list_page.dart:880:                  stream: myPrefsCollection.snapshots(),
+lib/screens/chat_list_page.dart:898:                          .snapshots(),
+lib/screens/chat_list_page.dart:963:                              (room['lastMessageSenderId'] ?? '').toString();
+lib/screens/chat_list_page.dart:970:                          final seenBy = (room['lastMessageSeenBy'] as List?)
+lib/screens/chat_list_page.dart:987:                                .snapshots(),
+lib/screens/chat_list_page.dart:1001:                              final online = other['online'] == true;
+lib/screens/chat_list_page.dart:1002:                              final lastSeen =
+lib/screens/chat_list_page.dart:1003:                                  other['lastSeenAt'] as Timestamp?;
+lib/screens/chat_list_page.dart:1008:                                    .collection('chatRooms')
+lib/screens/chat_list_page.dart:1010:                                    .collection('requests')
+lib/screens/chat_list_page.dart:1011:                                    .snapshots(),
+lib/screens/chat_list_page.dart:1051:                                        online: online,
+lib/screens/chat_list_page.dart:1052:                                        lastSeen: lastSeen,
+lib/screens/profile_personal_page.dart:581:        stream: userRef.snapshots(),
+lib/screens/chat_room_page.dart:46:  Timer? _typingTimer;
+lib/screens/chat_room_page.dart:98:      FirebaseFirestore.instance.collection('chatRooms').doc(widget.roomId);
+lib/screens/chat_room_page.dart:101:      roomRef.collection('messages');
+lib/screens/chat_room_page.dart:104:      roomRef.collection('requests');
+lib/screens/chat_room_page.dart:108:          .collection('friendRequests')
+lib/screens/chat_room_page.dart:169:    _setOnline(true);
+lib/screens/chat_room_page.dart:172:    _listenRequests();
+lib/screens/chat_room_page.dart:177:    _cleanupExpiredRequests();
+lib/screens/chat_room_page.dart:195:    _setOnline(false);
+lib/screens/chat_room_page.dart:197:    _typingTimer?.cancel();
+lib/screens/chat_room_page.dart:214:    _meSub = meRef.snapshots().listen((snap) {
+lib/screens/chat_room_page.dart:230:    _prefsSub = myChatPrefsRef.snapshots().listen((snap) {
+lib/screens/chat_room_page.dart:239:  bool _globalAllowImageRequests() =>
+lib/screens/chat_room_page.dart:240:      asBool(_myGlobalSettings['allowImageRequests'], def: true);
+lib/screens/chat_room_page.dart:251:  bool _globalShowOnlineStatus() =>
+lib/screens/chat_room_page.dart:252:      asBool(_myGlobalSettings['showOnlineStatus'], def: true);
+lib/screens/chat_room_page.dart:254:  bool _chatAllowImageRequests() {
+lib/screens/chat_room_page.dart:255:    if (_myChatPrefs.containsKey('allowImageRequests')) {
+lib/screens/chat_room_page.dart:256:      return asBool(_myChatPrefs['allowImageRequests'], def: true);
+lib/screens/chat_room_page.dart:258:    return _globalAllowImageRequests();
+lib/screens/chat_room_page.dart:261:  bool _chatAllowAudioRequests() {
+lib/screens/chat_room_page.dart:262:    if (_myChatPrefs.containsKey('allowAudioRequests')) {
+lib/screens/chat_room_page.dart:263:      return asBool(_myChatPrefs['allowAudioRequests'], def: true);
+lib/screens/chat_room_page.dart:268:  bool _chatAllowVideoRequests() {
+lib/screens/chat_room_page.dart:269:    if (_myChatPrefs.containsKey('allowVideoRequests')) {
+lib/screens/chat_room_page.dart:270:      return asBool(_myChatPrefs['allowVideoRequests'], def: true);
+lib/screens/chat_room_page.dart:282:  bool _chatShowOnlineStatusEnabled() {
+lib/screens/chat_room_page.dart:283:    if (_myChatPrefs.containsKey('showOnlineStatus')) {
+lib/screens/chat_room_page.dart:284:      return asBool(_myChatPrefs['showOnlineStatus'], def: true);
+lib/screens/chat_room_page.dart:286:    return _globalShowOnlineStatus();
+lib/screens/chat_room_page.dart:292:        return _chatAllowImageRequests();
+lib/screens/chat_room_page.dart:294:        return _chatAllowAudioRequests();
+lib/screens/chat_room_page.dart:296:        return _chatAllowVideoRequests();
+lib/screens/chat_room_page.dart:304:    if (_blockedByOther) return 'You cannot send messages to this user';
+lib/screens/chat_room_page.dart:308:  Future<void> _openChatRoomSettings() async {
+lib/screens/chat_room_page.dart:312:        builder: (_) => ChatRoomSettingsPage(
+lib/screens/chat_room_page.dart:363:  Future<void> _setOnline(bool on) async {
+lib/screens/chat_room_page.dart:365:      'online': on,
+lib/screens/chat_room_page.dart:366:      'lastSeenAt': FieldValue.serverTimestamp(),
+lib/screens/chat_room_page.dart:375:      'lastMessageSeenBy': FieldValue.arrayUnion([uid]),
+lib/screens/chat_room_page.dart:380:  Future<void> _setTyping(bool value) async {
+lib/screens/chat_room_page.dart:382:      'typing.$uid': value,
+lib/screens/chat_room_page.dart:386:  void _onTypingChanged(String text) {
+lib/screens/chat_room_page.dart:387:    _setTyping(true);
+lib/screens/chat_room_page.dart:388:    _typingTimer?.cancel();
+lib/screens/chat_room_page.dart:389:    _typingTimer = Timer(const Duration(seconds: 2), () async {
+lib/screens/chat_room_page.dart:390:      await _setTyping(false);
+lib/screens/chat_room_page.dart:396:    meRef.snapshots().listen((snap) {
+lib/screens/chat_room_page.dart:408:    _friendSub = friendReqRef.snapshots().listen((snap) {
+lib/screens/chat_room_page.dart:420:    _roomSub = roomRef.snapshots().listen((snap) {
+lib/screens/chat_room_page.dart:437:  Future<void> _cleanupExpiredRequests() async {
+lib/screens/chat_room_page.dart:465:                  'counters.pendingCallRequests': FieldValue.increment(-1),
+lib/screens/chat_room_page.dart:474:                  'counters.pendingImageRequests': FieldValue.increment(-1),
+lib/screens/chat_room_page.dart:488:  void _listenRequests() {
+lib/screens/chat_room_page.dart:490:    _reqSub = reqRef.snapshots().listen((snap) async {
+lib/screens/chat_room_page.dart:544:                  'counters.pendingCallRequests': FieldValue.increment(-1),
+lib/screens/chat_room_page.dart:553:                  'counters.pendingImageRequests': FieldValue.increment(-1),
+lib/screens/chat_room_page.dart:730:          await _decrementCounter(meRef, 'pendingCallRequests');
+lib/screens/chat_room_page.dart:732:          await _decrementCounter(meRef, 'pendingImageRequests');
+lib/screens/chat_room_page.dart:749:          await _decrementCounter(meRef, 'pendingCallRequests');
+lib/screens/chat_room_page.dart:751:          await _decrementCounter(meRef, 'pendingImageRequests');
+lib/screens/chat_room_page.dart:788:            await _decrementCounter(meRef, 'pendingCallRequests');
+lib/screens/chat_room_page.dart:790:            await _decrementCounter(meRef, 'pendingImageRequests');
+lib/screens/chat_room_page.dart:810:        await _decrementCounter(meRef, 'pendingCallRequests');
+lib/screens/chat_room_page.dart:812:        await _decrementCounter(meRef, 'pendingImageRequests');
+lib/screens/chat_room_page.dart:856:          await _decrementCounter(meRef, 'pendingCallRequests');
+lib/screens/chat_room_page.dart:858:          await _decrementCounter(meRef, 'pendingImageRequests');
+lib/screens/chat_room_page.dart:904:    await _cleanupExpiredRequests();
+lib/screens/chat_room_page.dart:923:      allowed = _chatAllowImageRequests();
+lib/screens/chat_room_page.dart:924:      denyMessage = 'Image requests are disabled for this chat';
+lib/screens/chat_room_page.dart:926:      allowed = _chatAllowAudioRequests();
+lib/screens/chat_room_page.dart:927:      denyMessage = 'Audio call requests are disabled for this chat';
+lib/screens/chat_room_page.dart:929:      allowed = _chatAllowVideoRequests();
+lib/screens/chat_room_page.dart:930:      denyMessage = 'Video call requests are disabled for this chat';
+lib/screens/chat_room_page.dart:953:      await _incrementCounter(otherRef, 'pendingCallRequests');
+lib/screens/chat_room_page.dart:955:      await _incrementCounter(otherRef, 'pendingImageRequests');
+lib/screens/chat_room_page.dart:964:  Future<void> _openRequestsSheet() async {
+lib/screens/chat_room_page.dart:965:    await _cleanupExpiredRequests();
+lib/screens/chat_room_page.dart:997:                        'Requests',
+lib/screens/chat_room_page.dart:1010:                        .orderBy('createdAt', descending: true)
+lib/screens/chat_room_page.dart:1011:                        .snapshots(),
+lib/screens/chat_room_page.dart:1040:                            'No incoming requests',
+lib/screens/chat_room_page.dart:1191:    bool otherOnline = false;
+lib/screens/chat_room_page.dart:1194:      otherOnline = (otherSnap.data()?['online'] ?? false) == true;
+lib/screens/chat_room_page.dart:1197:    final initialDelivered = otherOnline ? [widget.otherUid] : <String>[];
+lib/screens/chat_room_page.dart:1224:      'lastMessageSenderId': uid,
+lib/screens/chat_room_page.dart:1227:      'lastMessageSeenBy': <String>[],
+lib/screens/chat_room_page.dart:1259:      await _setTyping(false);
+lib/screens/chat_room_page.dart:1260:      _typingTimer?.cancel();
+lib/screens/chat_room_page.dart:1812:        'lastMessageSeenBy': FieldValue.arrayUnion([uid]),
+lib/screens/chat_room_page.dart:1886:  String _formatLastSeenLine(Timestamp? t) {
+lib/screens/chat_room_page.dart:1918:  Widget _messageStatus(Map<String, dynamic> m) {
+lib/screens/chat_room_page.dart:2081:          'You blocked this user. You cannot send messages or requests.',
+lib/screens/chat_room_page.dart:2192:  Widget _typingLine(bool online, Timestamp? lastSeen) {
+lib/screens/chat_room_page.dart:2194:      stream: roomRef.snapshots(),
+lib/screens/chat_room_page.dart:2196:        final typingRaw = snap.data?.data()?['typing'];
+lib/screens/chat_room_page.dart:2197:        final typingMap = typingRaw is Map
+lib/screens/chat_room_page.dart:2198:            ? typingRaw.map((k, v) => MapEntry(k.toString(), v))
+lib/screens/chat_room_page.dart:2201:        final otherTyping = typingMap[widget.otherUid] == true;
+lib/screens/chat_room_page.dart:2204:          otherTyping
+lib/screens/chat_room_page.dart:2205:              ? 'typing...'
+lib/screens/chat_room_page.dart:2206:              : (online ? 'online' : _formatLastSeenLine(lastSeen)),
+lib/screens/chat_room_page.dart:2211:            color: otherTyping ? Colors.green : Colors.black54,
+lib/screens/chat_room_page.dart:2212:            fontWeight: otherTyping ? FontWeight.w700 : FontWeight.w500,
+lib/screens/chat_room_page.dart:2540:                  _messageStatus(m),
+lib/screens/chat_room_page.dart:2650:        await msgRef.orderBy('createdAt', descending: true).limit(1).get();
+lib/screens/chat_room_page.dart:2662:    final messagesStream = msgRef
+lib/screens/chat_room_page.dart:2663:        .orderBy('createdAt', descending: true)
+lib/screens/chat_room_page.dart:2664:        .limit(_pageSize)
+lib/screens/chat_room_page.dart:2665:        .snapshots();
+lib/screens/chat_room_page.dart:2668:      stream: otherRef.snapshots(),
+lib/screens/chat_room_page.dart:2675:        final online = (other['online'] ?? false) == true;
+lib/screens/chat_room_page.dart:2676:        final lastSeen = other['lastSeenAt'] as Timestamp?;
+lib/screens/chat_room_page.dart:2679:          stream: myChatPrefsRef.snapshots(),
+lib/screens/chat_room_page.dart:2752:                                    _typingLine(online, lastSeen),
+lib/screens/chat_room_page.dart:2800:                        if (v == 'requests') {
+lib/screens/chat_room_page.dart:2801:                          await _openRequestsSheet();
+lib/screens/chat_room_page.dart:2806:                              builder: (_) => ChatRoomSettingsPage(
+lib/screens/chat_room_page.dart:2833:                          value: 'requests',
+lib/screens/chat_room_page.dart:2834:                          child: Text('Requests'),
+lib/screens/chat_room_page.dart:2894:                          stream: messagesStream,
+lib/screens/chat_room_page.dart:3039:                                            onChanged: _onTypingChanged,
+lib/screens/user_profile_page.dart:37:    return FirebaseFirestore.instance.collection('friendRequests').doc(docId);
+lib/screens/user_profile_page.dart:44:        .orderBy('createdAt', descending: true)
+lib/screens/user_profile_page.dart:45:        .limit(120)
+lib/screens/user_profile_page.dart:46:        .snapshots();
+lib/screens/user_profile_page.dart:52:        .orderBy('createdAt', descending: true)
+lib/screens/user_profile_page.dart:53:        .limit(300)
+lib/screens/user_profile_page.dart:54:        .snapshots();
+lib/screens/user_profile_page.dart:58:    return userRef.collection('followers').limit(500).snapshots();
+lib/screens/user_profile_page.dart:62:    return userRef.collection('following').limit(500).snapshots();
+lib/screens/user_profile_page.dart:131:    final rooms = FirebaseFirestore.instance.collection('chatRooms');
+lib/screens/user_profile_page.dart:133:        await rooms.where('participants', arrayContains: uid).limit(100).get();
+lib/screens/user_profile_page.dart:184:      stream: userRef.snapshots(),
+lib/screens/user_profile_page.dart:304:                                        stream: reqRef.snapshots(),
+lib/screens/users_page.dart:33:  Future<bool> _checkAndIncDailyLimit({
+lib/screens/users_page.dart:49:      final count = (data['requestsSent'] is num)
+lib/screens/users_page.dart:50:          ? (data['requestsSent'] as num).toInt()
+lib/screens/users_page.dart:57:          'requestsSent': 1,
+lib/screens/users_page.dart:64:          'requestsSent': count + 1,
+lib/screens/users_page.dart:76:    final col = FirebaseFirestore.instance.collection('requests');
+lib/screens/users_page.dart:81:        .orderBy('createdAt', descending: true)
+lib/screens/users_page.dart:82:        .limit(1)
+lib/screens/users_page.dart:88:        .orderBy('createdAt', descending: true)
+lib/screens/users_page.dart:89:        .limit(1)
+lib/screens/users_page.dart:116:    final allowed = await _checkAndIncDailyLimit(uid: myUid, tier: myTier);
+lib/screens/users_page.dart:122:                  Text("Casual users can send only 100 requests per day.")),
+lib/screens/users_page.dart:169:    await FirebaseFirestore.instance.collection('requests').add({
+lib/screens/users_page.dart:217:        .collection('requests')
+lib/screens/users_page.dart:227:          FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
+lib/screens/users_page.dart:268:        FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
+lib/screens/users_page.dart:304:        stream: usersCol.doc(me.uid).snapshots(),
+lib/screens/users_page.dart:315:            stream: usersCol.snapshots(),
+lib/screens/profile_page.dart:557:        .orderBy('createdAt', descending: true)
+lib/screens/profile_page.dart:558:        .limit(120)
+lib/screens/profile_page.dart:559:        .snapshots();
+lib/screens/profile_page.dart:564:        .orderBy('createdAt', descending: true)
+lib/screens/profile_page.dart:565:        .limit(300)
+lib/screens/profile_page.dart:566:        .snapshots();
+lib/screens/profile_page.dart:570:    return userRef.collection('followers').limit(500).snapshots();
+lib/screens/profile_page.dart:574:    return userRef.collection('following').limit(500).snapshots();
+lib/screens/profile_page.dart:607:        stream: userRef.snapshots(),
+lib/screens/profile_page.dart:1348:      stream: mediaRef.snapshots(),
+lib/screens/profile_page.dart:1354:          stream: likeRef.snapshots(),
+lib/screens/profile_page.dart:1522:                  : currentMediaRef.snapshots(),
+lib/screens/profile_page.dart:1532:                      : currentLikeRef.snapshots(),
+lib/services/streak_service.dart:42:          .collection('messages')
+lib/services/streak_service.dart:45:          .limit(300)
+functions/package-lock.json:4883:      "deprecated": "This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.",
+
+CALL AND AGORA CODE
+lib/screens/settings/chat_room_settings_page.dart:23:  static const Color _muted = Color(0xFF9CA3AF);
+lib/screens/settings/chat_room_settings_page.dart:53:  bool _muteNotifications = false;
+lib/screens/settings/chat_room_settings_page.dart:125:      final muteUntil = data['muteChatUntil'] as Timestamp?;
+lib/screens/settings/chat_room_settings_page.dart:126:      final isMuted =
+lib/screens/settings/chat_room_settings_page.dart:127:          muteUntil != null && muteUntil.toDate().isAfter(DateTime.now());
+lib/screens/settings/chat_room_settings_page.dart:131:        _muteNotifications = isMuted;
+lib/screens/settings/chat_room_settings_page.dart:196:  Future<void> _setMute(bool value) async {
+lib/screens/settings/chat_room_settings_page.dart:198:      'muteChatUntil': value
+lib/screens/settings/chat_room_settings_page.dart:306:        style: const TextStyle(color: _muted),
+lib/screens/settings/chat_room_settings_page.dart:320:      trailing: const Icon(Icons.chevron_right, color: _muted),
+lib/screens/settings/chat_room_settings_page.dart:330:        style: const TextStyle(color: _muted),
+lib/screens/settings/chat_room_settings_page.dart:416:                    title: 'Mute notifications',
+lib/screens/settings/chat_room_settings_page.dart:418:                    value: _muteNotifications,
+lib/screens/settings/chat_room_settings_page.dart:419:                    onChanged: _setMute,
+lib/screens/settings/blocked_users_page.dart:11:  static const _muted = Color(0xFF9AA3B2);
+lib/screens/settings/blocked_users_page.dart:122:                        style: TextStyle(color: _muted),
+lib/screens/settings/settings_page.dart:22:  static const _muted = Color(0xFF9AA3B2);
+lib/screens/settings/settings_page.dart:294:                        color: _muted,
+lib/screens/settings/settings_page.dart:304:                color: _muted,
+lib/screens/settings/settings_page.dart:360:                        color: _muted,
+lib/screens/settings/settings_page.dart:446:    final allowAudioCalls = _bool('allowAudioCalls', def: true);
+lib/screens/settings/settings_page.dart:447:    final allowVideoCalls = _bool('allowVideoCalls', def: true);
+lib/screens/settings/settings_page.dart:521:                      settingKey: 'allowAudioCalls',
+lib/screens/settings/settings_page.dart:526:                      value: allowAudioCalls,
+lib/screens/settings/settings_page.dart:529:                      settingKey: 'allowVideoCalls',
+lib/screens/settings/settings_page.dart:534:                      value: allowVideoCalls,
+lib/screens/settings/report_history_page.dart:16:  static const _muted = Color(0xFF9AA3B2);
+lib/screens/settings/report_history_page.dart:57:            color: selected ? Colors.white : _muted,
+lib/screens/settings/report_history_page.dart:98:                Text('Status: $status', style: const TextStyle(color: _muted)),
+lib/screens/settings/report_history_page.dart:100:                Text('Created: $time', style: const TextStyle(color: _muted)),
+lib/screens/settings/report_history_page.dart:193:                              color: _muted,
+lib/screens/settings/report_history_page.dart:236:                                color: _muted,
+lib/screens/chat_list_page.dart:138:  Future<void> _setMute(String roomId, Duration d) async {
+lib/screens/chat_list_page.dart:141:      'muteChatUntil': until,
+lib/screens/chat_list_page.dart:146:  Future<void> _clearMute(String roomId) async {
+lib/screens/chat_list_page.dart:148:      'muteChatUntil': null,
+lib/screens/chat_list_page.dart:204:    required bool isMutedActive,
+lib/screens/chat_list_page.dart:234:              if (isMutedActive)
+lib/screens/chat_list_page.dart:237:                  title: 'Unmute',
+lib/screens/chat_list_page.dart:238:                  onTap: () => Navigator.pop(context, 'unmute'),
+lib/screens/chat_list_page.dart:243:                  title: 'Mute 8 hours',
+lib/screens/chat_list_page.dart:244:                  onTap: () => Navigator.pop(context, 'mute8'),
+lib/screens/chat_list_page.dart:248:                  title: 'Mute 24 hours',
+lib/screens/chat_list_page.dart:249:                  onTap: () => Navigator.pop(context, 'mute24'),
+lib/screens/chat_list_page.dart:268:    } else if (action == 'mute8') {
+lib/screens/chat_list_page.dart:269:      await _setMute(roomId, const Duration(hours: 8));
+lib/screens/chat_list_page.dart:270:    } else if (action == 'mute24') {
+lib/screens/chat_list_page.dart:271:      await _setMute(roomId, const Duration(hours: 24));
+lib/screens/chat_list_page.dart:272:    } else if (action == 'unmute') {
+lib/screens/chat_list_page.dart:273:      await _clearMute(roomId);
+lib/screens/chat_list_page.dart:612:    required Timestamp? mutedUntil,
+lib/screens/chat_list_page.dart:619:    final isMutedActive =
+lib/screens/chat_list_page.dart:620:        mutedUntil != null && mutedUntil.toDate().isAfter(DateTime.now());
+lib/screens/chat_list_page.dart:639:          isMutedActive: isMutedActive,
+lib/screens/chat_list_page.dart:772:                          if (isMutedActive) ...[
+lib/screens/chat_list_page.dart:978:                          final mutedUntil =
+lib/screens/chat_list_page.dart:979:                              pref['muteChatUntil'] as Timestamp?;
+lib/screens/chat_list_page.dart:1058:                                        mutedUntil: mutedUntil,
+lib/screens/chat_room_page.dart:242:  bool _globalAllowAudioCalls() =>
+lib/screens/chat_room_page.dart:243:      asBool(_myGlobalSettings['allowAudioCalls'], def: true);
+lib/screens/chat_room_page.dart:245:  bool _globalAllowVideoCalls() =>
+lib/screens/chat_room_page.dart:246:      asBool(_myGlobalSettings['allowVideoCalls'], def: true);
+lib/screens/chat_room_page.dart:265:    return _globalAllowAudioCalls();
+lib/screens/chat_room_page.dart:272:    return _globalAllowVideoCalls();
+lib/screens/chat_room_page.dart:2632:  Future<void> _addCallLog({
+
+AI CODE
+lib/screens/settings/settings_page.dart:449:    final aiChatEnabled = _bool('aiChatEnabled', def: true);
+lib/screens/settings/settings_page.dart:541:                      settingKey: 'aiChatEnabled',
+lib/screens/settings/settings_page.dart:546:                      value: aiChatEnabled,
+
+GAME CODE
+lib/screens/archived_chats_page.dart:18:        iconTheme: const IconThemeData(color: Color(0xFF2F2747)),
+lib/main.dart:28:          theme: ThemeData(
+lib/widgets/heart_avatar.dart:26:            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+
+ADMIN CONFIG CODE
+lib/screens/wallet_page.dart:225:    final tier = asString(u['tier'] ?? u['subTier'], def: 'casual');
+lib/screens/wallet_page.dart:380:    final tier = asString(u['tier'] ?? u['subTier'], def: 'casual');
+lib/screens/wallet_page.dart:409:              'subTier': 'casual',
+lib/screens/wallet_page.dart:779:          final tier = asString(u['tier'] ?? u['subTier'], def: 'casual');
+lib/screens/notifications_page.dart:96:      case 'admin_alert':
+lib/screens/notifications_page.dart:97:        return Icons.admin_panel_settings_rounded;
+lib/screens/notifications_page.dart:125:      case 'admin_alert':
+lib/screens/notifications_page.dart:151:      case 'admin_alert':
+lib/screens/notifications_page.dart:319:          _filterChip('admin', 'Admin'),
+lib/screens/notifications_page.dart:367:              'Payment alerts, admin updates, report status, subscription info and other system updates will appear here.',
+lib/screens/vibe_selection_page.dart:82:            'subTier': 'casual',
+lib/screens/vibe_selection_page.dart:84:            'subscriptionPlan': 'casual',
+lib/screens/vibe_selection_page.dart:85:            'subscriptionStatus': 'active',
+lib/screens/login_page.dart:438:        'subTier': 'casual',
+lib/screens/login_page.dart:440:        'subscriptionPlan': null,
+lib/screens/login_page.dart:441:        'subscriptionStatus': null,
+lib/screens/requests_page.dart:144:                      (u['tier'] ?? u['subTier'] ?? 'casual').toString();
+lib/screens/earn_page.dart:84:          final tier = asString(u['tier'] ?? u['subTier'], def: 'casual');
+lib/screens/payment_page.dart:126:            'subTier': widget.targetTier,
+lib/screens/payment_page.dart:128:            'subscriptionPlan': widget.targetTier,
+lib/screens/payment_page.dart:129:            'subscriptionStatus': 'paid',
+lib/screens/home_page.dart:96:    final tier = (data['tier'] ?? data['subTier'] ?? '').toString().trim();
+lib/screens/home_page.dart:110:              'subTier': 'casual',
+lib/screens/home_page.dart:314:        'subTier': tiers[i % tiers.length],
+lib/screens/home_page.dart:370:    return asString(u['tier'] ?? u['subTier'], def: 'casual').toLowerCase();
+lib/screens/home_page.dart:376:        asString(me['tier'] ?? me['subTier'], def: 'LOVE').toUpperCase();
+lib/screens/chat_room_page.dart:217:      final tier = asString(data['tier'] ?? data['subTier'], def: 'casual');
+lib/screens/chat_room_page.dart:398:      final tier = asString(me['tier'] ?? me['subTier'], def: 'casual');
+lib/screens/users_page.dart:312:              (myData['tier'] ?? myData['subTier'] ?? 'casual').toString();
+lib/screens/users_page.dart:343:                      (data['tier'] ?? data['subTier'] ?? 'casual').toString();
+lib/screens/auth_screen.dart:96:        'subTier': null,
+lib/screens/auth_screen.dart:98:        'subscriptionPlan': null,
+lib/screens/auth_screen.dart:99:        'subscriptionStatus': null,
+functions/index.js:3:const admin = require("firebase-admin");
+functions/index.js:6:admin.initializeApp();
+functions/index.js:9:const db = admin.firestore();
+functions/index.js:54:    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+functions/index.js:94:      silverCoins: admin.firestore.FieldValue.increment(pi.silver),
+functions/index.js:95:      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+functions/index.js:100:      creditedAt: admin.firestore.FieldValue.serverTimestamp(),
+functions/index.js:111:      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+functions/package-lock.json:10:        "firebase-admin": "^13.6.0",
+functions/package-lock.json:4058:    "node_modules/firebase-admin": {
+functions/package-lock.json:4060:      "resolved": "https://registry.npmjs.org/firebase-admin/-/firebase-admin-13.10.0.tgz",
+functions/package-lock.json:4102:        "firebase-admin": "^11.10.0 || ^12.0.0 || ^13.0.0",
+functions/package-lock.json:4132:        "firebase-admin": "^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0 || ^13.0.0",
+functions/package.json:18:    "firebase-admin": "^13.6.0",
+
+CHAT ROOM FILE SIZE
+    3186 lib/screens/chat_room_page.dart
+
+CHAT LIST FILE SIZE
+    1118 lib/screens/chat_list_page.dart
+
+FUNCTIONS FILE SIZE
+     115 functions/index.js
