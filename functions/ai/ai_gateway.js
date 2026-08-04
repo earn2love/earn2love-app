@@ -29,6 +29,163 @@ const {
   generateMeeraAssistance,
 } = require("./meera_assistant");
 
+const {
+  createConversation,
+  ensureConversation,
+  saveConversationMessage,
+  listConversations,
+  getConversation,
+  loadRecentHistory,
+  renameConversation,
+  deleteConversation,
+  saveMemory,
+  listMemories,
+  loadMemoriesForContext,
+  deleteMemory,
+  clearMemories,
+} = require("./meera_persistence");
+
+exports.createMeeraConversation = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      return createConversation(
+          uid,
+          request.data || {},
+      );
+    },
+);
+
+exports.listMeeraConversations = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      return {
+        conversations:
+            await listConversations(
+                uid,
+                request.data &&
+                request.data.limit,
+            ),
+      };
+    },
+);
+
+exports.getMeeraConversation = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      const data = request.data || {};
+
+      return getConversation(
+          uid,
+          data.conversationId,
+          data.limit,
+      );
+    },
+);
+
+exports.renameMeeraConversation = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      const data = request.data || {};
+
+      return renameConversation(
+          uid,
+          data.conversationId,
+          data.title,
+      );
+    },
+);
+
+exports.deleteMeeraConversation = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      const data = request.data || {};
+
+      return deleteConversation(
+          uid,
+          data.conversationId,
+      );
+    },
+);
+
+exports.saveMeeraMemory = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      return saveMemory(
+          uid,
+          request.data || {},
+      );
+    },
+);
+
+exports.listMeeraMemories = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      return {
+        memories:
+            await listMemories(
+                uid,
+                request.data &&
+                request.data.limit,
+            ),
+      };
+    },
+);
+
+exports.deleteMeeraMemory = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      const data = request.data || {};
+
+      return deleteMemory(
+          uid,
+          data.memoryId,
+      );
+    },
+);
+
+exports.clearMeeraMemories = onCall(
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      await assertAccountUsable(uid);
+
+      return clearMemories(uid);
+    },
+);
+
 exports.askMeeraAssistant = onCall(
     {
       secrets: ["OPENAI_API_KEY"],
@@ -75,10 +232,45 @@ exports.askMeeraAssistant = onCall(
         );
       }
 
+      const conversation =
+          await ensureConversation(
+              uid,
+              data.conversationId,
+              {
+                title: data.conversationTitle,
+                initialMessage: message,
+                languageMode:
+                    data.languageMode,
+                requestedLanguage:
+                    data.requestedLanguage,
+              },
+          );
+
+      await saveConversationMessage(
+          uid,
+          conversation.id,
+          {
+            role: "user",
+            content: message,
+          },
+      );
+
+      const persistentHistory =
+          await loadRecentHistory(
+              uid,
+              conversation.id,
+              12,
+          );
+
+      const memories =
+          await loadMemoriesForContext(uid);
+
       const result =
           await generateMeeraAssistance({
             message,
-            history: data.history,
+            history: persistentHistory
+                .slice(0, -1),
+            memories,
             currentScreen:
                 data.currentScreen,
             language: {
@@ -149,8 +341,30 @@ exports.askMeeraAssistant = onCall(
             },
           });
 
+      await saveConversationMessage(
+          uid,
+          conversation.id,
+          {
+            role: "assistant",
+            content: result.answer,
+            detectedLanguage:
+                result.detectedLanguage,
+            responseLanguage:
+                result.responseLanguage,
+            category: result.category,
+            requiresHumanSupport:
+                result.requiresHumanSupport,
+          },
+      );
+
       return {
         ...result,
+        conversationId:
+            conversation.id,
+        conversationCreated:
+            conversation.created,
+        conversationTitle:
+            conversation.title || null,
         usage,
       };
     },

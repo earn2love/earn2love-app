@@ -79,6 +79,9 @@ async function generateMeeraAssistance(
     "harassment or account-ban issues, recommend",
     "human support when necessary.",
     "Only use verified context supplied below.",
+    "User memories are explicit user-controlled",
+    "preferences. Do not treat them as verified",
+    "financial, identity or safety facts.",
     "Do not invent account balances, subscription",
     "status, profile information or app actions.",
   ].join(" ");
@@ -96,6 +99,10 @@ async function generateMeeraAssistance(
         ).slice(0, 100),
     verifiedUserContext:
         context.verifiedUserContext || {},
+    userControlledMemories:
+        Array.isArray(context.memories) ?
+          context.memories.slice(0, 20) :
+          [],
     availableCapabilities: [
       "app guidance",
       "profile suggestions",

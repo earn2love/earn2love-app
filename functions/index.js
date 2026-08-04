@@ -162,6 +162,24 @@ exports.endInCallPlaySession =
     playTogether.endInCallPlaySession;
 
 // Shared AI Gateway
+exports.createMeeraConversation =
+    aiGateway.createMeeraConversation;
+exports.listMeeraConversations =
+    aiGateway.listMeeraConversations;
+exports.getMeeraConversation =
+    aiGateway.getMeeraConversation;
+exports.renameMeeraConversation =
+    aiGateway.renameMeeraConversation;
+exports.deleteMeeraConversation =
+    aiGateway.deleteMeeraConversation;
+exports.saveMeeraMemory =
+    aiGateway.saveMeeraMemory;
+exports.listMeeraMemories =
+    aiGateway.listMeeraMemories;
+exports.deleteMeeraMemory =
+    aiGateway.deleteMeeraMemory;
+exports.clearMeeraMemories =
+    aiGateway.clearMeeraMemories;
 exports.askMeeraAssistant =
     aiGateway.askMeeraAssistant;
 exports.askUserSupportAssistant =
