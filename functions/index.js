@@ -1,7 +1,9 @@
+/* eslint-disable max-len */
 const {setGlobalOptions} = require("firebase-functions");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const Stripe = require("stripe");
+const calls = require("./calls");
 
 admin.initializeApp();
 setGlobalOptions({maxInstances: 10});
@@ -114,3 +116,9 @@ exports.confirmStripeTopupDev = onCall(async (request) => {
 
   return {ok: true, silverAdded: pi.silver};
 });
+
+// Agora calls
+exports.generateAgoraToken =
+    calls.generateAgoraToken;
+exports.startCall = calls.startCall;
+exports.endCall = calls.endCall;
