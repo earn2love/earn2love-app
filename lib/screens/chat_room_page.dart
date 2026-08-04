@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../chat/services/chat_references.dart';
+import '../chat/services/message_service.dart';
 import '../chat/services/presence_service.dart';
 import '../chat/services/typing_service.dart';
 
@@ -38,6 +39,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
   late final ChatReferences _chatReferences;
+  late final MessageService _messageService;
   late final PresenceService _presenceService;
   late final TypingService _typingService;
 
@@ -180,6 +182,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       currentUid: uid,
       otherUid: widget.otherUid,
       roomId: widget.roomId,
+    );
+    _messageService = MessageService(
+      firestore: FirebaseFirestore.instance,
+      currentUid: uid,
+      otherUid: widget.otherUid,
+      currentUserReference: _chatReferences.currentUser,
+      otherUserReference: _chatReferences.otherUser,
+      roomReference: _chatReferences.room,
+      messagesReference: _chatReferences.messages,
     );
     _presenceService = PresenceService(
       userReference: _chatReferences.currentUser,
@@ -1203,53 +1214,14 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     int? audioDurationSec,
     Map<String, dynamic>? replyTo,
   }) async {
-    final now = FieldValue.serverTimestamp();
-
-    bool otherOnline = false;
-    try {
-      final otherSnap = await otherRef.get();
-      otherOnline = (otherSnap.data()?['online'] ?? false) == true;
-    } catch (_) {}
-
-    final initialDelivered = otherOnline ? [widget.otherUid] : <String>[];
-
-    await msgRef.add({
-      'senderId': uid,
-      'text': text,
-      'type': type,
-      'imageUrl': imageUrl ?? '',
-      'audioUrl': audioUrl ?? '',
-      'audioDurationSec': audioDurationSec ?? 0,
-      'replyTo': replyTo,
-      'createdAt': now,
-      'deletedFor': <String>[],
-      'deletedForEveryone': false,
-      'deliveredTo': initialDelivered,
-      'seenBy': <String>[],
-      'reactions': <String, dynamic>{},
-    });
-
-    await roomRef.set({
-      'lastMessage': switch (type) {
-        'image' => '📷 Photo',
-        'voice' => '🎤 Voice message',
-        'call_log' => text,
-        _ => text,
-      },
-      'lastMessageAt': now,
-      'updatedAt': now,
-      'lastMessageSenderId': uid,
-      'lastMessageType': type,
-      'lastMessageDeliveredTo': initialDelivered,
-      'lastMessageSeenBy': <String>[],
-      'unread.${widget.otherUid}': FieldValue.increment(1),
-      'unread.$uid': 0,
-    }, SetOptions(merge: true));
-
-    await meRef.set({
-      'counters.unreadChats': 0,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _messageService.sendMessage(
+      type: type,
+      text: text,
+      imageUrl: imageUrl,
+      audioUrl: audioUrl,
+      audioDurationSec: audioDurationSec,
+      replyTo: replyTo,
+    );
 
     if (_replyingTo != null && mounted) {
       setState(() => _replyingTo = null);
@@ -1542,9 +1514,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Future<void> _deleteMessageForMe(String messageId) async {
-    await msgRef.doc(messageId).set({
-      'deletedFor': FieldValue.arrayUnion([uid]),
-    }, SetOptions(merge: true));
+    await _messageService.deleteForCurrentUser(messageId);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1553,10 +1523,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Future<void> _deleteMessageForEveryone(String messageId) async {
-    await msgRef.doc(messageId).set({
-      'deletedForEveryone': true,
-      'deletedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _messageService.deleteForEveryone(messageId);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1565,15 +1532,14 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Future<void> _setReaction(String messageId, String emoji) async {
-    await msgRef.doc(messageId).set({
-      'reactions.$uid': emoji,
-    }, SetOptions(merge: true));
+    await _messageService.setReaction(
+      messageId: messageId,
+      emoji: emoji,
+    );
   }
 
   Future<void> _removeReaction(String messageId) async {
-    await msgRef.doc(messageId).set({
-      'reactions.$uid': FieldValue.delete(),
-    }, SetOptions(merge: true));
+    await _messageService.removeReaction(messageId);
   }
 
   Future<void> _openReactionSheet(String messageId) async {
@@ -1791,50 +1757,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     _markingSeen = true;
 
     try {
-      final batch = FirebaseFirestore.instance.batch();
-      bool changed = false;
-
-      for (final doc in docs) {
-        final m = doc.data();
-        final sender = asString(m['senderId']);
-        if (sender == uid) continue;
-
-        final deliveredTo =
-            (m['deliveredTo'] as List?)?.map((e) => e.toString()).toList() ??
-                [];
-        final seenBy =
-            (m['seenBy'] as List?)?.map((e) => e.toString()).toList() ?? [];
-
-        final updates = <String, dynamic>{};
-
-        if (!deliveredTo.contains(uid)) {
-          updates['deliveredTo'] = FieldValue.arrayUnion([uid]);
-        }
-        if (!seenBy.contains(uid)) {
-          updates['seenBy'] = FieldValue.arrayUnion([uid]);
-        }
-
-        if (updates.isNotEmpty) {
-          batch.set(doc.reference, updates, SetOptions(merge: true));
-          changed = true;
-        }
-      }
-
-      if (changed) {
-        await batch.commit();
-      }
-
-      await roomRef.set({
-        'lastMessageDeliveredTo': FieldValue.arrayUnion([uid]),
-        'lastMessageSeenBy': FieldValue.arrayUnion([uid]),
-        'unread.$uid': 0,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      await meRef.set({
-        'counters.unreadChats': 0,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await _messageService.markSeenAndDelivered(docs);
     } finally {
       _markingSeen = false;
     }
