@@ -10,6 +10,10 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../chat/services/chat_references.dart';
+import '../chat/services/presence_service.dart';
+import '../chat/services/typing_service.dart';
+
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
 import 'package:earn2love_app/screens/settings/report_page.dart';
 import 'package:earn2love_app/screens/settings/rules_page.dart';
@@ -32,6 +36,10 @@ class ChatRoomPage extends StatefulWidget {
 
 class _ChatRoomPageState extends State<ChatRoomPage> {
   String get uid => FirebaseAuth.instance.currentUser!.uid;
+
+  late final ChatReferences _chatReferences;
+  late final PresenceService _presenceService;
+  late final TypingService _typingService;
 
   final TextEditingController msgCtrl = TextEditingController();
   final FocusNode _msgFocusNode = FocusNode();
@@ -166,6 +174,21 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   @override
   void initState() {
     super.initState();
+
+    _chatReferences = ChatReferences(
+      firestore: FirebaseFirestore.instance,
+      currentUid: uid,
+      otherUid: widget.otherUid,
+      roomId: widget.roomId,
+    );
+    _presenceService = PresenceService(
+      userReference: _chatReferences.currentUser,
+    );
+    _typingService = TypingService(
+      roomReference: _chatReferences.room,
+      currentUid: uid,
+    );
+
     _setOnline(true);
     _listenMyDoc();
     _listenMyPrefs();
@@ -361,11 +384,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Future<void> _setOnline(bool on) async {
-    await meRef.set({
-      'online': on,
-      'lastSeenAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _presenceService.setOnline(on);
   }
 
   Future<void> _markRoomRead() async {
@@ -378,9 +397,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Future<void> _setTyping(bool value) async {
-    await roomRef.set({
-      'typing.$uid': value,
-    }, SetOptions(merge: true));
+    await _typingService.setTyping(value);
   }
 
   void _onTypingChanged(String text) {
