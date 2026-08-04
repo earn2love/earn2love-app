@@ -10,133 +10,299 @@ class SupportPage extends StatefulWidget {
 }
 
 class _SupportPageState extends State<SupportPage> {
+  static const _background = Color(0xFFF8F4FC);
+  static const _purple = Color(0xFF7B4EFF);
+  static const _pink = Color(0xFFFF4D91);
+
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
-  CollectionReference<Map<String, dynamic>> get ticketsRef =>
+  CollectionReference<Map<String, dynamic>> get _ticketsReference =>
       FirebaseFirestore.instance.collection('supportTickets');
 
-  final subjectCtrl = TextEditingController();
-  final messageCtrl = TextEditingController();
+  final TextEditingController _subjectController = TextEditingController();
 
-  bool sending = false;
-  String? status;
+  final TextEditingController _messageController = TextEditingController();
 
-  Future<void> submitTicket() async {
-    final subject = subjectCtrl.text.trim();
-    final msg = messageCtrl.text.trim();
+  bool _sending = false;
+  String? _status;
 
-    if (subject.isEmpty || msg.isEmpty) {
-      setState(() => status = "Enter subject & message");
+  Future<void> _submitTicket() async {
+    final subject = _subjectController.text.trim();
+    final message = _messageController.text.trim();
+
+    if (subject.isEmpty || message.isEmpty) {
+      setState(() {
+        _status = 'Enter a subject and describe the issue.';
+      });
       return;
     }
 
     setState(() {
-      sending = true;
-      status = null;
+      _sending = true;
+      _status = null;
     });
 
     try {
-      await ticketsRef.add({
+      await _ticketsReference.add({
         'uid': uid,
         'subject': subject,
-        'message': msg,
+        'message': message,
+        'source': 'mobile_app',
         'status': 'open',
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      subjectCtrl.clear();
-      messageCtrl.clear();
-      status = "Ticket submitted ✅";
-    } catch (e) {
-      status = "Failed: $e";
+      _subjectController.clear();
+      _messageController.clear();
+
+      if (!mounted) return;
+
+      setState(() {
+        _status = 'Your support ticket was submitted.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _status = 'Ticket submission failed: $error';
+      });
     } finally {
-      if (mounted) setState(() => sending = false);
+      if (mounted) {
+        setState(() => _sending = false);
+      }
     }
+  }
+
+  void _applyCategory(String category) {
+    _subjectController.text = category;
+    _messageController.clear();
   }
 
   @override
   void dispose() {
-    subjectCtrl.dispose();
-    messageCtrl.dispose();
+    _subjectController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Help & Support")),
+      backgroundColor: _background,
+      appBar: AppBar(
+        backgroundColor: _background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Meera Support',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          30,
+        ),
         children: [
-          const Card(
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_purple, _pink],
+              ),
+              borderRadius: BorderRadius.circular(26),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.white24,
+                      child: Icon(
+                        Icons.auto_awesome,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      'Hello, I’m Meera',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Choose a topic or submit a detailed '
+                  'ticket. A support agent can review '
+                  'account-specific issues.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Popular topics',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TopicChip(
+                label: 'Account',
+                icon: Icons.person_outline,
+                onTap: () => _applyCategory('Account issue'),
+              ),
+              _TopicChip(
+                label: 'Chat',
+                icon: Icons.chat_bubble_outline,
+                onTap: () => _applyCategory('Chat issue'),
+              ),
+              _TopicChip(
+                label: 'Calls',
+                icon: Icons.call_outlined,
+                onTap: () => _applyCategory('Call issue'),
+              ),
+              _TopicChip(
+                label: 'Games',
+                icon: Icons.sports_esports_outlined,
+                onTap: () => _applyCategory('Games issue'),
+              ),
+              _TopicChip(
+                label: 'Wallet',
+                icon: Icons.account_balance_wallet_outlined,
+                onTap: () => _applyCategory('Wallet issue'),
+              ),
+              _TopicChip(
+                label: 'Safety',
+                icon: Icons.shield_outlined,
+                onTap: () => _applyCategory('Safety issue'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(17),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Safety & Help",
-                      style:
-                          TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                  SizedBox(height: 8),
-                  Text(
-                      "• Report abuse → we review\n• After 3 reports → 24hrs freeze (Phase 2)\n• Help center & rules will be added"),
+                  const Text(
+                    'Open a support ticket',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Do not include passwords, payment '
+                    'card details or identity-document '
+                    'numbers.',
+                    style: TextStyle(
+                      color: Colors.black54,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  TextField(
+                    controller: _subjectController,
+                    decoration: const InputDecoration(
+                      labelText: 'Subject',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _messageController,
+                    minLines: 5,
+                    maxLines: 8,
+                    decoration: const InputDecoration(
+                      labelText: 'Describe the issue',
+                      alignLabelWithHint: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _sending ? null : _submitTicket,
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.send_outlined),
+                      label: Text(
+                        _sending ? 'Submitting...' : 'Submit ticket',
+                      ),
+                    ),
+                  ),
+                  if (_status != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _status!,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: _status!.toLowerCase().contains('failed')
+                            ? Colors.red
+                            : Colors.green.shade700,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          const Text("Contact Support",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 10),
-          TextField(
-            controller: subjectCtrl,
-            decoration: const InputDecoration(
-              labelText: "Subject",
-              border: OutlineInputBorder(),
-              hintText: "Login / Coins / Chat / Abuse report",
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: messageCtrl,
-            maxLines: 5,
-            decoration: const InputDecoration(
-              labelText: "Message",
-              border: OutlineInputBorder(),
-              hintText: "Explain the issue clearly...",
-            ),
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: sending ? null : submitTicket,
-            icon: const Icon(Icons.send),
-            label: Text(sending ? "Sending..." : "Submit Ticket"),
-          ),
-          if (status != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              status!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color:
-                    status!.toLowerCase().contains("fail") ? Colors.red : null,
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
-          const Divider(),
-          const SizedBox(height: 10),
-          const Text("Quick FAQs (Phase 1)",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 8),
-          const Text(
-              "Q: Coins not updating?\nA: Check internet + reload. WalletHistory shows changes."),
-          const SizedBox(height: 8),
-          const Text(
-              "Q: Permission denied?\nA: Firestore Rules must allow your UID access."),
         ],
       ),
+    );
+  }
+}
+
+class _TopicChip extends StatelessWidget {
+  const _TopicChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+      onPressed: onTap,
     );
   }
 }

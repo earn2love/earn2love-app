@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'report_page.dart';
+import 'rules_page.dart';
+
 class ChatRoomSettingsPage extends StatefulWidget {
   final String roomId;
   final String otherUid;
@@ -32,6 +35,13 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
 
   DocumentReference<Map<String, dynamic>> get _roomRef =>
       FirebaseFirestore.instance.collection('chatRooms').doc(widget.roomId);
+
+  DocumentReference<Map<String, dynamic>> get _blockedUserRef =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('blockedUsers')
+          .doc(widget.otherUid);
 
   DocumentReference<Map<String, dynamic>> get _chatPrefRef =>
       FirebaseFirestore.instance
@@ -199,6 +209,123 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
           ? Timestamp.fromDate(DateTime.now().add(const Duration(days: 3650)))
           : null,
     });
+  }
+
+  Future<void> _toggleBlock() async {
+    if (_saving || _blockedByOther) return;
+
+    final action = _blockedByMe ? 'Unblock' : 'Block';
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: Text('$action $_otherName?'),
+              content: Text(
+                _blockedByMe
+                    ? 'This user will be able to contact you again.'
+                    : 'This user will no longer be able to message '
+                        'or call you.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: !_blockedByMe
+                      ? FilledButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        )
+                      : null,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(action),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed) return;
+
+    setState(() => _saving = true);
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+
+      if (_blockedByMe) {
+        batch.delete(_blockedUserRef);
+        batch.set(
+          _roomRef,
+          {
+            'blockedBy.$uid': FieldValue.delete(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      } else {
+        batch.set(
+          _blockedUserRef,
+          {
+            'roomId': widget.roomId,
+            'createdAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+
+        batch.set(
+          _roomRef,
+          {
+            'blockedBy.$uid': true,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      await batch.commit();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _blockedByMe ? 'User unblocked' : 'User blocked',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Action failed: $error'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _openReport() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportPage(
+          targetUid: widget.otherUid,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openRules() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const RulesPage(),
+      ),
+    );
   }
 
   Future<void> _clearChatForMe() async {
@@ -516,33 +643,29 @@ class _ChatRoomSettingsPageState extends State<ChatRoomSettingsPage> {
                   ),
                 ]),
                 const SizedBox(height: 16),
-                _sectionTitle('Safety status'),
+                _sectionTitle('Safety'),
                 _groupCard([
-                  ListTile(
-                    leading: Icon(
-                      _anyBlocked
-                          ? Icons.block_rounded
-                          : Icons.verified_user_outlined,
-                      color:
-                          _anyBlocked ? Colors.redAccent : Colors.greenAccent,
-                    ),
-                    title: Text(
-                      _anyBlocked
-                          ? 'Conversation restricted'
-                          : 'Conversation active',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _blockedByMe
-                          ? 'You have blocked this user.'
-                          : _blockedByOther
-                              ? 'This user has restricted the conversation.'
-                              : 'Block and report controls are available from the chat menu.',
-                      style: const TextStyle(color: _muted),
-                    ),
+                  _navTile(
+                    icon: _blockedByMe
+                        ? Icons.lock_open_rounded
+                        : Icons.block_rounded,
+                    title: _blockedByMe ? 'Unblock user' : 'Block user',
+                    subtitle: _blockedByMe
+                        ? 'Allow this user to contact you again'
+                        : 'Stop messages, requests and calls',
+                    onTap: _toggleBlock,
+                  ),
+                  _navTile(
+                    icon: Icons.flag_outlined,
+                    title: 'Report user',
+                    subtitle: 'Send this profile for a safety review',
+                    onTap: _openReport,
+                  ),
+                  _navTile(
+                    icon: Icons.rule_outlined,
+                    title: 'Community rules',
+                    subtitle: 'Review chat and platform safety rules',
+                    onTap: _openRules,
                   ),
                 ]),
                 const SizedBox(height: 16),

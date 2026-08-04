@@ -2336,37 +2336,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
-  Future<void> _blockOrUnblock() async {
-    if (_blockedByMe) {
-      await roomRef.set({
-        'blockedBy.$uid': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      await meRef.collection('blocks').doc(widget.otherUid).delete();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User unblocked ✅')),
-      );
-    } else {
-      await roomRef.set({
-        'blockedBy.$uid': true,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      await meRef.collection('blocks').doc(widget.otherUid).set({
-        'roomId': widget.roomId,
-        'blockedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User blocked ✅')),
-      );
-    }
-  }
-
   Future<void> _markSeenAndDelivered(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) async {
@@ -3084,60 +3053,65 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                 ),
                 PopupMenuButton<String>(
                   padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 38, minHeight: 38),
-                  onSelected: (v) async {
-                    if (v == 'requests') {
+                  constraints: const BoxConstraints(
+                    minWidth: 38,
+                    minHeight: 38,
+                  ),
+                  onSelected: (value) async {
+                    if (value == 'requests') {
                       await _openRequestsSheet();
-                    } else if (v == 'settings') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatRoomSettingsPage(
-                            roomId: widget.roomId,
-                            otherUid: widget.otherUid,
+                    } else if (value == 'settings') {
+                      await _openChatRoomSettings();
+                    } else if (value == 'rules') {
+                      await _openRulesPage();
+                    } else if (value == 'profile') {
+                      if (!mounted) return;
+
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => UserProfilePage(
+                            userId: widget.otherUid,
                           ),
-                        ),
-                      );
-                    } else if (v == 'blockToggle') {
-                      await _blockOrUnblock();
-                    } else if (v == 'report') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ReportPage(targetUid: widget.otherUid),
-                        ),
-                      );
-                    } else if (v == 'rules') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RulesPage(),
                         ),
                       );
                     }
                   },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'requests',
-                      child: Text('Requests'),
-                    ),
-                    const PopupMenuItem(
-                      value: 'settings',
-                      child: Text('Settings'),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'profile',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.person_outline),
+                        title: Text('View profile'),
+                      ),
                     ),
                     PopupMenuItem(
-                      value: 'blockToggle',
-                      child: Text(_blockedByMe ? 'Unblock' : 'Block'),
+                      value: 'requests',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.inbox_outlined),
+                        title: Text('Requests'),
+                      ),
                     ),
-                    const PopupMenuItem(
-                      value: 'report',
-                      child: Text('Report'),
+                    PopupMenuItem(
+                      value: 'settings',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.tune_rounded),
+                        title: Text('Conversation settings'),
+                      ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'rules',
-                      child: Text('Rules'),
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.rule_outlined),
+                        title: Text('Community rules'),
+                      ),
                     ),
                   ],
                 ),

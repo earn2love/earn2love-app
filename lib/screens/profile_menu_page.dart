@@ -1,49 +1,14 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'auth_gate.dart'; // ✅ ADD (same folder lo unte ok)
 import 'profile_page.dart';
 import 'profile_personal_page.dart';
 import 'profile_contact_page.dart';
 import 'profile_address_page.dart';
 import 'profile_bio_page.dart';
 import 'profile_photo_privacy_page.dart';
-import 'support_page.dart';
 
 class ProfileMenuPage extends StatelessWidget {
   const ProfileMenuPage({super.key});
-
-  Future<void> _logout(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Logout"),
-        content: const Text("Are you sure you want to logout?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Logout"),
-          ),
-        ],
-      ),
-    );
-
-    if (ok == true) {
-      await FirebaseAuth.instance.signOut();
-
-      if (!context.mounted) return;
-
-      // ✅ IMPORTANT: clear stack so HomePage/AppShell streams stop immediately
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AuthGate()),
-        (r) => false,
-      );
-    }
-  }
 
   Widget _sectionTitle(String text) {
     return Padding(
@@ -84,7 +49,12 @@ class ProfileMenuPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Account Settings")),
+      appBar: AppBar(
+        title: const Text(
+          'Profile and Account',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
@@ -150,34 +120,6 @@ class ProfileMenuPage extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const ProfilePhotoPrivacyPage()),
-            ),
-          ),
-          _sectionTitle("Support"),
-          _tile(
-            context: context,
-            icon: Icons.support_agent,
-            title: "Help & Support",
-            subtitle: "Contact us / FAQ",
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SupportPage()),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Card(
-            elevation: 0,
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.red.withValues(alpha: 0.12),
-                child: const Icon(Icons.logout, color: Colors.red),
-              ),
-              title: const Text("Logout",
-                  style: TextStyle(fontWeight: FontWeight.w900)),
-              subtitle: const Text("Sign out from this device"),
-              onTap: () => _logout(context),
             ),
           ),
         ],
