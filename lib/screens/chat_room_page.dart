@@ -62,6 +62,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
   Timer? _bannerTimer;
   Timer? _typingTimer;
+  Timer? _recordingTimer;
 
   Map<String, dynamic>? _activeBanner;
   Map<String, dynamic>? _replyingTo;
@@ -71,12 +72,14 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   bool _acceptBusy = false;
   bool _markingSeen = false;
   bool _isRecording = false;
+  bool _recordingBusy = false;
   bool _searchMode = false;
   bool _hasTypedText = false;
 
   String _searchText = '';
   String? _recordingPath;
   String? _playingAudioUrl;
+  int _recordingElapsedSeconds = 0;
   String _lastMarkSeenSignature = '';
 
   late final ChatPaginationController _paginationController;
@@ -251,6 +254,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     _setOnline(false);
     _bannerTimer?.cancel();
     _typingTimer?.cancel();
+    _recordingTimer?.cancel();
     _meSub?.cancel();
     _roomSub?.cancel();
     _friendSub?.cancel();
@@ -1401,107 +1405,251 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
+  String _formatRecordingDuration(int totalSeconds) {
+    final safeSeconds = totalSeconds < 0 ? 0 : totalSeconds;
+    final minutes = safeSeconds ~/ 60;
+    final seconds = safeSeconds % 60;
+
+    return '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _startRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingElapsedSeconds = 0;
+
+    _recordingTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (!mounted || !_isRecording) return;
+
+        setState(() {
+          _recordingElapsedSeconds++;
+        });
+      },
+    );
+  }
+
+  void _stopRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+  }
+
+  Future<void> _deleteTemporaryRecording(String? path) async {
+    if (path == null || path.trim().isEmpty) return;
+
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Temporary-file cleanup must not interrupt the chat flow.
+    }
+  }
+
   Future<void> _startVoiceRecording() async {
+    if (_recordingBusy || _isRecording) return;
+
     if (_anyBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              _blockedByMe ? 'You blocked this user.' : 'You are blocked.'),
+            _blockedByMe ? 'You blocked this user.' : 'You are blocked.',
+          ),
         ),
       );
       return;
     }
 
-    final hasPermission = await _recorder.hasPermission();
-    if (!hasPermission) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Microphone permission denied')),
+    _recordingBusy = true;
+
+    try {
+      final hasPermission = await _recorder.hasPermission();
+
+      if (!hasPermission) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Microphone permission denied'),
+          ),
+        );
+        return;
+      }
+
+      final directory = await getTemporaryDirectory();
+      final path =
+          '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}_$uid.m4a';
+
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          bitRate: 128000,
+          sampleRate: 44100,
+        ),
+        path: path,
       );
-      return;
+
+      if (!mounted) {
+        await _recorder.stop();
+        await _deleteTemporaryRecording(path);
+        return;
+      }
+
+      setState(() {
+        _recordingPath = path;
+        _recordingElapsedSeconds = 0;
+        _isRecording = true;
+      });
+
+      _startRecordingTimer();
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Recording could not start: $error'),
+        ),
+      );
+    } finally {
+      _recordingBusy = false;
     }
-
-    final dir = await getTemporaryDirectory();
-    final path =
-        '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}_$uid.m4a';
-
-    await _recorder.start(
-      const RecordConfig(
-        encoder: AudioEncoder.aacLc,
-        bitRate: 128000,
-        sampleRate: 44100,
-      ),
-      path: path,
-    );
-
-    if (!mounted) return;
-    setState(() {
-      _recordingPath = path;
-      _isRecording = true;
-    });
   }
 
   Future<void> _stopAndSendVoice() async {
-    if (!_isRecording) return;
+    if (_recordingBusy || !_isRecording) return;
 
-    final path = await _recorder.stop();
-    if (!mounted) return;
+    _recordingBusy = true;
+    _stopRecordingTimer();
 
-    setState(() => _isRecording = false);
-
-    final finalPath = path ?? _recordingPath;
-    if (finalPath == null || finalPath.isEmpty) return;
-
-    final file = File(finalPath);
-    if (!await file.exists()) return;
-
-    final bytes = await file.length();
-    if (!mounted) return;
-
-    if (bytes > _maxAudioBytes) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Voice message too large')),
-      );
-      return;
-    }
+    String? finalPath;
 
     try {
+      final stoppedPath = await _recorder.stop();
+      finalPath = stoppedPath ?? _recordingPath;
+
+      final recordedSeconds =
+          _recordingElapsedSeconds > 0 ? _recordingElapsedSeconds : 1;
+
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _recordingPath = null;
+          _recordingElapsedSeconds = 0;
+        });
+      }
+
+      if (finalPath == null || finalPath.trim().isEmpty) {
+        throw StateError('Recorded file path is unavailable.');
+      }
+
+      final file = File(finalPath);
+
+      if (!await file.exists()) {
+        throw StateError('Recorded voice file was not created.');
+      }
+
+      final bytes = await file.length();
+
+      if (bytes <= 0) {
+        throw StateError('Recorded voice file is empty.');
+      }
+
+      if (bytes > _maxAudioBytes) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Voice message too large'),
+          ),
+        );
+        return;
+      }
+
       final storagePath =
           'voice_uploads/${widget.roomId}/${DateTime.now().millisecondsSinceEpoch}_$uid.m4a';
-      final ref = FirebaseStorage.instance.ref().child(storagePath);
-      await ref.putFile(file);
-      final url = await ref.getDownloadURL();
+
+      final storageReference =
+          FirebaseStorage.instance.ref().child(storagePath);
+
+      await storageReference.putFile(file);
+      final downloadUrl = await storageReference.getDownloadURL();
 
       await _sendMessageInternal(
         type: 'voice',
         text: '🎤 Voice message',
-        audioUrl: url,
-        audioDurationSec: 0,
+        audioUrl: downloadUrl,
+        audioDurationSec: recordedSeconds,
         replyTo: _replyingTo,
       );
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Voice message sent ✅')),
+        const SnackBar(
+          content: Text('Voice message sent ✅'),
+        ),
       );
+
       _msgFocusNode.requestFocus();
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
+
+      setState(() {
+        _isRecording = false;
+        _recordingPath = null;
+        _recordingElapsedSeconds = 0;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Voice send failed: $e')),
+        SnackBar(
+          content: Text('Voice send failed: $error'),
+        ),
       );
+    } finally {
+      _stopRecordingTimer();
+      await _deleteTemporaryRecording(finalPath ?? _recordingPath);
+      _recordingPath = null;
+      _recordingBusy = false;
     }
   }
 
   Future<void> _cancelVoiceRecording() async {
-    if (!_isRecording) return;
-    await _recorder.stop();
-    if (!mounted) return;
-    setState(() {
-      _isRecording = false;
-      _recordingPath = null;
-    });
-    _msgFocusNode.requestFocus();
+    if (_recordingBusy || !_isRecording) return;
+
+    _recordingBusy = true;
+    _stopRecordingTimer();
+
+    final temporaryPath = _recordingPath;
+
+    try {
+      final stoppedPath = await _recorder.stop();
+
+      await _deleteTemporaryRecording(
+        stoppedPath ?? temporaryPath,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _isRecording = false;
+        _recordingPath = null;
+        _recordingElapsedSeconds = 0;
+      });
+
+      _msgFocusNode.requestFocus();
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Recording cancel failed: $error'),
+        ),
+      );
+    } finally {
+      _recordingBusy = false;
+    }
   }
 
   Future<void> _togglePlayAudio(String url) async {
@@ -2598,13 +2746,14 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: Colors.red.shade200),
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
                               Icon(Icons.mic, color: Colors.red),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Recording voice message...',
+                                  'Recording voice message... '
+                                  '${_formatRecordingDuration(_recordingElapsedSeconds)}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(fontWeight: FontWeight.w900),
