@@ -126,3 +126,5 @@ exports.endCall = calls.endCall;
 exports.acceptCall = calls.acceptCall;
 exports.rejectCall = calls.rejectCall;
 exports.cancelCall = calls.cancelCall;
+exports.getCallConfig = calls.getCallConfig;
+exports.updateCallConfig = calls.updateCallConfig;

@@ -44,6 +44,33 @@ class CallService {
     return uid;
   }
 
+  Future<CallPricingConfig> getCallConfig() async {
+    try {
+      final callable = _functions.httpsCallable('getCallConfig');
+
+      final response = await callable.call<Map<String, dynamic>>();
+
+      return CallPricingConfig.fromMap(
+        Map<String, dynamic>.from(
+          response.data,
+        ),
+      );
+    } on FirebaseFunctionsException catch (error) {
+      throw CallServiceException(
+        error.message ?? 'Call configuration could not be loaded.',
+        code: error.code,
+        originalError: error,
+      );
+    } catch (error) {
+      if (error is CallServiceException) rethrow;
+
+      throw CallServiceException(
+        'Call configuration could not be loaded: $error',
+        originalError: error,
+      );
+    }
+  }
+
   Future<CallSession> startCall({
     required String calleeUid,
     required CallType type,

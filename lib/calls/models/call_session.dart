@@ -144,3 +144,49 @@ int _asInt(dynamic value) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? 0;
 }
+
+class CallPricingConfig {
+  const CallPricingConfig({
+    required this.enabled,
+    required this.audioCallerPerMinute,
+    required this.videoCallerPerMinute,
+    required this.audioRewardPercent,
+    required this.videoRewardPercent,
+    required this.billingIncrementSeconds,
+    required this.minimumBillableSeconds,
+  });
+
+  final bool enabled;
+  final int audioCallerPerMinute;
+  final int videoCallerPerMinute;
+  final int audioRewardPercent;
+  final int videoRewardPercent;
+  final int billingIncrementSeconds;
+  final int minimumBillableSeconds;
+
+  factory CallPricingConfig.fromMap(
+    Map<String, dynamic> map,
+  ) {
+    final audio = map['audio'] is Map
+        ? Map<String, dynamic>.from(
+            map['audio'] as Map,
+          )
+        : <String, dynamic>{};
+
+    final video = map['video'] is Map
+        ? Map<String, dynamic>.from(
+            map['video'] as Map,
+          )
+        : <String, dynamic>{};
+
+    return CallPricingConfig(
+      enabled: map['enabled'] != false,
+      audioCallerPerMinute: _asInt(audio['callerPerMinute']),
+      videoCallerPerMinute: _asInt(video['callerPerMinute']),
+      audioRewardPercent: _asInt(audio['receiverRewardPercent']),
+      videoRewardPercent: _asInt(video['receiverRewardPercent']),
+      billingIncrementSeconds: _asInt(map['billingIncrementSeconds']),
+      minimumBillableSeconds: _asInt(map['minimumBillableSeconds']),
+    );
+  }
+}

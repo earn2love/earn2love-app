@@ -35,6 +35,7 @@ class AgoraService {
   bool _muted = false;
   bool _speakerEnabled = true;
   bool _videoEnabled = false;
+  bool _cameraEnabled = true;
 
   Stream<int> get remoteUserStream => _remoteUserController.stream;
   Stream<CallStatus> get statusStream => _statusController.stream;
@@ -46,6 +47,7 @@ class AgoraService {
   bool get muted => _muted;
   bool get speakerEnabled => _speakerEnabled;
   bool get videoEnabled => _videoEnabled;
+  bool get cameraEnabled => _cameraEnabled;
 
   Future<void> initialize({
     required String appId,
@@ -144,6 +146,7 @@ class AgoraService {
       _engine = engine;
       _muted = false;
       _speakerEnabled = true;
+      _cameraEnabled = enableVideo;
       _remoteUid = null;
     } catch (error) {
       await disposeEngine();
@@ -221,6 +224,28 @@ class AgoraService {
     await engine.setEnableSpeakerphone(_speakerEnabled);
 
     return _speakerEnabled;
+  }
+
+  Future<bool> toggleCamera() async {
+    final engine = _engine;
+
+    if (engine == null || !_videoEnabled) {
+      return _cameraEnabled;
+    }
+
+    _cameraEnabled = !_cameraEnabled;
+
+    await engine.muteLocalVideoStream(
+      !_cameraEnabled,
+    );
+
+    if (_cameraEnabled) {
+      await engine.startPreview();
+    } else {
+      await engine.stopPreview();
+    }
+
+    return _cameraEnabled;
   }
 
   Future<void> switchCamera() async {

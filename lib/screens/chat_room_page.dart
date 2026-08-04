@@ -24,6 +24,7 @@ import '../chat/widgets/typing_indicator.dart';
 import '../chat/widgets/voice_message_player.dart';
 import '../calls/models/call_session.dart';
 import '../calls/screens/audio_call_page.dart';
+import '../calls/screens/video_call_page.dart';
 import '../calls/services/agora_service.dart';
 import '../calls/services/call_service.dart';
 
@@ -85,6 +86,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   String? _playingAudioUrl;
   int _recordingElapsedSeconds = 0;
   String _lastMarkSeenSignature = '';
+
+  int _audioCallPrice = 10;
+  int _videoCallPrice = 25;
+  bool _callsEnabled = true;
 
   late final ChatPaginationController _paginationController;
   static const int _maxImageBytes = 5 * 1024 * 1024;
@@ -223,6 +228,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
     _setOnline(true);
     _listenMyDoc();
+    unawaited(_loadCallPricing());
     _listenMyPrefs();
     _listenRequests();
     _listenRoomBlockState();
@@ -273,6 +279,28 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     _audioPlayer.dispose();
     _recorder.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCallPricing() async {
+    try {
+      final config = await CallService().getCallConfig();
+
+      if (!mounted) return;
+
+      setState(() {
+        _audioCallPrice =
+            config.audioCallerPerMinute > 0 ? config.audioCallerPerMinute : 10;
+
+        _videoCallPrice =
+            config.videoCallerPerMinute > 0 ? config.videoCallerPerMinute : 25;
+
+        _callsEnabled = config.enabled;
+      });
+    } catch (error) {
+      debugPrint(
+        'Call configuration load failed: $error',
+      );
+    }
   }
 
   void _listenMyDoc() {
@@ -829,6 +857,53 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
+  Future<void> _openRealVideoCall(
+    CallSession session,
+  ) async {
+    if (!mounted) return;
+
+    final remoteUid = session.isCaller ? session.calleeUid : session.callerUid;
+
+    final identity = await _loadCallUserIdentity(remoteUid);
+
+    if (!mounted) return;
+
+    final duration = await Navigator.of(context).push<int>(
+      MaterialPageRoute<int>(
+        builder: (_) => VideoCallPage(
+          session: session,
+          otherName: identity['name'] ?? 'User',
+          otherPhotoUrl: identity['photo'] ?? '',
+          callService: CallService(),
+          agoraService: AgoraService(),
+        ),
+      ),
+    );
+
+    if (!mounted || duration == null) return;
+
+    try {
+      final callSnapshot = await FirebaseFirestore.instance
+          .collection('calls')
+          .doc(session.callId)
+          .get();
+
+      final callData = callSnapshot.data() ?? <String, dynamic>{};
+
+      final storedDuration = asInt(callData['durationSeconds']);
+
+      final charge = session.isCaller ? asInt(callData['charge']) : 0;
+
+      await _addCallLog(
+        callType: 'video',
+        durationSeconds: storedDuration > 0 ? storedDuration : duration,
+        cost: charge,
+      );
+    } catch (error) {
+      debugPrint('Video call log creation failed: $error');
+    }
+  }
+
   Future<void> _acceptRequest(String id) async {
     if (_anyBlocked) {
       if (!mounted) return;
@@ -959,13 +1034,69 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         return;
       }
 
+      if (type == 'video_call_request') {
+        final callId = asString(data['callId']);
+
+        if (callId.isEmpty) {
+          await reqRef.doc(id).set({
+            'status': 'rejected_invalid_call',
+            'handledAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          await _decrementCounter(
+            meRef,
+            'pendingCallRequests',
+          );
+
+          if (!mounted) return;
+
+          setState(() => _activeBanner = null);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'This video call request is invalid.',
+              ),
+            ),
+          );
+          return;
+        }
+
+        try {
+          final session = await CallService().acceptCall(
+            callId: callId,
+          );
+
+          await reqRef.doc(id).set({
+            'status': 'accepted',
+            'handledAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          await _decrementCounter(
+            meRef,
+            'pendingCallRequests',
+          );
+
+          if (!mounted) return;
+
+          setState(() => _activeBanner = null);
+
+          await _openRealVideoCall(session);
+        } on CallServiceException catch (error) {
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.message),
+            ),
+          );
+        }
+
+        return;
+      }
+
       int cost = 0;
       String reason = '';
-
-      if (type == 'video_call_request') {
-        cost = 25;
-        reason = 'video_call';
-      }
 
       if (cost > 0) {
         final ok = await _deductAndRewardOnAccept(
@@ -1148,6 +1279,67 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(denyMessage)),
       );
+      return;
+    }
+
+    if (type == 'video_call_request') {
+      CallSession? session;
+
+      try {
+        session = await CallService().startCall(
+          calleeUid: widget.otherUid,
+          type: CallType.video,
+        );
+
+        await reqRef.add({
+          'fromUid': uid,
+          'toUid': widget.otherUid,
+          'type': type,
+          'status': 'pending',
+          'callId': session.callId,
+          'channelName': session.channelName,
+          'callType': session.type.apiValue,
+          'ratePerMinute': session.ratePerMinute,
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAt': Timestamp.fromDate(
+            DateTime.now().add(_requestExpiryDuration),
+          ),
+        });
+
+        await _incrementCounter(
+          otherRef,
+          'pendingCallRequests',
+        );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Video call request sent ✅'),
+          ),
+        );
+
+        await _openRealVideoCall(session);
+      } catch (error) {
+        if (session != null) {
+          try {
+            await CallService().cancelCall(
+              callId: session.callId,
+            );
+          } catch (_) {}
+        }
+
+        if (!mounted) return;
+
+        final message = error is CallServiceException
+            ? error.message
+            : 'Video call could not start: $error';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+
       return;
     }
 
@@ -2347,8 +2539,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
     String label = 'Request';
     if (type == 'photo_request') label = 'Image request';
-    if (type == 'video_call_request') label = 'Video call request (25 🥈)';
-    if (type == 'audio_call_request') label = 'Audio call request (10 🥈)';
+    final requestRate = asInt(b['ratePerMinute']);
+
+    if (type == 'video_call_request') {
+      final rate = requestRate > 0 ? requestRate : _videoCallPrice;
+      label = 'Video call request ($rate 🥈/min)';
+    }
+
+    if (type == 'audio_call_request') {
+      final rate = requestRate > 0 ? requestRate : _audioCallPrice;
+      label = 'Audio call request ($rate 🥈/min)';
+    }
 
     return Container(
       width: double.infinity,
@@ -2866,7 +3067,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   constraints:
                       const BoxConstraints(minWidth: 38, minHeight: 38),
                   tooltip: 'Audio call request',
-                  onPressed: _anyBlocked
+                  onPressed: _anyBlocked || !_callsEnabled
                       ? null
                       : () => _sendRequestToOther('audio_call_request'),
                   icon: const Icon(Icons.call, size: 21),
@@ -2876,7 +3077,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   constraints:
                       const BoxConstraints(minWidth: 38, minHeight: 38),
                   tooltip: 'Video call request',
-                  onPressed: _anyBlocked
+                  onPressed: _anyBlocked || !_callsEnabled
                       ? null
                       : () => _sendRequestToOther('video_call_request'),
                   icon: const Icon(Icons.videocam, size: 21),

@@ -15,7 +15,8 @@ const {
 } = require("agora-token");
 
 const {
-  CALL_COSTS,
+  loadCallConfig,
+  saveCallConfig,
 } = require("./call_config");
 
 const {
@@ -165,14 +166,35 @@ exports.startCall = onCall(
           0,
       );
 
-      const callCost = CALL_COSTS[type];
+      const config = await loadCallConfig();
 
-      if (callerBalance < callCost.callerPerMin) {
+      if (!config.enabled) {
+        throw new HttpsError(
+            "failed-precondition",
+            "Calls are currently disabled",
+        );
+      }
+
+      const typeConfig = config[type];
+
+      if (callerBalance <
+          typeConfig.callerPerMinute) {
         throw new HttpsError(
             "failed-precondition",
             "Insufficient Silver to start this call",
         );
       }
+
+      const pricingSnapshot = {
+        callerPerMinute:
+            typeConfig.callerPerMinute,
+        receiverRewardPercent:
+            typeConfig.receiverRewardPercent,
+        billingIncrementSeconds:
+            config.billingIncrementSeconds,
+        minimumBillableSeconds:
+            config.minimumBillableSeconds,
+      };
 
       const channelName =
           `call_${callerUid}_${Date.now()}`;
@@ -185,6 +207,7 @@ exports.startCall = onCall(
             channelName,
             status: "ringing",
             charged: false,
+            pricingSnapshot,
             createdAt: timestamp(),
             updatedAt: timestamp(),
           });
@@ -193,7 +216,14 @@ exports.startCall = onCall(
         callId: callReference.id,
         channelName,
         type,
-        ratePerMin: callCost.callerPerMin,
+        ratePerMin:
+            pricingSnapshot.callerPerMinute,
+        receiverRewardPercent:
+            pricingSnapshot.receiverRewardPercent,
+        billingIncrementSeconds:
+            pricingSnapshot.billingIncrementSeconds,
+        minimumBillableSeconds:
+            pricingSnapshot.minimumBillableSeconds,
       };
     },
 );
@@ -254,7 +284,38 @@ exports.endCall = onCall(
                 call.type :
                 "audio";
 
-            const costs = CALL_COSTS[callType];
+            const liveConfig =
+                await loadCallConfig();
+
+            const fallbackTypeConfig =
+                liveConfig[callType];
+
+            const storedPricing =
+                call.pricingSnapshot || {};
+
+            const callerPerMinute = Number(
+                storedPricing.callerPerMinute ||
+                fallbackTypeConfig.callerPerMinute,
+            );
+
+            const receiverRewardPercent = Number(
+                storedPricing.receiverRewardPercent !==
+                        undefined ?
+                storedPricing.receiverRewardPercent :
+                fallbackTypeConfig.receiverRewardPercent,
+            );
+
+            const billingIncrementSeconds = Number(
+                storedPricing.billingIncrementSeconds ||
+                liveConfig.billingIncrementSeconds,
+            );
+
+            const minimumBillableSeconds = Number(
+                storedPricing.minimumBillableSeconds !==
+                        undefined ?
+                storedPricing.minimumBillableSeconds :
+                liveConfig.minimumBillableSeconds,
+            );
 
             const callerReference =
                 db().collection("users")
@@ -285,30 +346,49 @@ exports.endCall = onCall(
                 0,
             );
 
-            const requestedMinutes =
-                durationSeconds > 0 ?
-                Math.ceil(durationSeconds / 60) :
+            const shouldBill =
+                durationSeconds >=
+                minimumBillableSeconds;
+
+            const requestedBillingUnits =
+                shouldBill ?
+                Math.ceil(
+                    durationSeconds /
+                    billingIncrementSeconds,
+                ) :
                 0;
 
-            const maximumAffordableMinutes =
+            const maximumAffordableUnits =
                 Math.floor(
                     callerBalance /
-                    costs.callerPerMin,
+                    callerPerMinute,
                 );
 
-            const billedMinutes =
+            const billedUnits =
                 Math.min(
-                    requestedMinutes,
-                    maximumAffordableMinutes,
+                    requestedBillingUnits,
+                    maximumAffordableUnits,
                 );
 
             const charge =
-                billedMinutes *
-                costs.callerPerMin;
+                billedUnits *
+                callerPerMinute;
 
             const reward =
-                billedMinutes *
-                costs.receiverPerMin;
+                Math.floor(
+                    charge *
+                    receiverRewardPercent /
+                    100,
+                );
+
+            const billedSeconds =
+                billedUnits *
+                billingIncrementSeconds;
+
+            const billedMinutes =
+                Math.ceil(
+                    billedSeconds / 60,
+                );
 
             if (charge > 0) {
               transaction.set(
@@ -369,8 +449,16 @@ exports.endCall = onCall(
                   charged: true,
                   durationSeconds,
                   billedMinutes,
+                  billedUnits,
+                  billedSeconds,
                   charge,
                   reward,
+                  pricingSnapshot: {
+                    callerPerMinute,
+                    receiverRewardPercent,
+                    billingIncrementSeconds,
+                    minimumBillableSeconds,
+                  },
                   endedBy: currentUid,
                   endedAt: timestamp(),
                   updatedAt: timestamp(),
@@ -599,5 +687,28 @@ exports.cancelCall = onCall(
             };
           },
       );
+    },
+);
+
+exports.getCallConfig = onCall(
+    async (request) => {
+      assertAuth(request);
+      return loadCallConfig();
+    },
+);
+
+exports.updateCallConfig = onCall(
+    async (request) => {
+      assertAuth(request);
+
+      const config = await saveCallConfig(
+          request,
+          request.data || {},
+      );
+
+      return {
+        ok: true,
+        config,
+      };
     },
 );
