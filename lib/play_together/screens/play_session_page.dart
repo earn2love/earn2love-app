@@ -591,7 +591,7 @@ class _GeneratingRoundCard extends StatelessWidget {
           ),
           SizedBox(height: 18),
           Text(
-            'Luna is creating your next round...',
+            'Meera is creating your next round...',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
@@ -643,7 +643,7 @@ class _AiHostIntroduction extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Luna',
+                    'Meera',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFFF4D91),
@@ -760,7 +760,7 @@ class _AiReactionCard extends StatelessWidget {
               ),
               SizedBox(width: 8),
               Text(
-                'Luna’s reflection',
+                'Meera’s reflection',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   color: Color(0xFFFF4D91),

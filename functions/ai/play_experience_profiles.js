@@ -1,7 +1,7 @@
 "use strict";
 
 const DEFAULT_PROFILE = Object.freeze({
-  hostName: "Luna",
+  hostName: "Meera",
   personality:
       "warm, entertaining, observant and respectful",
   objective:

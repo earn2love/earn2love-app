@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'screens/home_page.dart';
-import 'screens/chat_list_page.dart';
-import 'screens/earn_page.dart';
-import 'screens/wallet_page.dart';
+
 import 'play_together/screens/play_together_page.dart';
+import 'screens/chat_list_page.dart';
+import 'screens/home_page.dart';
+import 'screens/profile_menu_page.dart';
+import 'screens/wallet_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -17,10 +18,10 @@ class _AppShellState extends State<AppShell> {
 
   final List<Widget> _pages = const [
     HomePage(),
-    WalletPage(),
     ChatListPage(),
     PlayTogetherPage(),
-    EarnPage(),
+    WalletPage(),
+    ProfileMenuPage(),
   ];
 
   @override
@@ -30,37 +31,57 @@ class _AppShellState extends State<AppShell> {
         index: _index,
         children: _pages,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _index,
-        onTap: (value) => setState(() => _index = value),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF7B4EFF),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (value) {
+          if (value == _index) return;
+
+          setState(() {
+            _index = value;
+          });
+        },
+        indicatorColor: const Color(0xFFECE3FF),
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
+            selectedIcon: Icon(Icons.home_rounded),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            activeIcon: Icon(Icons.account_balance_wallet),
+          NavigationDestination(
+            icon: Icon(
+              Icons.chat_bubble_outline_rounded,
+            ),
+            selectedIcon: Icon(
+              Icons.chat_bubble_rounded,
+            ),
+            label: 'Chats',
+          ),
+          NavigationDestination(
+            icon: Icon(
+              Icons.sports_esports_outlined,
+            ),
+            selectedIcon: Icon(
+              Icons.sports_esports_rounded,
+            ),
+            label: 'Games',
+          ),
+          NavigationDestination(
+            icon: Icon(
+              Icons.account_balance_wallet_outlined,
+            ),
+            selectedIcon: Icon(
+              Icons.account_balance_wallet_rounded,
+            ),
             label: 'Wallet',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sports_esports_outlined),
-            activeIcon: Icon(Icons.sports_esports),
-            label: 'Play',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.monetization_on_outlined),
-            activeIcon: Icon(Icons.monetization_on),
-            label: 'Earn',
+          NavigationDestination(
+            icon: Icon(
+              Icons.person_outline_rounded,
+            ),
+            selectedIcon: Icon(
+              Icons.person_rounded,
+            ),
+            label: 'Profile',
           ),
         ],
       ),

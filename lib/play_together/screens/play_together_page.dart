@@ -25,7 +25,10 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
   final PlayTogetherService _service = PlayTogetherService();
 
   late Future<PlayTogetherCatalog> _catalogFuture;
+  final TextEditingController _searchController = TextEditingController();
+
   String _selectedCategory = 'all';
+  String _searchQuery = '';
   bool _creating = false;
   bool _openingLinkedSession = false;
   Timer? _inCallSessionTimer;
@@ -79,6 +82,7 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
   @override
   void dispose() {
     _inCallSessionTimer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -94,6 +98,8 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
     PlayExperience experience,
   ) async {
     if (_creating) return;
+
+    final language = Localizations.localeOf(context).languageCode;
 
     setState(() => _creating = true);
 
@@ -265,7 +271,7 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Play Together',
+          'Games',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
         actions: [
@@ -297,7 +303,7 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
                     const SizedBox(height: 12),
                     Text(
                       snapshot.error?.toString() ??
-                          'Play Together could not be loaded.',
+                          'Games could not be loaded.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 15),
@@ -312,13 +318,27 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
           }
 
           final catalog = snapshot.data!;
-          final experiences = _selectedCategory == 'all'
-              ? catalog.experiences
-              : catalog.experiences
-                  .where(
-                    (experience) => experience.category == _selectedCategory,
-                  )
-                  .toList(growable: false);
+
+          final normalizedQuery = _searchQuery.trim().toLowerCase();
+
+          final experiences = catalog.experiences.where((experience) {
+            final categoryMatches = _selectedCategory == 'all' ||
+                experience.category == _selectedCategory;
+
+            if (!categoryMatches) {
+              return false;
+            }
+
+            if (normalizedQuery.isEmpty) {
+              return true;
+            }
+
+            return experience.title.toLowerCase().contains(normalizedQuery) ||
+                experience.description
+                    .toLowerCase()
+                    .contains(normalizedQuery) ||
+                experience.theme.toLowerCase().contains(normalizedQuery);
+          }).toList(growable: false);
 
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -341,7 +361,7 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Spend meaningful time together',
+                          '37 games. One shared experience.',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 23,
@@ -353,8 +373,8 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
                           widget.isInCall
                               ? 'Choose a game for this call. '
                                   'Your partner will join automatically.'
-                              : '37 free AI-powered social experiences. '
-                                  'Your current plan is '
+                              : 'Play casual, friendship and love games '
+                                  'hosted by Meera. Your current plan is '
                                   '${catalog.userTier.toUpperCase()}.',
                           style: const TextStyle(
                             color: Colors.white,
@@ -362,6 +382,93 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      16,
+                      0,
+                      16,
+                      14,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _StatPill(
+                            value: '${catalog.experiences.length}',
+                            label: 'Games',
+                            icon: Icons.sports_esports_rounded,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: _StatPill(
+                            value: '2',
+                            label: 'Players',
+                            icon: Icons.people_alt_rounded,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: _StatPill(
+                            value: 'Meera',
+                            label: 'AI Host',
+                            icon: Icons.auto_awesome_rounded,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      16,
+                      0,
+                      16,
+                      12,
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search all 37 games',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _searchQuery.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'Clear search',
+                                onPressed: () {
+                                  _searchController.clear();
+
+                                  setState(() {
+                                    _searchQuery = '';
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                ),
+                              ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE9E0F5),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -400,29 +507,40 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
                     ),
                   ),
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.all(14),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.72,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
+                if (experiences.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyGamesState(),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      14,
+                      14,
+                      14,
+                      28,
                     ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final experience = experiences[index];
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.68,
+                        crossAxisSpacing: 11,
+                        mainAxisSpacing: 11,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final experience = experiences[index];
 
-                        return PlayExperienceCard(
-                          experience: experience,
-                          onTap: () => _createSession(experience),
-                        );
-                      },
-                      childCount: experiences.length,
+                          return PlayExperienceCard(
+                            experience: experience,
+                            onTap: () => _createSession(experience),
+                          );
+                        },
+                        childCount: experiences.length,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           );
@@ -433,6 +551,102 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
 
   void _selectCategory(String category) {
     setState(() => _selectedCategory = category);
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  const _StatPill({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE9E0F5),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: const Color(0xFF7B4EFF),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyGamesState extends StatelessWidget {
+  const _EmptyGamesState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(34),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.search_off_rounded,
+              size: 54,
+              color: Color(0xFF9B87BE),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'No games found',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Try another search or category.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
