@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../screens/support_page.dart';
 import '../models/meera_message.dart';
 import '../services/meera_service.dart';
+import 'meera_conversations_page.dart';
+import 'meera_memories_page.dart';
 
 class MeeraChatPage extends StatefulWidget {
   const MeeraChatPage({
@@ -34,6 +36,9 @@ class _MeeraChatPageState extends State<MeeraChatPage> {
   String _languageMode = 'auto';
   String _requestedLanguage = '';
   int? _remainingUsage;
+
+  String _conversationId = '';
+  String _conversationTitle = 'New conversation';
 
   @override
   void initState() {
@@ -101,12 +106,19 @@ class _MeeraChatPageState extends State<MeeraChatPage> {
         history: history,
         languageMode: _languageMode,
         requestedLanguage: _requestedLanguage,
+        conversationId: _conversationId,
+        conversationTitle: _conversationTitle,
       );
 
       if (!mounted) return;
 
       setState(() {
         _remainingUsage = result.remaining;
+        _conversationId = result.conversationId;
+
+        if (result.conversationTitle.trim().isNotEmpty) {
+          _conversationTitle = result.conversationTitle.trim();
+        }
 
         _messages.add(
           MeeraMessage(
@@ -424,6 +436,117 @@ class _MeeraChatPageState extends State<MeeraChatPage> {
     }
   }
 
+  Future<void> _openConversations() async {
+    final selected = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
+        builder: (_) => const MeeraConversationsPage(),
+      ),
+    );
+
+    if (!mounted || selected == null) return;
+
+    if (selected == 'new') {
+      _startNewConversation();
+      return;
+    }
+
+    if (selected is MeeraConversationSummary) {
+      await _loadConversation(selected);
+    }
+  }
+
+  Future<void> _loadConversation(
+    MeeraConversationSummary conversation,
+  ) async {
+    setState(() => _sending = true);
+
+    try {
+      final messages = await _service.getConversation(
+        conversation.id,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _conversationId = conversation.id;
+        _conversationTitle = conversation.title;
+        _languageMode = conversation.languageMode;
+        _requestedLanguage = conversation.requestedLanguage;
+
+        _messages
+          ..clear()
+          ..addAll(messages);
+      });
+
+      _scrollToBottom();
+    } on MeeraServiceException catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sending = false);
+      }
+    }
+  }
+
+  void _startNewConversation() {
+    setState(() {
+      _conversationId = '';
+      _conversationTitle = 'New conversation';
+
+      _messages
+        ..clear()
+        ..add(
+          MeeraMessage(
+            role: 'assistant',
+            content: 'New conversation started. '
+                'How can I help you?',
+            createdAt: DateTime.now(),
+          ),
+        );
+    });
+  }
+
+  Future<void> _rememberCurrentInput() async {
+    final content = _controller.text.trim();
+
+    if (content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Type what you want Meera to remember first.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await _service.saveMemory(
+        content: content,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Meera will remember this preference.',
+          ),
+        ),
+      );
+    } on MeeraServiceException catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
   void _clearConversation() {
     setState(() {
       _messages
@@ -447,9 +570,9 @@ class _MeeraChatPageState extends State<MeeraChatPage> {
         backgroundColor: _background,
         scrolledUnderElevation: 0,
         titleSpacing: 4,
-        title: const Row(
+        title: Row(
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 18,
               backgroundColor: Color(0xFFE9DFFF),
               child: Icon(
@@ -458,18 +581,18 @@ class _MeeraChatPageState extends State<MeeraChatPage> {
                 size: 20,
               ),
             ),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Meera',
-                  style: TextStyle(
+                  _conversationTitle,
+                  style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 17,
                   ),
                 ),
-                Text(
+                const Text(
                   'Earn2Love AI assistant',
                   style: TextStyle(
                     fontSize: 10.5,
@@ -490,15 +613,52 @@ class _MeeraChatPageState extends State<MeeraChatPage> {
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'clear') {
+              if (value == 'history') {
+                _openConversations();
+              } else if (value == 'new') {
+                _startNewConversation();
+              } else if (value == 'memory') {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const MeeraMemoriesPage(),
+                  ),
+                );
+              } else if (value == 'remember') {
+                _rememberCurrentInput();
+              } else if (value == 'clear') {
                 _clearConversation();
               }
             },
             itemBuilder: (_) => const [
               PopupMenuItem(
+                value: 'history',
+                child: Text(
+                  'Conversation history',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'new',
+                child: Text(
+                  'New conversation',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'memory',
+                child: Text(
+                  'Manage memory',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'remember',
+                child: Text(
+                  'Remember current text',
+                ),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem(
                 value: 'clear',
                 child: Text(
-                  'Clear conversation',
+                  'Clear current screen',
                 ),
               ),
             ],

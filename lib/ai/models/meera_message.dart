@@ -77,6 +77,9 @@ class MeeraAssistantResult {
     required this.used,
     required this.limit,
     required this.remaining,
+    required this.conversationId,
+    required this.conversationCreated,
+    required this.conversationTitle,
   });
 
   final String answer;
@@ -93,6 +96,10 @@ class MeeraAssistantResult {
   final int used;
   final int limit;
   final int remaining;
+
+  final String conversationId;
+  final bool conversationCreated;
+  final String conversationTitle;
 
   factory MeeraAssistantResult.fromMap(
     Map<String, dynamic> map,
@@ -126,6 +133,9 @@ class MeeraAssistantResult {
       used: _toInt(usage['used']),
       limit: _toInt(usage['limit']),
       remaining: _toInt(usage['remaining']),
+      conversationId: (map['conversationId'] ?? '').toString(),
+      conversationCreated: map['conversationCreated'] == true,
+      conversationTitle: (map['conversationTitle'] ?? '').toString(),
     );
   }
 
@@ -137,5 +147,80 @@ class MeeraAssistantResult {
           value?.toString() ?? '',
         ) ??
         0;
+  }
+}
+
+class MeeraConversationSummary {
+  const MeeraConversationSummary({
+    required this.id,
+    required this.title,
+    required this.lastMessage,
+    required this.lastRole,
+    required this.messageCount,
+    required this.languageMode,
+    required this.requestedLanguage,
+    this.updatedAt,
+  });
+
+  final String id;
+  final String title;
+  final String lastMessage;
+  final String lastRole;
+  final int messageCount;
+  final String languageMode;
+  final String requestedLanguage;
+  final DateTime? updatedAt;
+
+  factory MeeraConversationSummary.fromMap(
+    Map<String, dynamic> map,
+  ) {
+    return MeeraConversationSummary(
+      id: (map['id'] ?? '').toString(),
+      title: (map['title'] ?? 'New conversation').toString().trim(),
+      lastMessage: (map['lastMessage'] ?? '').toString().trim(),
+      lastRole: (map['lastRole'] ?? '').toString().trim(),
+      messageCount: MeeraAssistantResult._toInt(
+        map['messageCount'],
+      ),
+      languageMode: (map['languageMode'] ?? 'auto').toString(),
+      requestedLanguage: (map['requestedLanguage'] ?? '').toString(),
+      updatedAt: _dateFromValue(map['updatedAt']),
+    );
+  }
+
+  static DateTime? _dateFromValue(dynamic value) {
+    if (value == null) return null;
+
+    try {
+      final dynamic date = value.toDate();
+      return date as DateTime;
+    } catch (_) {
+      return DateTime.tryParse(value.toString());
+    }
+  }
+}
+
+class MeeraMemory {
+  const MeeraMemory({
+    required this.id,
+    required this.content,
+    required this.category,
+    required this.source,
+  });
+
+  final String id;
+  final String content;
+  final String category;
+  final String source;
+
+  factory MeeraMemory.fromMap(
+    Map<String, dynamic> map,
+  ) {
+    return MeeraMemory(
+      id: (map['id'] ?? '').toString(),
+      content: (map['content'] ?? '').toString().trim(),
+      category: (map['category'] ?? 'preference').toString().trim(),
+      source: (map['source'] ?? 'user_confirmed').toString().trim(),
+    );
   }
 }
