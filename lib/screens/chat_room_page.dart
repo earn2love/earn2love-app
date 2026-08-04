@@ -21,6 +21,7 @@ import '../chat/widgets/message_input.dart';
 import '../chat/widgets/message_list.dart';
 import '../chat/widgets/reply_banner.dart';
 import '../chat/widgets/typing_indicator.dart';
+import '../chat/widgets/voice_message_player.dart';
 
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
 import 'package:earn2love_app/screens/settings/report_page.dart';
@@ -230,7 +231,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       }
     });
 
-    _audioPlayerStateSub = _audioPlayer.playerStateStream.listen((_) {
+    _audioPlayerStateSub = _audioPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        _audioPlayer.seek(Duration.zero);
+        _audioPlayer.pause();
+
+        if (mounted) {
+          setState(() => _playingAudioUrl = null);
+        }
+        return;
+      }
+
       if (mounted) setState(() {});
     });
   }
@@ -1494,23 +1505,56 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Future<void> _togglePlayAudio(String url) async {
+    if (url.trim().isEmpty) return;
+
     try {
-      if (_playingAudioUrl == url && _audioPlayer.playing) {
-        await _audioPlayer.stop();
-        if (mounted) setState(() => _playingAudioUrl = null);
+      if (_playingAudioUrl == url) {
+        if (_audioPlayer.playing) {
+          await _audioPlayer.pause();
+        } else {
+          if (_audioPlayer.processingState == ProcessingState.completed) {
+            await _audioPlayer.seek(Duration.zero);
+          }
+
+          unawaited(_audioPlayer.play());
+        }
+
+        if (mounted) setState(() {});
         return;
       }
 
-      _playingAudioUrl = url;
+      await _audioPlayer.stop();
+      await _audioPlayer.setSpeed(1.0);
+
+      if (mounted) {
+        setState(() => _playingAudioUrl = url);
+      } else {
+        _playingAudioUrl = url;
+      }
+
       await _audioPlayer.setUrl(url);
-      await _audioPlayer.play();
-      if (mounted) setState(() {});
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Audio play failed: $e')),
-      );
+      unawaited(_audioPlayer.play());
+    } catch (error) {
+      if (mounted) {
+        setState(() => _playingAudioUrl = null);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Audio play failed: $error'),
+          ),
+        );
+      }
     }
+  }
+
+  Future<void> _seekAudio(Duration position) async {
+    if (_playingAudioUrl == null) return;
+    await _audioPlayer.seek(position);
+  }
+
+  Future<void> _changeAudioSpeed(double speed) async {
+    if (_playingAudioUrl == null) return;
+    await _audioPlayer.setSpeed(speed);
   }
 
   Future<void> _clearChatForMe() async {
@@ -2169,43 +2213,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
-  Widget _buildVoiceBubble(Map<String, dynamic> m) {
-    final audioUrl = asString(m['audioUrl']);
-    final durationSec = asInt(m['audioDurationSec']);
-    final mins = durationSec ~/ 60;
-    final secs = durationSec % 60;
-    final durationLabel =
-        '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-
-    final playingThis = _playingAudioUrl == audioUrl && _audioPlayer.playing;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-          onPressed: () => _togglePlayAudio(audioUrl),
-          icon: Icon(
-            playingThis ? Icons.stop_circle : Icons.play_circle_fill,
-            size: 24,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Container(
-          width: 96,
-          height: 5,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          durationSec > 0 ? durationLabel : 'Voice',
-          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
-        ),
-      ],
+  Widget _buildVoiceBubble(
+    Map<String, dynamic> message,
+  ) {
+    return ChatVoiceMessagePlayer(
+      audioPlayer: _audioPlayer,
+      audioUrl: asString(message['audioUrl']),
+      activeAudioUrl: _playingAudioUrl,
+      fallbackDurationSeconds: asInt(message['audioDurationSec']),
+      onToggle: _togglePlayAudio,
+      onSeek: _seekAudio,
+      onChangeSpeed: _changeAudioSpeed,
     );
   }
 
