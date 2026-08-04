@@ -1,7 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:earn2love_app/screens/settings/settings_page.dart';
+
+import '../chat/widgets/message_status_ticks.dart';
+import 'settings/settings_page.dart';
 
 import 'archived_chats_page.dart';
 import 'chat_room_page.dart';
@@ -21,7 +24,10 @@ enum _TopTab {
 }
 
 class _ChatListPageState extends State<ChatListPage> {
+  final TextEditingController _searchController = TextEditingController();
+
   _TopTab _selectedTab = _TopTab.all;
+  String _searchQuery = '';
 
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
@@ -46,24 +52,71 @@ class _ChatListPageState extends State<ChatListPage> {
     return list.firstWhere((e) => e != uid, orElse: () => '');
   }
 
-  String _fmtTime(Timestamp? ts) {
-    if (ts == null) return '';
-    final dt = ts.toDate();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final d = DateTime(dt.year, dt.month, dt.day);
+  String _fmtTime(Timestamp? timestamp) {
+    if (timestamp == null) return '';
 
-    if (d == today) {
-      final hh = dt.hour.toString().padLeft(2, '0');
-      final mm = dt.minute.toString().padLeft(2, '0');
-      return '$hh:$mm';
+    final dateTime = timestamp.toDate();
+    final now = DateTime.now();
+
+    final today = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+
+    final messageDay = DateTime(
+      dateTime.year,
+      dateTime.month,
+      dateTime.day,
+    );
+
+    if (messageDay == today) {
+      final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+
+      final minute = dateTime.minute.toString().padLeft(2, '0');
+
+      final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+
+      return '$hour:$minute $period';
     }
 
-    if (d == today.subtract(const Duration(days: 1))) {
+    if (messageDay == today.subtract(const Duration(days: 1))) {
       return 'Yesterday';
     }
 
-    return '${dt.day}/${dt.month}/${dt.year}';
+    final difference = today.difference(messageDay).inDays;
+
+    if (difference < 7) {
+      const weekdays = [
+        'Mon',
+        'Tue',
+        'Wed',
+        'Thu',
+        'Fri',
+        'Sat',
+        'Sun',
+      ];
+
+      return weekdays[dateTime.weekday - 1];
+    }
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${dateTime.day} '
+        '${months[dateTime.month - 1]}';
   }
 
   String _fmtLastSeen(Timestamp? ts, bool online) {
@@ -95,44 +148,29 @@ class _ChatListPageState extends State<ChatListPage> {
     required bool delivered,
     required bool seen,
   }) {
-    if (!isMine) return const SizedBox.shrink();
-
-    Color color;
-    if (seen) {
-      color = const Color(0xFF34B7F1);
-    } else if (delivered) {
-      color = const Color(0xFF6A5B88);
-    } else {
-      color = const Color(0xFF9E95B3);
+    if (!isMine) {
+      return const SizedBox.shrink();
     }
 
-    return SizedBox(
-      width: 18,
-      height: 14,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            child: Icon(
-              Icons.done,
-              size: 14,
-              color: color,
-            ),
-          ),
-          Positioned(
-            left: 5,
-            top: 0,
-            child: Icon(
-              Icons.done,
-              size: 14,
-              color: color,
-            ),
-          ),
-        ],
-      ),
+    final state = seen
+        ? ChatMessageDeliveryState.seen
+        : delivered
+            ? ChatMessageDeliveryState.delivered
+            : ChatMessageDeliveryState.sent;
+
+    return ChatMessageStatusTicks(
+      state: state,
     );
+  }
+
+  Future<void> _setPinned(
+    String roomId,
+    bool value,
+  ) async {
+    await _myPrefsRef(roomId).set({
+      'pinned': value,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> _setMute(String roomId, Duration d) async {
@@ -157,12 +195,53 @@ class _ChatListPageState extends State<ChatListPage> {
     }, SetOptions(merge: true));
   }
 
-  Future<void> _deleteChatForMe(String roomId) async {
+  Future<void> _deleteChatForMe(
+    String roomId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('Delete chat for me?'),
+              content: const Text(
+                'The conversation will be removed only '
+                'from your chat list. The other user will '
+                'keep their copy.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed) return;
+
     await _myPrefsRef(roomId).set({
       'deleted': true,
       'deletedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Chat removed for you'),
+      ),
+    );
   }
 
   Widget _sheetActionTile({
@@ -201,6 +280,7 @@ class _ChatListPageState extends State<ChatListPage> {
   Future<void> _openChatActions({
     required String roomId,
     required bool archived,
+    required bool pinned,
     required bool isMutedActive,
   }) async {
     final action = await showModalBottomSheet<String>(
@@ -224,6 +304,11 @@ class _ChatListPageState extends State<ChatListPage> {
                 ),
               ),
               const SizedBox(height: 10),
+              _sheetActionTile(
+                icon: pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                title: pinned ? 'Unpin conversation' : 'Pin conversation',
+                onTap: () => Navigator.pop(context, 'pin'),
+              ),
               _sheetActionTile(
                 icon: archived
                     ? Icons.unarchive_outlined
@@ -263,7 +348,9 @@ class _ChatListPageState extends State<ChatListPage> {
       },
     );
 
-    if (action == 'archive') {
+    if (action == 'pin') {
+      await _setPinned(roomId, !pinned);
+    } else if (action == 'archive') {
       await _setArchive(roomId, !archived);
     } else if (action == 'mute8') {
       await _setMute(roomId, const Duration(hours: 8));
@@ -427,10 +514,12 @@ class _ChatListPageState extends State<ChatListPage> {
   Widget _buildHeader() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F2FB),
+        color: const Color(0xFFF8F4FC),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(
+              alpha: 0.035,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -441,55 +530,103 @@ class _ChatListPageState extends State<ChatListPage> {
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 6),
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                8,
+                8,
+                5,
+              ),
               child: Row(
                 children: [
                   const Expanded(
                     child: Text(
-                      'Earn2Love',
+                      'Chats',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
-                        fontSize: 28,
+                        fontSize: 29,
                         color: Color(0xFF2F2747),
-                        letterSpacing: -0.4,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      color: Color(0xFF2F2747),
-                    ),
-                    onSelected: (v) {
-                      if (v == 'settings') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SettingsPage(),
-                          ),
-                        );
-                      }
+                  IconButton(
+                    tooltip: 'Settings',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SettingsPage(),
+                        ),
+                      );
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
-                        value: 'settings',
-                        child: Text('Settings'),
-                      ),
-                    ],
+                    icon: const Icon(
+                      Icons.settings_outlined,
+                      color: Color(0xFF493D61),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          Container(
-            width: double.infinity,
-            height: 1,
-            color: const Color(0xFFEADFF7),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              14,
+              4,
+              14,
+              10,
+            ),
+            child: TextField(
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search conversations',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          _searchController.clear();
+
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                        icon: const Icon(
+                          Icons.close_rounded,
+                        ),
+                      ),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 13,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFE7DDF4),
+                  ),
+                ),
+              ),
+            ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            padding: const EdgeInsets.fromLTRB(
+              12,
+              0,
+              12,
+              10,
+            ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -497,38 +634,43 @@ class _ChatListPageState extends State<ChatListPage> {
                   _chip(
                     text: 'All',
                     selected: _selectedTab == _TopTab.all,
-                    onTap: () => setState(() => _selectedTab = _TopTab.all),
+                    onTap: () {
+                      setState(() {
+                        _selectedTab = _TopTab.all;
+                      });
+                    },
                   ),
                   const SizedBox(width: 7),
                   _chip(
                     text: 'Unread',
                     selected: _selectedTab == _TopTab.unread,
-                    onTap: () => setState(() => _selectedTab = _TopTab.unread),
+                    onTap: () {
+                      setState(() {
+                        _selectedTab = _TopTab.unread;
+                      });
+                    },
                   ),
                   const SizedBox(width: 7),
                   _chip(
                     text: 'Received',
                     selected: _selectedTab == _TopTab.received,
-                    onTap: () =>
-                        setState(() => _selectedTab = _TopTab.received),
+                    onTap: () {
+                      setState(() {
+                        _selectedTab = _TopTab.received;
+                      });
+                    },
                   ),
                   const SizedBox(width: 7),
                   _chip(
                     text: 'Sent',
                     selected: _selectedTab == _TopTab.sent,
-                    onTap: () => setState(() => _selectedTab = _TopTab.sent),
+                    onTap: () {
+                      setState(() {
+                        _selectedTab = _TopTab.sent;
+                      });
+                    },
                   ),
                 ],
-              ),
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            height: 10,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF2EBF8),
-              border: Border(
-                top: BorderSide(color: Color(0xFFEADFF7)),
               ),
             ),
           ),
@@ -597,6 +739,26 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
+  String _messagePreview({
+    required String message,
+    required String type,
+  }) {
+    switch (type) {
+      case 'image':
+        return '📷 Photo';
+      case 'voice':
+        return '🎤 Voice message';
+      case 'video':
+        return '🎥 Video';
+      case 'file':
+        return '📎 File';
+      case 'call_log':
+        return message.isEmpty ? '📞 Call' : message;
+      default:
+        return message;
+    }
+  }
+
   Widget _buildChatTile({
     required String roomId,
     required String otherUid,
@@ -612,82 +774,187 @@ class _ChatListPageState extends State<ChatListPage> {
     required Timestamp? mutedUntil,
     required int totalBadgeCount,
     required bool archived,
+    required bool pinned,
+    required bool otherTyping,
+    required String lastMessageType,
   }) {
-    final subtitleText = lastMessage.trim().isEmpty ? '' : lastMessage;
+    final rawPreview = _messagePreview(
+      message: lastMessage.trim(),
+      type: lastMessageType,
+    );
+
+    final subtitleText = otherTyping ? 'typing…' : rawPreview;
+
     final statusText = _fmtLastSeen(lastSeen, online);
 
     final isMutedActive =
         mutedUntil != null && mutedUntil.toDate().isAfter(DateTime.now());
 
-    return Material(
-      color: Colors.white,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChatRoomPage(
-                roomId: roomId,
-                otherUid: otherUid,
-              ),
-            ),
-          );
-        },
-        onLongPress: () => _openChatActions(
-          roomId: roomId,
-          archived: archived,
-          isMutedActive: isMutedActive,
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        12,
+        5,
+        12,
+        5,
+      ),
+      decoration: BoxDecoration(
+        color: totalBadgeCount > 0 ? const Color(0xFFFFFCFF) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: totalBadgeCount > 0
+              ? const Color(0xFFDCCDF3)
+              : const Color(0xFFECE4F3),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  _showProfilePreview(
-                    photo: photo,
-                    name: displayName,
-                  );
-                },
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    CircleAvatar(
-                      radius: 27,
-                      backgroundColor: const Color(0xFFF1E9FF),
-                      backgroundImage:
-                          photo.isNotEmpty ? NetworkImage(photo) : null,
-                      child: photo.isEmpty
-                          ? const Icon(
-                              Icons.person,
-                              color: Color(0xFF7B4EFF),
-                            )
-                          : null,
-                    ),
-                    Positioned(
-                      right: -1,
-                      bottom: -1,
-                      child: Container(
-                        width: 14,
-                        height: 14,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: 0.035,
+            ),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => ChatRoomPage(
+                  roomId: roomId,
+                  otherUid: otherUid,
+                ),
+              ),
+            );
+          },
+          onLongPress: () => _openChatActions(
+            roomId: roomId,
+            archived: archived,
+            pinned: pinned,
+            isMutedActive: isMutedActive,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              13,
+              11,
+              13,
+              11,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    _showProfilePreview(
+                      photo: photo,
+                      name: displayName,
+                    );
+                  },
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: online ? Colors.green : Colors.grey.shade400,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 2,
+                          gradient: online
+                              ? const LinearGradient(
+                                  colors: [
+                                    Color(0xFF7B4EFF),
+                                    Color(0xFFFF4D91),
+                                  ],
+                                )
+                              : null,
+                          color: online
+                              ? null
+                              : const Color(
+                                  0xFFE8DDF5,
+                                ),
+                        ),
+                        child: ClipOval(
+                          child: photo.isEmpty
+                              ? Container(
+                                  color: const Color(
+                                    0xFFF1E9FF,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    Icons.person_rounded,
+                                    color: Color(
+                                      0xFF7B4EFF,
+                                    ),
+                                  ),
+                                )
+                              : CachedNetworkImage(
+                                  imageUrl: photo,
+                                  fit: BoxFit.cover,
+                                  fadeInDuration: const Duration(
+                                    milliseconds: 150,
+                                  ),
+                                  placeholder: (
+                                    _,
+                                    __,
+                                  ) {
+                                    return Container(
+                                      color: const Color(
+                                        0xFFF1E9FF,
+                                      ),
+                                    );
+                                  },
+                                  errorWidget: (
+                                    _,
+                                    __,
+                                    ___,
+                                  ) {
+                                    return Container(
+                                      color: const Color(
+                                        0xFFF1E9FF,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: const Icon(
+                                        Icons.person_rounded,
+                                        color: Color(
+                                          0xFF7B4EFF,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ),
+                      Positioned(
+                        right: -1,
+                        bottom: -1,
+                        child: AnimatedContainer(
+                          duration: const Duration(
+                            milliseconds: 180,
+                          ),
+                          width: 15,
+                          height: 15,
+                          decoration: BoxDecoration(
+                            color: online
+                                ? const Color(
+                                    0xFF26B66F,
+                                  )
+                                : Colors.grey.shade400,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2.2,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 1),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,64 +963,98 @@ class _ChatListPageState extends State<ChatListPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Text(
-                              displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15.6,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF2F2747),
-                              ),
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 15.8,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(
+                                        0xFF2F2747,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (pinned) ...[
+                                  const SizedBox(
+                                    width: 5,
+                                  ),
+                                  const Icon(
+                                    Icons.push_pin_rounded,
+                                    size: 14,
+                                    color: Color(
+                                      0xFF7B4EFF,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                _fmtTime(lastMessageAt),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.end,
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: totalBadgeCount > 0
-                                      ? const Color(0xFF8D67FF)
-                                      : Colors.grey.shade600,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                statusText,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.end,
-                                style: TextStyle(
-                                  fontSize: 11.0,
-                                  color: online
-                                      ? const Color(0xFF1FA855)
-                                      : Colors.grey.shade500,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            _fmtTime(lastMessageAt),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.2,
+                              color: totalBadgeCount > 0
+                                  ? const Color(
+                                      0xFF7B4EFF,
+                                    )
+                                  : Colors.grey.shade600,
+                              fontWeight: totalBadgeCount > 0
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              otherTyping ? 'typing…' : statusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.2,
+                                color: otherTyping || online
+                                    ? const Color(
+                                        0xFF20A66A,
+                                      )
+                                    : Colors.grey.shade500,
+                                fontWeight: otherTyping || online
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (isMutedActive)
+                            Icon(
+                              Icons.notifications_off_outlined,
+                              size: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          if (isMine && subtitleText.isNotEmpty) ...[
+                          if (isMine &&
+                              subtitleText.isNotEmpty &&
+                              !otherTyping) ...[
                             _tickWidget(
                               isMine: isMine,
                               delivered: delivered,
                               seen: seen,
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 5),
                           ],
                           Expanded(
                             child: Text(
@@ -762,24 +1063,28 @@ class _ChatListPageState extends State<ChatListPage> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13.1,
-                                color: Colors.grey.shade700,
-                                fontWeight: totalBadgeCount > 0
+                                color: otherTyping
+                                    ? const Color(
+                                        0xFF20A66A,
+                                      )
+                                    : const Color(
+                                        0xFF716979,
+                                      ),
+                                fontWeight: otherTyping || totalBadgeCount > 0
                                     ? FontWeight.w800
                                     : FontWeight.w600,
+                                fontStyle: otherTyping
+                                    ? FontStyle.italic
+                                    : FontStyle.normal,
                               ),
                             ),
                           ),
-                          if (isMutedActive) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.notifications_off_outlined,
-                              size: 16,
-                              color: Colors.grey.shade500,
-                            ),
-                          ],
                           if (totalBadgeCount > 0) ...[
                             const SizedBox(width: 8),
-                            Container(
+                            AnimatedContainer(
+                              duration: const Duration(
+                                milliseconds: 180,
+                              ),
                               constraints: const BoxConstraints(
                                 minWidth: 22,
                                 minHeight: 22,
@@ -791,12 +1096,17 @@ class _ChatListPageState extends State<ChatListPage> {
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    Color(0xFF8D67FF),
-                                    Color(0xFFFF5DA2),
+                                    Color(
+                                      0xFF8D67FF,
+                                    ),
+                                    Color(
+                                      0xFFFF5DA2,
+                                    ),
                                   ],
                                 ),
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(11)),
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(11),
+                                ),
                               ),
                               alignment: Alignment.center,
                               child: Text(
@@ -804,10 +1114,9 @@ class _ChatListPageState extends State<ChatListPage> {
                                     ? '99+'
                                     : '$totalBadgeCount',
                                 maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 11,
+                                  fontSize: 10.8,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
@@ -818,8 +1127,8 @@ class _ChatListPageState extends State<ChatListPage> {
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -842,6 +1151,12 @@ class _ChatListPageState extends State<ChatListPage> {
     return updatedAt?.millisecondsSinceEpoch ??
         lastMessageAt?.millisecondsSinceEpoch ??
         0;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -904,10 +1219,23 @@ class _ChatListPageState extends State<ChatListPage> {
                         }
 
                         final allDocs = [...roomSnap.data!.docs];
+
                         allDocs.sort((a, b) {
-                          final ams = _sortMillis(a.data());
-                          final bms = _sortMillis(b.data());
-                          return bms.compareTo(ams);
+                          final aPinned = prefsMap[a.id]?['pinned'] == true;
+
+                          final bPinned = prefsMap[b.id]?['pinned'] == true;
+
+                          if (aPinned != bPinned) {
+                            return aPinned ? -1 : 1;
+                          }
+
+                          final aMilliseconds = _sortMillis(a.data());
+
+                          final bMilliseconds = _sortMillis(b.data());
+
+                          return bMilliseconds.compareTo(
+                            aMilliseconds,
+                          );
                         });
 
                         final normalTiles = <Widget>[];
@@ -962,6 +1290,17 @@ class _ChatListPageState extends State<ChatListPage> {
                           final lastSenderId =
                               (room['lastMessageSenderId'] ?? '').toString();
 
+                          final lastMessageType =
+                              (room['lastMessageType'] ?? 'text').toString();
+
+                          final typingMap = room['typing'] is Map
+                              ? Map<String, dynamic>.from(
+                                  room['typing'] as Map,
+                                )
+                              : <String, dynamic>{};
+
+                          final otherTyping = typingMap[otherUid] == true;
+
                           final deliveredTo =
                               (room['lastMessageDeliveredTo'] as List?)
                                       ?.map((e) => e.toString())
@@ -978,6 +1317,8 @@ class _ChatListPageState extends State<ChatListPage> {
                           final mutedUntil =
                               pref['muteChatUntil'] as Timestamp?;
                           final archived = archivedIds.contains(roomId);
+
+                          final pinned = pref['pinned'] == true;
 
                           final tile = StreamBuilder<
                               DocumentSnapshot<Map<String, dynamic>>>(
@@ -998,6 +1339,22 @@ class _ChatListPageState extends State<ChatListPage> {
                                       other['profilePhoto'] ??
                                       '')
                                   .toString();
+
+                              final normalizedSearch =
+                                  _searchQuery.trim().toLowerCase();
+
+                              final matchesSearch = normalizedSearch.isEmpty ||
+                                  displayName.toLowerCase().contains(
+                                        normalizedSearch,
+                                      ) ||
+                                  lastMessage.toLowerCase().contains(
+                                        normalizedSearch,
+                                      );
+
+                              if (!matchesSearch) {
+                                return const SizedBox.shrink();
+                              }
+
                               final online = other['online'] == true;
                               final lastSeen =
                                   other['lastSeenAt'] as Timestamp?;
@@ -1058,11 +1415,9 @@ class _ChatListPageState extends State<ChatListPage> {
                                         mutedUntil: mutedUntil,
                                         totalBadgeCount: totalBadgeCount,
                                         archived: archived,
-                                      ),
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 78),
-                                        height: 1,
-                                        color: const Color(0xFFF0E7F8),
+                                        pinned: pinned,
+                                        otherTyping: otherTyping,
+                                        lastMessageType: lastMessageType,
                                       ),
                                     ],
                                   );
@@ -1079,12 +1434,7 @@ class _ChatListPageState extends State<ChatListPage> {
                         }
 
                         if (normalTiles.isEmpty && archivedTiles.isEmpty) {
-                          return const Center(
-                            child: Text(
-                              'No chats yet',
-                              style: TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          );
+                          return const _ChatListEmptyState();
                         }
 
                         return ListView(
@@ -1095,12 +1445,9 @@ class _ChatListPageState extends State<ChatListPage> {
                               archivedTiles: archivedTiles,
                             ),
                             if (normalTiles.isNotEmpty)
-                              Container(
-                                color: Colors.white,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: normalTiles,
-                                ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: normalTiles,
                               ),
                           ],
                         );
@@ -1112,6 +1459,62 @@ class _ChatListPageState extends State<ChatListPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatListEmptyState extends StatelessWidget {
+  const _ChatListEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(34),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 86,
+              height: 86,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFFE9DFFF),
+                    Color(0xFFFFE2EE),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 40,
+                color: Color(0xFF7B4EFF),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'No conversations yet',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF302742),
+              ),
+            ),
+            const SizedBox(height: 7),
+            const Text(
+              'Start a conversation and your chats '
+              'will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF756D7D),
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

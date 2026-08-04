@@ -114,12 +114,12 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
           ? await _service.createInCallSession(
               callId: widget.callId!,
               experienceId: experience.id,
-              language: Localizations.localeOf(context).languageCode,
+              language: language,
               comfortLevel: comfortLevel,
             )
           : await _service.createSession(
               experienceId: experience.id,
-              language: Localizations.localeOf(context).languageCode,
+              language: language,
               comfortLevel: comfortLevel,
             );
 
