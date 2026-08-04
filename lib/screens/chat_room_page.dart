@@ -15,6 +15,7 @@ import '../chat/services/chat_references.dart';
 import '../chat/services/message_service.dart';
 import '../chat/services/presence_service.dart';
 import '../chat/services/typing_service.dart';
+import '../chat/widgets/message_list.dart';
 
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
 import 'package:earn2love_app/screens/settings/report_page.dart';
@@ -2829,99 +2830,16 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                           ),
                         ),
                       Expanded(
-                        child: AnimatedBuilder(
-                          animation: _paginationController,
-                          builder: (context, _) {
-                            if (_paginationController.initialLoading) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-
-                            if (_paginationController.error != null &&
-                                _paginationController.messages.isEmpty) {
-                              return Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Text(
-                                    'Unable to load messages. Please check your connection.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.red.shade700,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            var docs = List<
-                                    QueryDocumentSnapshot<
-                                        Map<String, dynamic>>>.from(
-                                _paginationController.messages);
-
-                            if (_searchText.isNotEmpty) {
-                              docs = docs.where((doc) {
-                                final m = doc.data();
-                                final text = asString(m['text']).toLowerCase();
-                                final type = asString(m['type']).toLowerCase();
-                                final replyText = m['replyTo'] is Map
-                                    ? asString((m['replyTo'] as Map)['text'])
-                                        .toLowerCase()
-                                    : '';
-                                return text.contains(_searchText) ||
-                                    type.contains(_searchText) ||
-                                    replyText.contains(_searchText);
-                              }).toList();
-                            }
-
-                            _scheduleMarkSeen(docs);
-
-                            return ListView.builder(
-                              controller: scrollCtrl,
-                              reverse: true,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              itemCount: docs.length,
-                              itemBuilder: (context, i) {
-                                final doc = docs[i];
-                                final m = doc.data();
-                                final deletedFor = (m['deletedFor'] as List?)
-                                        ?.map((e) => e.toString())
-                                        .toList() ??
-                                    [];
-
-                                if (deletedFor.contains(uid)) {
-                                  return const SizedBox.shrink();
-                                }
-
-                                final ts = m['createdAt'] as Timestamp?;
-                                bool showDateChip = false;
-
-                                if (i == docs.length - 1) {
-                                  showDateChip = true;
-                                } else {
-                                  final nextTs = docs[i + 1].data()['createdAt']
-                                      as Timestamp?;
-                                  final currentDate = ts?.toDate();
-                                  final nextDate = nextTs?.toDate();
-                                  if (currentDate != null && nextDate != null) {
-                                    showDateChip =
-                                        !_isSameDay(currentDate, nextDate);
-                                  }
-                                }
-
-                                return Column(
-                                  children: [
-                                    if (showDateChip) _buildDateChip(ts),
-                                    _buildMessageBubble(doc.id, m, clearedAt),
-                                  ],
-                                );
-                              },
-                            );
-                          },
+                        child: ChatMessageList(
+                          paginationController: _paginationController,
+                          scrollController: scrollCtrl,
+                          searchText: _searchText,
+                          currentUid: uid,
+                          clearedAt: clearedAt,
+                          onMessagesVisible: _scheduleMarkSeen,
+                          buildDateChip: _buildDateChip,
+                          buildMessageBubble: _buildMessageBubble,
+                          isSameDay: _isSameDay,
                         ),
                       ),
                       SafeArea(
