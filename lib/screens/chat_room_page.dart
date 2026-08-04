@@ -15,6 +15,7 @@ import '../chat/services/chat_references.dart';
 import '../chat/services/message_service.dart';
 import '../chat/services/presence_service.dart';
 import '../chat/services/typing_service.dart';
+import '../chat/widgets/message_bubble.dart';
 import '../chat/widgets/message_list.dart';
 
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
@@ -2356,222 +2357,43 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
   Widget _buildMessageBubble(
     String messageId,
-    Map<String, dynamic> m,
+    Map<String, dynamic> message,
     Timestamp? clearedAt,
   ) {
-    final sender = asString(m['senderId']);
-    final text = asString(m['text']);
-    final type = asString(m['type'], def: 'text');
-    final imageUrl = asString(m['imageUrl']);
-    final ts = m['createdAt'] as Timestamp?;
-    final isMe = sender == uid;
-    final deletedForEveryone = m['deletedForEveryone'] == true;
-    final seenBy =
-        (m['seenBy'] as List?)?.map((e) => e.toString()).toList() ?? [];
-    final replyTo = m['replyTo'] is Map
-        ? (m['replyTo'] as Map).map((k, v) => MapEntry(k.toString(), v))
-        : null;
+    final senderId = asString(message['senderId']);
+    final text = asString(message['text']);
+    final type = asString(message['type'], def: 'text');
 
-    if (clearedAt != null && ts != null) {
-      if (ts.toDate().isBefore(clearedAt.toDate())) {
-        return const SizedBox.shrink();
-      }
+    void replyToMessage() {
+      if (!mounted) return;
+
+      setState(() {
+        _replyingTo = <String, dynamic>{
+          'messageId': messageId,
+          'senderId': senderId,
+          'text': text,
+          'type': type,
+        };
+      });
     }
 
-    final bubble = ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.72,
-      ),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
-        padding: type == 'image'
-            ? const EdgeInsets.all(5)
-            : const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: isMe ? const Color(0xFFEAFBF2) : const Color(0xFFF2EEFF),
-          border: Border.all(
-            color: isMe ? const Color(0xFFC7EED7) : const Color(0xFFE0D6FF),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFD8CBEF).withValues(alpha: 0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _replySnippet(replyTo),
-            if (deletedForEveryone)
-              const Text(
-                'This message was deleted',
-                style: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
-              )
-            else if (type == 'image' && imageUrl.isNotEmpty)
-              GestureDetector(
-                onTap: () => _openImagePreview(imageUrl),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 220,
-                      maxHeight: 260,
-                    ),
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 180,
-                        height: 120,
-                        alignment: Alignment.center,
-                        color: Colors.black12,
-                        child: const Text('Image failed'),
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else if (type == 'voice')
-              _buildVoiceBubble(m)
-            else if (type == 'call_log')
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    text,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                  if (asString(m['durationLabel']).isNotEmpty)
-                    Text(
-                      asString(m['durationLabel']),
-                      style: const TextStyle(fontSize: 11.5),
-                    ),
-                  if (asString(m['costLabel']).isNotEmpty)
-                    Text(
-                      asString(m['costLabel']),
-                      style: const TextStyle(fontSize: 11.5),
-                    ),
-                ],
-              )
-            else
-              Text(
-                text,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  height: 1.15,
-                ),
-              ),
-            const SizedBox(height: 3),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _fmtTs(ts),
-                  style: const TextStyle(fontSize: 9.5),
-                ),
-                if (isMe) ...[
-                  const SizedBox(width: 5),
-                  _messageStatus(m),
-                ],
-              ],
-            ),
-            _buildReactionBar(m),
-          ],
-        ),
-      ),
-    );
-
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onTap: () async {
-          if (!mounted) return;
-
-          final items = <Widget>[
-            ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('Info'),
-              onTap: () => Navigator.pop(context, 'info'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.reply),
-              title: const Text('Reply'),
-              onTap: () => Navigator.pop(context, 'reply'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.emoji_emotions_outlined),
-              title: const Text('React'),
-              onTap: () => Navigator.pop(context, 'react'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('Remove for me'),
-              onTap: () => Navigator.pop(context, 'deleteForMe'),
-            ),
-          ];
-
-          if (isMe &&
-              !deletedForEveryone &&
-              !seenBy.contains(widget.otherUid)) {
-            items.add(
-              ListTile(
-                leading: const Icon(Icons.delete_forever_outlined),
-                title: const Text('Delete for everyone'),
-                onTap: () => Navigator.pop(context, 'deleteForEveryone'),
-              ),
-            );
-          }
-
-          final choice = await showModalBottomSheet<String>(
-            context: context,
-            builder: (_) => SafeArea(
-              child: Column(mainAxisSize: MainAxisSize.min, children: items),
-            ),
-          );
-
-          if (choice == 'deleteForMe') {
-            await _deleteMessageForMe(messageId);
-          } else if (choice == 'deleteForEveryone') {
-            await _deleteMessageForEveryone(messageId);
-          } else if (choice == 'reply') {
-            setState(() {
-              _replyingTo = {
-                'messageId': messageId,
-                'senderId': sender,
-                'text': text,
-                'type': type,
-              };
-            });
-          } else if (choice == 'react') {
-            await _openReactionSheet(messageId);
-          } else if (choice == 'info') {
-            await _showMessageInfo(m);
-          }
-        },
-        onHorizontalDragEnd: (_) {
-          setState(() {
-            _replyingTo = {
-              'messageId': messageId,
-              'senderId': sender,
-              'text': text,
-              'type': type,
-            };
-          });
-        },
-        child: bubble,
-      ),
+    return ChatMessageBubble(
+      messageId: messageId,
+      message: message,
+      currentUid: uid,
+      otherUid: widget.otherUid,
+      clearedAt: clearedAt,
+      replySnippetBuilder: _replySnippet,
+      voiceBubbleBuilder: _buildVoiceBubble,
+      messageStatusBuilder: _messageStatus,
+      reactionBarBuilder: _buildReactionBar,
+      formatTimestamp: _fmtTs,
+      onOpenImage: _openImagePreview,
+      onReply: replyToMessage,
+      onDeleteForMe: () => _deleteMessageForMe(messageId),
+      onDeleteForEveryone: () => _deleteMessageForEveryone(messageId),
+      onReact: () => _openReactionSheet(messageId),
+      onShowInfo: () => _showMessageInfo(message),
     );
   }
 
