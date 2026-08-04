@@ -6,6 +6,10 @@ class PlayPrompt {
     required this.comfort,
     required this.language,
     required this.source,
+    required this.hostIntroduction,
+    required this.followUpHint,
+    required this.visualTheme,
+    required this.consentReminder,
   });
 
   final String id;
@@ -15,6 +19,13 @@ class PlayPrompt {
   final String language;
   final String source;
 
+  final String hostIntroduction;
+  final String followUpHint;
+  final String visualTheme;
+  final String consentReminder;
+
+  bool get isAiGenerated => source == 'openai';
+
   factory PlayPrompt.fromMap(Map<String, dynamic> map) {
     return PlayPrompt(
       id: (map['id'] ?? '').toString(),
@@ -22,7 +33,11 @@ class PlayPrompt {
       text: (map['text'] ?? '').toString(),
       comfort: (map['comfort'] ?? 'standard').toString(),
       language: (map['language'] ?? 'en').toString(),
-      source: (map['source'] ?? 'curated_v1').toString(),
+      source: (map['source'] ?? 'curated_fallback').toString(),
+      hostIntroduction: (map['hostIntroduction'] ?? '').toString().trim(),
+      followUpHint: (map['followUpHint'] ?? '').toString().trim(),
+      visualTheme: (map['visualTheme'] ?? '').toString().trim(),
+      consentReminder: (map['consentReminder'] ?? '').toString().trim(),
     );
   }
 }
@@ -40,6 +55,26 @@ class PlayResponse {
     return PlayResponse(
       text: (map['text'] ?? '').toString(),
       skipped: map['skipped'] == true,
+    );
+  }
+}
+
+class PlayHostReaction {
+  const PlayHostReaction({
+    required this.reaction,
+    required this.sharedInsight,
+    required this.nextRoundTone,
+  });
+
+  final String reaction;
+  final String sharedInsight;
+  final String nextRoundTone;
+
+  factory PlayHostReaction.fromMap(Map<String, dynamic> map) {
+    return PlayHostReaction(
+      reaction: (map['reaction'] ?? '').toString().trim(),
+      sharedInsight: (map['sharedInsight'] ?? '').toString().trim(),
+      nextRoundTone: (map['nextRoundTone'] ?? 'same').toString().trim(),
     );
   }
 }
@@ -63,10 +98,12 @@ class PlaySession {
     required this.currentRound,
     required this.maxRounds,
     required this.replacementCount,
+    required this.generationState,
     this.guestUid,
     this.currentPrompt,
     this.hostResponse,
     this.guestResponse,
+    this.hostReaction,
   });
 
   final String sessionId;
@@ -91,14 +128,21 @@ class PlaySession {
   final int maxRounds;
   final int replacementCount;
 
+  final String generationState;
+
   final PlayPrompt? currentPrompt;
   final PlayResponse? hostResponse;
   final PlayResponse? guestResponse;
+  final PlayHostReaction? hostReaction;
+
+  bool get isGenerating =>
+      status == 'generating' || generationState == 'generating';
 
   factory PlaySession.fromMap(Map<String, dynamic> map) {
     final rawPrompt = map['currentPrompt'];
     final rawHostResponse = map['hostResponse'];
     final rawGuestResponse = map['guestResponse'];
+    final rawHostReaction = map['hostReaction'];
 
     return PlaySession(
       sessionId: (map['sessionId'] ?? '').toString(),
@@ -119,6 +163,7 @@ class PlaySession {
       currentRound: (map['currentRound'] as num?)?.toInt() ?? 0,
       maxRounds: (map['maxRounds'] as num?)?.toInt() ?? 10,
       replacementCount: (map['replacementCount'] as num?)?.toInt() ?? 0,
+      generationState: (map['generationState'] ?? 'idle').toString(),
       currentPrompt: rawPrompt is Map
           ? PlayPrompt.fromMap(
               Map<String, dynamic>.from(rawPrompt),
@@ -132,6 +177,11 @@ class PlaySession {
       guestResponse: rawGuestResponse is Map
           ? PlayResponse.fromMap(
               Map<String, dynamic>.from(rawGuestResponse),
+            )
+          : null,
+      hostReaction: rawHostReaction is Map
+          ? PlayHostReaction.fromMap(
+              Map<String, dynamic>.from(rawHostReaction),
             )
           : null,
     );

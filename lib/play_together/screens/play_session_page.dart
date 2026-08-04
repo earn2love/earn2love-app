@@ -43,6 +43,8 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
   bool get _bothResponded =>
       _session.hostResponse != null && _session.guestResponse != null;
 
+  bool get _isGenerating => _session.isGenerating;
+
   @override
   void initState() {
     super.initState();
@@ -55,7 +57,7 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
   }
 
   Future<void> _refresh() async {
-    if (_busy || _leaving) return;
+    if (_leaving) return;
 
     try {
       final updated = await widget.service.getSession(
@@ -318,7 +320,9 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
                 ],
               ),
               const SizedBox(height: 18),
-              if (prompt == null)
+              if (_isGenerating)
+                const _GeneratingRoundCard()
+              else if (prompt == null)
                 const Card(
                   child: Padding(
                     padding: EdgeInsets.all(24),
@@ -327,14 +331,25 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
                         CircularProgressIndicator(),
                         SizedBox(height: 14),
                         Text(
-                          'Preparing the next round...',
+                          'Preparing your shared experience...',
                           textAlign: TextAlign.center,
                         ),
                       ],
                     ),
                   ),
                 )
-              else
+              else ...[
+                if (_session.hostReaction != null)
+                  _AiReactionCard(
+                    reaction: _session.hostReaction!,
+                  ),
+                if (_session.hostReaction != null) const SizedBox(height: 14),
+                if (prompt.hostIntroduction.isNotEmpty)
+                  _AiHostIntroduction(
+                    introduction: prompt.hostIntroduction,
+                  ),
+                if (prompt.hostIntroduction.isNotEmpty)
+                  const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
@@ -345,15 +360,33 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
                       ],
                     ),
                     borderRadius: BorderRadius.circular(24),
+                    boxShadow: const [
+                      BoxShadow(
+                        blurRadius: 18,
+                        offset: Offset(0, 8),
+                        color: Color(0x22000000),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
-                      Text(
-                        prompt.type.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.auto_awesome,
+                            color: Colors.white70,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 7),
+                          Text(
+                            prompt.type.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
                       Text(
@@ -366,22 +399,57 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      if (prompt.followUpHint.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white12,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            prompt.followUpHint,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 13),
                       Text(
-                        _session.effectiveComfort.toUpperCase(),
+                        _comfortLabel(
+                          _session.effectiveComfort,
+                        ),
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 11,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ],
                   ),
                 ),
+                if (prompt.consentReminder.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _ConsentReminderCard(
+                    reminder: prompt.consentReminder,
+                  ),
+                ],
+                if (prompt.visualTheme.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _VisualThemeCard(
+                    visualTheme: prompt.visualTheme,
+                  ),
+                ],
+              ],
               const SizedBox(height: 18),
               if (_myResponse == null) ...[
                 TextField(
                   controller: _answerController,
-                  enabled: !_busy && prompt != null,
+                  enabled: !_busy && !_isGenerating && prompt != null,
                   minLines: 2,
                   maxLines: 6,
                   maxLength: 1000,
@@ -393,7 +461,8 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
                 ),
                 const SizedBox(height: 10),
                 FilledButton.icon(
-                  onPressed: _busy || prompt == null ? null : _submit,
+                  onPressed:
+                      _busy || _isGenerating || prompt == null ? null : _submit,
                   icon: const Icon(Icons.send),
                   label: const Text('Submit response'),
                 ),
@@ -402,7 +471,9 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _busy || prompt == null ? null : _skip,
+                        onPressed: _busy || _isGenerating || prompt == null
+                            ? null
+                            : _skip,
                         icon: const Icon(Icons.skip_next),
                         label: const Text('Skip'),
                       ),
@@ -411,6 +482,7 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _busy ||
+                                _isGenerating ||
                                 prompt == null ||
                                 _session.replacementCount >= 5
                             ? null
@@ -453,7 +525,7 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
               if (_bothResponded) ...[
                 const SizedBox(height: 14),
                 FilledButton.icon(
-                  onPressed: _busy ? null : _next,
+                  onPressed: _busy || _isGenerating ? null : _next,
                   icon: const Icon(Icons.arrow_forward),
                   label: Text(
                     _session.currentRound >= _session.maxRounds
@@ -475,6 +547,267 @@ class _PlaySessionPageState extends State<PlaySessionPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+String _comfortLabel(String comfort) {
+  switch (comfort) {
+    case 'mature':
+      return 'Mature 18+';
+    case 'romantic':
+      return 'Romantic';
+    default:
+      return 'Friendly';
+  }
+}
+
+class _GeneratingRoundCard extends StatelessWidget {
+  const _GeneratingRoundCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(26),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF34234A),
+            Color(0xFF6C3D78),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: const Column(
+        children: [
+          SizedBox(
+            width: 42,
+            height: 42,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 3,
+            ),
+          ),
+          SizedBox(height: 18),
+          Text(
+            'Luna is creating your next round...',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(height: 7),
+          Text(
+            'The experience is being shaped around your '
+            'game, language and shared comfort level.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white70,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiHostIntroduction extends StatelessWidget {
+  const _AiHostIntroduction({
+    required this.introduction,
+  });
+
+  final String introduction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(
+              backgroundColor: Color(0xFFFFE5F0),
+              child: Icon(
+                Icons.auto_awesome,
+                color: Color(0xFFFF4D91),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Luna',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFFF4D91),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    introduction,
+                    style: const TextStyle(height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConsentReminderCard extends StatelessWidget {
+  const _ConsentReminderCard({
+    required this.reminder,
+  });
+
+  final String reminder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: ListTile(
+        leading: const Icon(
+          Icons.shield_outlined,
+          color: Color(0xFF2EAD77),
+        ),
+        title: const Text(
+          'Your choice always matters',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        subtitle: Text(reminder),
+      ),
+    );
+  }
+}
+
+class _VisualThemeCard extends StatelessWidget {
+  const _VisualThemeCard({
+    required this.visualTheme,
+  });
+
+  final String visualTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        dense: true,
+        leading: const Icon(
+          Icons.landscape_outlined,
+          color: Color(0xFF7B4EFF),
+        ),
+        title: const Text(
+          'Tonight’s atmosphere',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        subtitle: Text(visualTheme),
+      ),
+    );
+  }
+}
+
+class _AiReactionCard extends StatelessWidget {
+  const _AiReactionCard({
+    required this.reaction,
+  });
+
+  final PlayHostReaction reaction;
+
+  String get _toneLabel {
+    switch (reaction.nextRoundTone) {
+      case 'deeper':
+        return 'Going a little deeper';
+      case 'lighter':
+        return 'Keeping the next round light';
+      default:
+        return 'Continuing at the same mood';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF2F7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFFFC5DD),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.auto_awesome,
+                color: Color(0xFFFF4D91),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Luna’s reflection',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFFF4D91),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            reaction.reaction,
+            style: const TextStyle(height: 1.35),
+          ),
+          if (reaction.sharedInsight.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Shared insight',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              reaction.sharedInsight,
+              style: const TextStyle(height: 1.35),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(
+                Icons.arrow_forward_rounded,
+                size: 17,
+                color: Color(0xFF7B4EFF),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _toneLabel,
+                  style: const TextStyle(
+                    color: Color(0xFF7B4EFF),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
