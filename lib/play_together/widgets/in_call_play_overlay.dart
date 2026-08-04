@@ -8,6 +8,7 @@ class InCallPlayOverlay extends StatefulWidget {
     required this.visible,
     required this.minimized,
     required this.callTypeLabel,
+    required this.callId,
     required this.onClose,
     required this.onMinimize,
     required this.onRestore,
@@ -16,6 +17,7 @@ class InCallPlayOverlay extends StatefulWidget {
   final bool visible;
   final bool minimized;
   final String callTypeLabel;
+  final String callId;
   final VoidCallback onClose;
   final VoidCallback onMinimize;
   final VoidCallback onRestore;
@@ -166,7 +168,9 @@ class _InCallPlayOverlayState extends State<InCallPlayOverlay> {
                     key: _navigatorKey,
                     onGenerateRoute: (_) {
                       return MaterialPageRoute<void>(
-                        builder: (_) => const PlayTogetherPage(),
+                        builder: (_) => PlayTogetherPage(
+                          callId: widget.callId,
+                        ),
                       );
                     },
                   ),

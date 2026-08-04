@@ -7,6 +7,7 @@ import '../models/call_session.dart';
 import '../services/agora_service.dart';
 import '../services/call_service.dart';
 import '../../play_together/widgets/in_call_play_overlay.dart';
+import '../../play_together/services/play_together_service.dart';
 
 class AudioCallPage extends StatefulWidget {
   const AudioCallPage({
@@ -194,6 +195,7 @@ class _AudioCallPageState extends State<AudioCallPage> {
     }
 
     try {
+      await _endLinkedGame();
       await widget.agoraService.leave();
     } catch (_) {
       // Continue closing even if Agora already disconnected.
@@ -279,6 +281,16 @@ class _AudioCallPageState extends State<AudioCallPage> {
     });
   }
 
+  Future<void> _endLinkedGame() async {
+    try {
+      await PlayTogetherService().endInCallSession(
+        callId: widget.session.callId,
+      );
+    } catch (_) {
+      // Call closure must continue even if no linked game exists.
+    }
+  }
+
   Future<void> _endCall() async {
     if (_ending) return;
 
@@ -286,6 +298,7 @@ class _AudioCallPageState extends State<AudioCallPage> {
     _timer?.cancel();
 
     try {
+      await _endLinkedGame();
       await widget.agoraService.leave();
 
       final unansweredRingingCall = widget.session.isCaller &&
@@ -456,6 +469,7 @@ class _AudioCallPageState extends State<AudioCallPage> {
               visible: _playOverlayVisible,
               minimized: _playOverlayMinimized,
               callTypeLabel: 'Audio call',
+              callId: widget.session.callId,
               onClose: _closePlayTogether,
               onMinimize: _minimizePlayTogether,
               onRestore: _restorePlayTogether,

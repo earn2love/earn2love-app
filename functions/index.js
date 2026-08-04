@@ -154,6 +154,12 @@ exports.replacePlayPrompt =
     playTogether.replacePlayPrompt;
 exports.nextPlayPrompt =
     playTogether.nextPlayPrompt;
+exports.getInCallPlaySession =
+    playTogether.getInCallPlaySession;
+exports.createInCallPlaySession =
+    playTogether.createInCallPlaySession;
+exports.endInCallPlaySession =
+    playTogether.endInCallPlaySession;
 
 // Shared AI Gateway
 exports.askUserSupportAssistant =

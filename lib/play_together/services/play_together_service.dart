@@ -277,6 +277,79 @@ class PlayTogetherService {
     }
   }
 
+  Future<PlaySession?> getInCallSession({
+    required String callId,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('getInCallPlaySession');
+
+      final result = await callable.call<Map<String, dynamic>>({
+        'callId': callId,
+      });
+
+      final data = Map<String, dynamic>.from(result.data);
+
+      if (data['found'] != true || data['session'] is! Map) {
+        return null;
+      }
+
+      return PlaySession.fromMap(
+        Map<String, dynamic>.from(
+          data['session'] as Map,
+        ),
+      );
+    } catch (error) {
+      throw _callableError(
+        error,
+        'In-call game could not be loaded',
+      );
+    }
+  }
+
+  Future<PlaySession> createInCallSession({
+    required String callId,
+    required String experienceId,
+    required String language,
+    required String comfortLevel,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('createInCallPlaySession');
+
+      final result = await callable.call<Map<String, dynamic>>({
+        'callId': callId,
+        'experienceId': experienceId,
+        'language': language,
+        'comfortLevel': comfortLevel,
+      });
+
+      return PlaySession.fromMap(
+        Map<String, dynamic>.from(result.data),
+      );
+    } catch (error) {
+      throw _callableError(
+        error,
+        'In-call game could not be created',
+      );
+    }
+  }
+
+  Future<void> endInCallSession({
+    required String callId,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('endInCallPlaySession');
+
+      await callable.call<Map<String, dynamic>>({
+        'callId': callId,
+      });
+    } catch (error) {
+      throw _callableError(
+        error,
+        'In-call game could not be closed',
+      );
+    }
+  }
+
   Future<void> leaveSession({
     required String sessionId,
   }) async {

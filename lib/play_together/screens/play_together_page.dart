@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/play_experience.dart';
@@ -6,7 +8,14 @@ import '../widgets/play_experience_card.dart';
 import 'play_lobby_page.dart';
 
 class PlayTogetherPage extends StatefulWidget {
-  const PlayTogetherPage({super.key});
+  const PlayTogetherPage({
+    super.key,
+    this.callId,
+  });
+
+  final String? callId;
+
+  bool get isInCall => callId != null && callId!.trim().isNotEmpty;
 
   @override
   State<PlayTogetherPage> createState() => _PlayTogetherPageState();
@@ -18,11 +27,59 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
   late Future<PlayTogetherCatalog> _catalogFuture;
   String _selectedCategory = 'all';
   bool _creating = false;
+  bool _openingLinkedSession = false;
+  Timer? _inCallSessionTimer;
 
   @override
   void initState() {
     super.initState();
     _catalogFuture = _service.getExperiences();
+
+    if (widget.isInCall) {
+      _inCallSessionTimer = Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => _checkLinkedSession(),
+      );
+
+      unawaited(_checkLinkedSession());
+    }
+  }
+
+  Future<void> _checkLinkedSession() async {
+    if (!widget.isInCall || _openingLinkedSession || !mounted) {
+      return;
+    }
+
+    try {
+      final session = await _service.getInCallSession(
+        callId: widget.callId!,
+      );
+
+      if (session == null || !mounted || _openingLinkedSession) {
+        return;
+      }
+
+      _openingLinkedSession = true;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PlayLobbyPage(
+            initialSession: session,
+            service: _service,
+          ),
+        ),
+      );
+    } catch (_) {
+      // No linked game may exist yet.
+    } finally {
+      _openingLinkedSession = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _inCallSessionTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _refresh() async {
@@ -47,11 +104,18 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
 
       if (comfortLevel == null || !mounted) return;
 
-      final session = await _service.createSession(
-        experienceId: experience.id,
-        language: Localizations.localeOf(context).languageCode,
-        comfortLevel: comfortLevel,
-      );
+      final session = widget.isInCall
+          ? await _service.createInCallSession(
+              callId: widget.callId!,
+              experienceId: experience.id,
+              language: Localizations.localeOf(context).languageCode,
+              comfortLevel: comfortLevel,
+            )
+          : await _service.createSession(
+              experienceId: experience.id,
+              language: Localizations.localeOf(context).languageCode,
+              comfortLevel: comfortLevel,
+            );
 
       if (!mounted) return;
 
@@ -205,11 +269,12 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
         actions: [
-          IconButton(
-            tooltip: 'Join with code',
-            onPressed: _showJoinDialog,
-            icon: const Icon(Icons.group_add_outlined),
-          ),
+          if (!widget.isInCall)
+            IconButton(
+              tooltip: 'Join with code',
+              onPressed: _showJoinDialog,
+              icon: const Icon(Icons.group_add_outlined),
+            ),
         ],
       ),
       body: FutureBuilder<PlayTogetherCatalog>(
@@ -285,8 +350,12 @@ class _PlayTogetherPageState extends State<PlayTogetherPage> {
                         ),
                         const SizedBox(height: 7),
                         Text(
-                          '37 free AI-powered social experiences. '
-                          'Your current plan is ${catalog.userTier.toUpperCase()}.',
+                          widget.isInCall
+                              ? 'Choose a game for this call. '
+                                  'Your partner will join automatically.'
+                              : '37 free AI-powered social experiences. '
+                                  'Your current plan is '
+                                  '${catalog.userTier.toUpperCase()}.',
                           style: const TextStyle(
                             color: Colors.white,
                             height: 1.35,

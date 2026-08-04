@@ -914,6 +914,8 @@ function publicSession(sessionId, session) {
     hostUid: session.hostUid,
     guestUid: session.guestUid || null,
     inviteCode: session.inviteCode,
+    callId: session.callId || null,
+    inCall: session.inCall === true,
     language: session.language,
     comfortLevel: session.comfortLevel,
     hostComfort: session.hostComfort || "standard",
@@ -1986,6 +1988,404 @@ exports.leavePlaySession = onCall(
           updatedAt: timestamp(),
         });
       });
+
+      return {ok: true};
+    },
+);
+
+
+/**
+ * Returns the deterministic Play Together document ID for a call.
+ *
+ * @param {string} callId Call document ID.
+ * @return {string} Linked Play Together document ID.
+ */
+function inCallPlayDocumentId(callId) {
+  return `in_call_${callId}`;
+}
+
+/**
+ * Loads and validates an active call for the current user.
+ *
+ * @param {string} callId Call document ID.
+ * @param {string} uid Authenticated user ID.
+ * @return {Promise<Object>} Validated call data.
+ */
+async function loadActiveCall(callId, uid) {
+  const callSnapshot = await db()
+      .collection("calls")
+      .doc(callId)
+      .get();
+
+  if (!callSnapshot.exists) {
+    throw new HttpsError(
+        "not-found",
+        "Active call not found",
+    );
+  }
+
+  const call = callSnapshot.data() || {};
+
+  if (
+    call.callerUid !== uid &&
+    call.calleeUid !== uid
+  ) {
+    throw new HttpsError(
+        "permission-denied",
+        "You are not part of this call",
+    );
+  }
+
+  if (call.status !== "accepted") {
+    throw new HttpsError(
+        "failed-precondition",
+        "The call must be connected before starting a game",
+    );
+  }
+
+  return call;
+}
+
+exports.getInCallPlaySession = onCall(
+    async (request) => {
+      const uid = assertAuth(request);
+
+      const callId = String(
+          request.data &&
+          request.data.callId ||
+          "",
+      ).trim();
+
+      if (!callId) {
+        throw new HttpsError(
+            "invalid-argument",
+            "callId required",
+        );
+      }
+
+      await loadActiveCall(callId, uid);
+
+      const snapshot = await db()
+          .collection("playSessions")
+          .doc(inCallPlayDocumentId(callId))
+          .get();
+
+      if (!snapshot.exists) {
+        return {
+          found: false,
+          session: null,
+        };
+      }
+
+      const session = snapshot.data() || {};
+      const participants =
+          Array.isArray(session.participants) ?
+          session.participants :
+          [];
+
+      if (!participants.includes(uid)) {
+        throw new HttpsError(
+            "permission-denied",
+            "You are not part of this game",
+        );
+      }
+
+      if (
+        session.status === "ended" ||
+        session.status === "completed"
+      ) {
+        return {
+          found: false,
+          session: null,
+        };
+      }
+
+      return {
+        found: true,
+        session: publicSession(
+            snapshot.id,
+            session,
+        ),
+      };
+    },
+);
+
+exports.createInCallPlaySession = onCall(
+    async (request) => {
+      const uid = assertAuth(request);
+
+      const data = request.data || {};
+
+      const callId = String(
+          data.callId || "",
+      ).trim();
+
+      const experienceId = String(
+          data.experienceId || "",
+      ).trim();
+
+      if (!callId || !experienceId) {
+        throw new HttpsError(
+            "invalid-argument",
+            "callId and experienceId required",
+        );
+      }
+
+      const call = await loadActiveCall(
+          callId,
+          uid,
+      );
+
+      const experience =
+          findExperience(experienceId);
+
+      if (!experience) {
+        throw new HttpsError(
+            "not-found",
+            "Play experience not found",
+        );
+      }
+
+      const callerAccount =
+          await assertAccountUsable(
+              call.callerUid,
+          );
+
+      const calleeAccount =
+          await assertAccountUsable(
+              call.calleeUid,
+          );
+
+      const callerTier = normalizeTier(
+          callerAccount.data.tier ||
+          callerAccount.data.subTier ||
+          callerAccount.data.subscriptionPlan,
+      );
+
+      const calleeTier = normalizeTier(
+          calleeAccount.data.tier ||
+          calleeAccount.data.subTier ||
+          calleeAccount.data.subscriptionPlan,
+      );
+
+      if (
+        !hasTierAccess(
+            callerTier,
+            experience.tier,
+        ) ||
+        !hasTierAccess(
+            calleeTier,
+            experience.tier,
+        )
+      ) {
+        throw new HttpsError(
+            "permission-denied",
+            "Both players need access to this experience",
+        );
+      }
+
+      const language = String(
+          data.language ||
+          (
+            uid === call.callerUid ?
+            callerAccount.data.appLanguage :
+            calleeAccount.data.appLanguage
+          ) ||
+          "en",
+      ).trim().toLowerCase();
+
+      const selectedComfort =
+          normalizeComfort(
+              data.comfortLevel,
+          );
+
+      const reference = db()
+          .collection("playSessions")
+          .doc(inCallPlayDocumentId(callId));
+
+      await db().runTransaction(
+          async (transaction) => {
+            const callReference = db()
+                .collection("calls")
+                .doc(callId);
+
+            const callSnapshot =
+                await transaction.get(
+                    callReference,
+                );
+
+            if (!callSnapshot.exists) {
+              throw new HttpsError(
+                  "not-found",
+                  "Active call not found",
+              );
+            }
+
+            const currentCall =
+                callSnapshot.data() || {};
+
+            if (currentCall.status !== "accepted") {
+              throw new HttpsError(
+                  "failed-precondition",
+                  "The call is no longer active",
+              );
+            }
+
+            const currentSnapshot =
+                await transaction.get(reference);
+
+            if (currentSnapshot.exists) {
+              const existing =
+                  currentSnapshot.data() || {};
+
+              if (
+                existing.status !== "ended" &&
+                existing.status !== "completed"
+              ) {
+                return;
+              }
+            }
+
+            const isCaller =
+                uid === currentCall.callerUid;
+
+            transaction.set(reference, {
+              callId,
+              inCall: true,
+              experienceId: experience.id,
+              experienceTitle: experience.title,
+              experienceTier: experience.tier,
+              hostUid: currentCall.callerUid,
+              guestUid: currentCall.calleeUid,
+              participants: [
+                currentCall.callerUid,
+                currentCall.calleeUid,
+              ],
+              inviteCode: createInviteCode(),
+              language,
+              comfortLevel: selectedComfort,
+              hostComfort:
+                  isCaller ?
+                  selectedComfort :
+                  "standard",
+              guestComfort:
+                  isCaller ?
+                  "standard" :
+                  selectedComfort,
+              effectiveComfort: "standard",
+              adultEligible:
+                  experience.adultEligible === true,
+              status: "waiting",
+              hostReady: false,
+              guestReady: false,
+              currentRound: 0,
+              maxRounds: 10,
+              currentPrompt: null,
+              hostResponse: null,
+              guestResponse: null,
+              replacementCount: 0,
+              usedPromptIds: [],
+              usedPromptTexts: [],
+              hostReaction: null,
+              generationToken: null,
+              generationStartedAtMs: null,
+              promptVersion: 0,
+              createdAt: timestamp(),
+              updatedAt: timestamp(),
+            });
+          },
+      );
+
+      const updated =
+          await reference.get();
+
+      return publicSession(
+          updated.id,
+          updated.data() || {},
+      );
+    },
+);
+
+exports.endInCallPlaySession = onCall(
+    async (request) => {
+      const uid = assertAuth(request);
+
+      const callId = String(
+          request.data &&
+          request.data.callId ||
+          "",
+      ).trim();
+
+      if (!callId) {
+        throw new HttpsError(
+            "invalid-argument",
+            "callId required",
+        );
+      }
+
+      const callSnapshot = await db()
+          .collection("calls")
+          .doc(callId)
+          .get();
+
+      if (callSnapshot.exists) {
+        const call = callSnapshot.data() || {};
+
+        if (
+          call.callerUid !== uid &&
+          call.calleeUid !== uid
+        ) {
+          throw new HttpsError(
+              "permission-denied",
+              "You are not part of this call",
+          );
+        }
+      }
+
+      const reference = db()
+          .collection("playSessions")
+          .doc(inCallPlayDocumentId(callId));
+
+      await db().runTransaction(
+          async (transaction) => {
+            const snapshot =
+                await transaction.get(reference);
+
+            if (!snapshot.exists) {
+              return;
+            }
+
+            const session =
+                snapshot.data() || {};
+
+            const participants =
+                Array.isArray(session.participants) ?
+                session.participants :
+                [];
+
+            if (!participants.includes(uid)) {
+              throw new HttpsError(
+                  "permission-denied",
+                  "You are not part of this game",
+              );
+            }
+
+            if (
+              session.status === "ended" ||
+              session.status === "completed"
+            ) {
+              return;
+            }
+
+            transaction.update(reference, {
+              status: "ended",
+              endedBy: uid,
+              endedReason: "call_ended",
+              endedAt: timestamp(),
+              updatedAt: timestamp(),
+            });
+          },
+      );
 
       return {ok: true};
     },
