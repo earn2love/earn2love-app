@@ -143,3 +143,13 @@ exports.getPlaySession =
     playTogether.getPlaySession;
 exports.leavePlaySession =
     playTogether.leavePlaySession;
+exports.setPlayComfort =
+    playTogether.setPlayComfort;
+exports.submitPlayResponse =
+    playTogether.submitPlayResponse;
+exports.skipPlayPrompt =
+    playTogether.skipPlayPrompt;
+exports.replacePlayPrompt =
+    playTogether.replacePlayPrompt;
+exports.nextPlayPrompt =
+    playTogether.nextPlayPrompt;

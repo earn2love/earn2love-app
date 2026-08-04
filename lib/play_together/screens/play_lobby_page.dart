@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/play_session.dart';
 import '../services/play_together_service.dart';
+import 'play_session_page.dart';
 
 class PlayLobbyPage extends StatefulWidget {
   const PlayLobbyPage({
@@ -25,6 +27,13 @@ class _PlayLobbyPageState extends State<PlayLobbyPage> {
   Timer? _pollTimer;
   bool _busy = false;
   String? _error;
+  bool _openedGame = false;
+
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  bool get _isHost => _session.hostUid == _uid;
+
+  bool get _myReady => _isHost ? _session.hostReady : _session.guestReady;
 
   @override
   void initState() {
@@ -51,6 +60,19 @@ class _PlayLobbyPageState extends State<PlayLobbyPage> {
         _session = updated;
         _error = null;
       });
+
+      if (updated.status == 'playing' && !_openedGame && mounted) {
+        _openedGame = true;
+
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => PlaySessionPage(
+              initialSession: updated,
+              service: widget.service,
+            ),
+          ),
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString());
@@ -63,7 +85,7 @@ class _PlayLobbyPageState extends State<PlayLobbyPage> {
     try {
       final updated = await widget.service.setReady(
         sessionId: _session.sessionId,
-        ready: !_session.hostReady,
+        ready: !_myReady,
       );
 
       if (!mounted) return;
@@ -211,7 +233,7 @@ class _PlayLobbyPageState extends State<PlayLobbyPage> {
             FilledButton.icon(
               onPressed: _busy || !partnerJoined ? null : _toggleReady,
               icon: Icon(
-                _session.hostReady
+                _myReady
                     ? Icons.pause_circle_outline
                     : Icons.check_circle_outline,
               ),

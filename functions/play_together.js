@@ -18,6 +18,175 @@ const TIER_RANK = Object.freeze({
   love: 2,
 });
 
+const COMFORT_RANK = Object.freeze({
+  standard: 0,
+  romantic: 1,
+  mature: 2,
+});
+
+const PROMPT_BANK = Object.freeze({
+  standard: [
+    {
+      type: "discussion",
+      text: "What is something small that always improves your day?",
+    },
+    {
+      type: "choice",
+      text: "Choose together: mountains, beach, city or countryside?",
+    },
+    {
+      type: "truth",
+      text: "What is one talent you wish you had?",
+    },
+    {
+      type: "challenge",
+      text: "Describe your mood using only three emojis.",
+    },
+    {
+      type: "discussion",
+      text: "What is one place you would love to visit together?",
+    },
+    {
+      type: "truth",
+      text: "What is something people often misunderstand about you?",
+    },
+    {
+      type: "choice",
+      text: "Would you prefer a surprise adventure or a perfectly planned day?",
+    },
+    {
+      type: "challenge",
+      text: "Give the other player a genuine compliment.",
+    },
+    {
+      type: "discussion",
+      text: "What makes a conversation unforgettable for you?",
+    },
+    {
+      type: "truth",
+      text: "What is one memory that always makes you smile?",
+    },
+    {
+      type: "choice",
+      text: "Choose one: movie night, road trip, cooking together or dancing?",
+    },
+    {
+      type: "challenge",
+      text: "Invent a funny nickname for the other player.",
+    },
+  ],
+  romantic: [
+    {
+      type: "discussion",
+      text: "What makes you feel genuinely appreciated by someone?",
+    },
+    {
+      type: "truth",
+      text: "What was your first impression of the other player?",
+    },
+    {
+      type: "choice",
+      // eslint-disable-next-line max-len
+      text: "Choose your ideal date: rooftop dinner, beach walk, cabin or city lights?",
+    },
+    {
+      type: "challenge",
+      text: "Describe the other player using three affectionate words.",
+    },
+    {
+      type: "discussion",
+      text: "What does emotional closeness mean to you?",
+    },
+    {
+      type: "truth",
+      text: "What quality do you find most attractive in a partner?",
+    },
+    {
+      type: "choice",
+      // eslint-disable-next-line max-len
+      text: "Would you rather receive a thoughtful message or a surprise visit?",
+    },
+    {
+      type: "challenge",
+      text: "Complete this sentence: I feel closest to someone when...",
+    },
+    {
+      type: "discussion",
+      text: "What kind of future experience would you love to share together?",
+    },
+    {
+      type: "truth",
+      text: "What is one romantic moment you would love to experience?",
+    },
+    {
+      type: "choice",
+      // eslint-disable-next-line max-len
+      text: "Choose one: slow dance, long drive, candlelight dinner or stargazing?",
+    },
+    {
+      type: "challenge",
+      text: "Tell the other player one thing that makes them memorable.",
+    },
+  ],
+  mature: [
+    {
+      type: "discussion",
+      text: "What helps you feel safe when discussing intimacy and boundaries?",
+    },
+    {
+      type: "truth",
+      text: "What kind of affection makes you feel most desired?",
+    },
+    {
+      type: "choice",
+      // eslint-disable-next-line max-len
+      text: "Choose the mood you prefer: playful, romantic, confident or mysterious?",
+    },
+    {
+      type: "challenge",
+      text: "Share one flirty compliment, or choose Skip.",
+    },
+    {
+      type: "discussion",
+      // eslint-disable-next-line max-len
+      text: "How should two adults communicate when one person feels uncomfortable?",
+    },
+    {
+      type: "truth",
+      text: "What creates strong chemistry for you beyond physical attraction?",
+    },
+    {
+      type: "choice",
+      text: "Would you prefer a bold confession or a slow romantic build-up?",
+    },
+    {
+      type: "challenge",
+      // eslint-disable-next-line max-len
+      text: "Describe your ideal romantic atmosphere without naming a location.",
+    },
+    {
+      type: "discussion",
+      // eslint-disable-next-line max-len
+      text: "Which personal boundaries are most important for a partner to respect?",
+    },
+    {
+      type: "truth",
+      // eslint-disable-next-line max-len
+      text: "What is something intimate you would only discuss after building trust?",
+    },
+    {
+      type: "choice",
+      // eslint-disable-next-line max-len
+      text: "Choose one: teasing conversation, deep eye contact, affectionate touch or words?",
+    },
+    {
+      type: "challenge",
+      // eslint-disable-next-line max-len
+      text: "Ask one personal question. The other player may answer, replace or skip.",
+    },
+  ],
+});
+
 const EXPERIENCES = Object.freeze([
   // Casual — 7
   {
@@ -431,6 +600,107 @@ function hasTierAccess(userTier, requiredTier) {
 }
 
 /**
+ * Normalizes a comfort level.
+ *
+ * @param {*} value Raw comfort level.
+ * @return {string} Supported comfort level.
+ */
+function normalizeComfort(value) {
+  const comfort = String(value || "")
+      .trim()
+      .toLowerCase();
+
+  return Object.prototype.hasOwnProperty.call(
+      COMFORT_RANK,
+      comfort,
+  ) ? comfort : "standard";
+}
+
+/**
+ * Finds the lowest mutually accepted comfort level.
+ *
+ * @param {string} first First comfort level.
+ * @param {string} second Second comfort level.
+ * @param {boolean} adultEligible Whether mature mode is allowed.
+ * @return {string} Effective comfort level.
+ */
+function effectiveComfort(
+    first,
+    second,
+    adultEligible,
+) {
+  const firstLevel = normalizeComfort(first);
+  const secondLevel = normalizeComfort(second);
+
+  const rank = Math.min(
+      COMFORT_RANK[firstLevel],
+      COMFORT_RANK[secondLevel],
+  );
+
+  if (rank >= COMFORT_RANK.mature &&
+      adultEligible !== true) {
+    return "romantic";
+  }
+
+  return Object.keys(COMFORT_RANK).find(
+      (key) => COMFORT_RANK[key] === rank,
+  ) || "standard";
+}
+
+/**
+ * Creates a new server-selected prompt.
+ *
+ * @param {Object} session Current session.
+ * @return {Object} Prompt payload.
+ */
+function createPrompt(session) {
+  const comfort = normalizeComfort(
+      session.effectiveComfort,
+  );
+
+  const bank = PROMPT_BANK[comfort] ||
+      PROMPT_BANK.standard;
+
+  const usedPromptIds =
+      Array.isArray(session.usedPromptIds) ?
+      session.usedPromptIds :
+      [];
+
+  const available = bank
+      .map((prompt, index) => ({
+        ...prompt,
+        sourceIndex: index,
+      }))
+      .filter((prompt) =>
+        !usedPromptIds.includes(
+            `${comfort}_${prompt.sourceIndex}`,
+        ),
+      );
+
+  const candidates =
+      available.length > 0 ? available : bank.map(
+          (prompt, index) => ({
+            ...prompt,
+            sourceIndex: index,
+          }),
+      );
+
+  const selected = candidates[
+      crypto.randomInt(0, candidates.length)
+  ];
+
+  return {
+    id: `${comfort}_${selected.sourceIndex}`,
+    type: selected.type,
+    text: selected.text,
+    comfort,
+    language: session.language || "en",
+    source: "curated_v1",
+    createdAt: Date.now(),
+  };
+}
+
+/**
  * Finds an experience.
  *
  * @param {string} experienceId Experience ID.
@@ -471,9 +741,19 @@ function publicSession(sessionId, session) {
     inviteCode: session.inviteCode,
     language: session.language,
     comfortLevel: session.comfortLevel,
+    hostComfort: session.hostComfort || "standard",
+    guestComfort: session.guestComfort || "standard",
+    effectiveComfort:
+        session.effectiveComfort || "standard",
     hostReady: session.hostReady === true,
     guestReady: session.guestReady === true,
     currentRound: Number(session.currentRound || 0),
+    maxRounds: Number(session.maxRounds || 10),
+    currentPrompt: session.currentPrompt || null,
+    hostResponse: session.hostResponse || null,
+    guestResponse: session.guestResponse || null,
+    replacementCount:
+        Number(session.replacementCount || 0),
     createdAt: session.createdAt || null,
   };
 }
@@ -561,10 +841,20 @@ exports.createPlaySession = onCall(
         inviteCode,
         language,
         comfortLevel,
+        hostComfort: comfortLevel,
+        guestComfort: "standard",
+        effectiveComfort: "standard",
+        adultEligible: experience.adultEligible === true,
         status: "waiting",
         hostReady: false,
         guestReady: false,
         currentRound: 0,
+        maxRounds: 10,
+        currentPrompt: null,
+        hostResponse: null,
+        guestResponse: null,
+        replacementCount: 0,
+        usedPromptIds: [],
         promptVersion: 0,
         createdAt: timestamp(),
         updatedAt: timestamp(),
@@ -660,6 +950,10 @@ exports.joinPlaySession = onCall(
             guestUid,
           ],
           guestReady: false,
+          guestComfort: normalizeComfort(
+              request.data &&
+              request.data.comfortLevel,
+          ),
           updatedAt: timestamp(),
         });
       });
@@ -739,7 +1033,30 @@ exports.setPlayReady = onCall(
         if (session.guestUid &&
             hostReady &&
             guestReady) {
-          update.status = "ready";
+          const effective = effectiveComfort(
+              session.hostComfort,
+              session.guestComfort,
+              session.adultEligible === true,
+          );
+
+          const prompt = createPrompt({
+            ...session,
+            effectiveComfort: effective,
+          });
+
+          update.status = "playing";
+          update.effectiveComfort = effective;
+          update.currentRound =
+              Number(session.currentRound || 0) + 1;
+          update.currentPrompt = prompt;
+          update.usedPromptIds = [
+            ...(session.usedPromptIds || []),
+            prompt.id,
+          ];
+          update.hostResponse = null;
+          update.guestResponse = null;
+          update.startedAt =
+              session.startedAt || timestamp();
         } else {
           update.status = "waiting";
         }
@@ -789,6 +1106,356 @@ exports.getPlaySession = onCall(
       }
 
       return publicSession(snapshot.id, session);
+    },
+);
+
+
+exports.setPlayComfort = onCall(
+    async (request) => {
+      const uid = assertAuth(request);
+      const sessionId = String(
+          request.data && request.data.sessionId || "",
+      ).trim();
+
+      const comfort = normalizeComfort(
+          request.data && request.data.comfortLevel,
+      );
+
+      const reference = db()
+          .collection("playSessions")
+          .doc(sessionId);
+
+      await db().runTransaction(async (transaction) => {
+        const snapshot =
+            await transaction.get(reference);
+
+        if (!snapshot.exists) {
+          throw new HttpsError(
+              "not-found",
+              "Play session not found",
+          );
+        }
+
+        const session = snapshot.data() || {};
+        const isHost = session.hostUid === uid;
+        const isGuest = session.guestUid === uid;
+
+        if (!isHost && !isGuest) {
+          throw new HttpsError(
+              "permission-denied",
+              "You are not part of this session",
+          );
+        }
+
+        if (session.status === "playing") {
+          throw new HttpsError(
+              "failed-precondition",
+              "Comfort level cannot change after play begins",
+          );
+        }
+
+        transaction.update(reference, {
+          [isHost ? "hostComfort" : "guestComfort"]:
+              comfort,
+          [isHost ? "hostReady" : "guestReady"]:
+              false,
+          status: "waiting",
+          updatedAt: timestamp(),
+        });
+      });
+
+      const updated = await reference.get();
+
+      return publicSession(
+          updated.id,
+          updated.data() || {},
+      );
+    },
+);
+
+exports.submitPlayResponse = onCall(
+    async (request) => {
+      const uid = assertAuth(request);
+      const data = request.data || {};
+      const sessionId = String(
+          data.sessionId || "",
+      ).trim();
+
+      const response = String(
+          data.response || "",
+      ).trim();
+
+      if (!response) {
+        throw new HttpsError(
+            "invalid-argument",
+            "Response required",
+        );
+      }
+
+      if (response.length > 1000) {
+        throw new HttpsError(
+            "invalid-argument",
+            "Response is too long",
+        );
+      }
+
+      const reference = db()
+          .collection("playSessions")
+          .doc(sessionId);
+
+      await db().runTransaction(async (transaction) => {
+        const snapshot =
+            await transaction.get(reference);
+
+        if (!snapshot.exists) {
+          throw new HttpsError(
+              "not-found",
+              "Play session not found",
+          );
+        }
+
+        const session = snapshot.data() || {};
+        const isHost = session.hostUid === uid;
+        const isGuest = session.guestUid === uid;
+
+        if (!isHost && !isGuest) {
+          throw new HttpsError(
+              "permission-denied",
+              "You are not part of this session",
+          );
+        }
+
+        if (session.status !== "playing") {
+          throw new HttpsError(
+              "failed-precondition",
+              "Session is not currently playing",
+          );
+        }
+
+        transaction.update(reference, {
+          [isHost ? "hostResponse" : "guestResponse"]: {
+            text: response,
+            skipped: false,
+            submittedAt: Date.now(),
+          },
+          updatedAt: timestamp(),
+        });
+      });
+
+      const updated = await reference.get();
+
+      return publicSession(
+          updated.id,
+          updated.data() || {},
+      );
+    },
+);
+
+exports.skipPlayPrompt = onCall(
+    async (request) => {
+      const uid = assertAuth(request);
+      const sessionId = String(
+          request.data && request.data.sessionId || "",
+      ).trim();
+
+      const reference = db()
+          .collection("playSessions")
+          .doc(sessionId);
+
+      await db().runTransaction(async (transaction) => {
+        const snapshot =
+            await transaction.get(reference);
+
+        if (!snapshot.exists) {
+          throw new HttpsError(
+              "not-found",
+              "Play session not found",
+          );
+        }
+
+        const session = snapshot.data() || {};
+        const isHost = session.hostUid === uid;
+        const isGuest = session.guestUid === uid;
+
+        if (!isHost && !isGuest) {
+          throw new HttpsError(
+              "permission-denied",
+              "You are not part of this session",
+          );
+        }
+
+        transaction.update(reference, {
+          [isHost ? "hostResponse" : "guestResponse"]: {
+            text: "",
+            skipped: true,
+            submittedAt: Date.now(),
+          },
+          updatedAt: timestamp(),
+        });
+      });
+
+      const updated = await reference.get();
+
+      return publicSession(
+          updated.id,
+          updated.data() || {},
+      );
+    },
+);
+
+exports.replacePlayPrompt = onCall(
+    async (request) => {
+      const uid = assertAuth(request);
+      const sessionId = String(
+          request.data && request.data.sessionId || "",
+      ).trim();
+
+      const reference = db()
+          .collection("playSessions")
+          .doc(sessionId);
+
+      await db().runTransaction(async (transaction) => {
+        const snapshot =
+            await transaction.get(reference);
+
+        if (!snapshot.exists) {
+          throw new HttpsError(
+              "not-found",
+              "Play session not found",
+          );
+        }
+
+        const session = snapshot.data() || {};
+        const participants =
+            Array.isArray(session.participants) ?
+            session.participants :
+            [];
+
+        if (!participants.includes(uid)) {
+          throw new HttpsError(
+              "permission-denied",
+              "You are not part of this session",
+          );
+        }
+
+        const replacementCount =
+            Number(session.replacementCount || 0);
+
+        if (replacementCount >= 5) {
+          throw new HttpsError(
+              "resource-exhausted",
+              "Replacement limit reached",
+          );
+        }
+
+        const prompt = createPrompt(session);
+
+        transaction.update(reference, {
+          currentPrompt: prompt,
+          usedPromptIds: [
+            ...(session.usedPromptIds || []),
+            prompt.id,
+          ],
+          hostResponse: null,
+          guestResponse: null,
+          replacementCount:
+              replacementCount + 1,
+          promptVersion:
+              Number(session.promptVersion || 0) + 1,
+          updatedAt: timestamp(),
+        });
+      });
+
+      const updated = await reference.get();
+
+      return publicSession(
+          updated.id,
+          updated.data() || {},
+      );
+    },
+);
+
+exports.nextPlayPrompt = onCall(
+    async (request) => {
+      const uid = assertAuth(request);
+      const sessionId = String(
+          request.data && request.data.sessionId || "",
+      ).trim();
+
+      const reference = db()
+          .collection("playSessions")
+          .doc(sessionId);
+
+      await db().runTransaction(async (transaction) => {
+        const snapshot =
+            await transaction.get(reference);
+
+        if (!snapshot.exists) {
+          throw new HttpsError(
+              "not-found",
+              "Play session not found",
+          );
+        }
+
+        const session = snapshot.data() || {};
+        const participants =
+            Array.isArray(session.participants) ?
+            session.participants :
+            [];
+
+        if (!participants.includes(uid)) {
+          throw new HttpsError(
+              "permission-denied",
+              "You are not part of this session",
+          );
+        }
+
+        if (!session.hostResponse ||
+            !session.guestResponse) {
+          throw new HttpsError(
+              "failed-precondition",
+              "Both players must answer or skip",
+          );
+        }
+
+        const currentRound =
+            Number(session.currentRound || 0);
+
+        const maxRounds =
+            Number(session.maxRounds || 10);
+
+        if (currentRound >= maxRounds) {
+          transaction.update(reference, {
+            status: "completed",
+            completedAt: timestamp(),
+            updatedAt: timestamp(),
+          });
+          return;
+        }
+
+        const prompt = createPrompt(session);
+
+        transaction.update(reference, {
+          currentRound: currentRound + 1,
+          currentPrompt: prompt,
+          usedPromptIds: [
+            ...(session.usedPromptIds || []),
+            prompt.id,
+          ],
+          hostResponse: null,
+          guestResponse: null,
+          promptVersion:
+              Number(session.promptVersion || 0) + 1,
+          updatedAt: timestamp(),
+        });
+      });
+
+      const updated = await reference.get();
+
+      return publicSession(
+          updated.id,
+          updated.data() || {},
+      );
     },
 );
 
