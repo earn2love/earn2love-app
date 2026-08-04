@@ -2535,264 +2535,256 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         final online = (other['online'] ?? false) == true;
         final lastSeen = other['lastSeenAt'] as Timestamp?;
 
-        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: myChatPrefsRef.snapshots(),
-          builder: (context, prefsSnap) {
-            final prefs = prefsSnap.data?.data() ?? {};
-            final clearedAt = prefs['clearedAt'] as Timestamp?;
+        final clearedAt = _myChatPrefs['clearedAt'] as Timestamp?;
 
-            return Scaffold(
-              backgroundColor: const Color(0xFFF7F2FB),
-              appBar: AppBar(
-                titleSpacing: 0,
-                toolbarHeight: 62,
-                backgroundColor: const Color(0xFFF7F2FB),
-                elevation: 0,
-                title: _searchMode
-                    ? TextField(
-                        autofocus: true,
-                        onChanged: (v) => setState(
-                            () => _searchText = v.trim().toLowerCase()),
-                        decoration: const InputDecoration(
-                          hintText: 'Search chat',
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                      )
-                    : Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      UserProfilePage(userId: widget.otherUid),
-                                ),
-                              );
-                            },
-                            child: CircleAvatar(
-                              radius: 18,
-                              backgroundImage:
-                                  photo.isEmpty ? null : NetworkImage(photo),
-                              child: photo.isEmpty
-                                  ? const Icon(Icons.person, size: 18)
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => UserProfilePage(
-                                        userId: widget.otherUid),
-                                  ),
-                                );
-                              },
-                              child: SizedBox(
-                                height: 40,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 1),
-                                    _typingLine(online, lastSeen),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                actions: [
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    constraints:
-                        const BoxConstraints(minWidth: 38, minHeight: 38),
-                    onPressed: () {
-                      setState(() {
-                        _searchMode = !_searchMode;
-                        if (!_searchMode) _searchText = '';
-                      });
-                    },
-                    icon: Icon(_searchMode ? Icons.close : Icons.search,
-                        size: 21),
-                  ),
-                  if (!_searchMode) ...[
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      constraints:
-                          const BoxConstraints(minWidth: 38, minHeight: 38),
-                      tooltip: 'Audio call request',
-                      onPressed: _anyBlocked
-                          ? null
-                          : () => _sendRequestToOther('audio_call_request'),
-                      icon: const Icon(Icons.call, size: 21),
+        return Scaffold(
+          backgroundColor: const Color(0xFFF7F2FB),
+          appBar: AppBar(
+            titleSpacing: 0,
+            toolbarHeight: 62,
+            backgroundColor: const Color(0xFFF7F2FB),
+            elevation: 0,
+            title: _searchMode
+                ? TextField(
+                    autofocus: true,
+                    onChanged: (v) =>
+                        setState(() => _searchText = v.trim().toLowerCase()),
+                    decoration: const InputDecoration(
+                      hintText: 'Search chat',
+                      border: InputBorder.none,
+                      isDense: true,
                     ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      constraints:
-                          const BoxConstraints(minWidth: 38, minHeight: 38),
-                      tooltip: 'Video call request',
-                      onPressed: _anyBlocked
-                          ? null
-                          : () => _sendRequestToOther('video_call_request'),
-                      icon: const Icon(Icons.videocam, size: 21),
-                    ),
-                    PopupMenuButton<String>(
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints(minWidth: 38, minHeight: 38),
-                      onSelected: (v) async {
-                        if (v == 'requests') {
-                          await _openRequestsSheet();
-                        } else if (v == 'settings') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatRoomSettingsPage(
-                                roomId: widget.roomId,
-                                otherUid: widget.otherUid,
-                              ),
-                            ),
-                          );
-                        } else if (v == 'blockToggle') {
-                          await _blockOrUnblock();
-                        } else if (v == 'report') {
+                  )
+                : Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) =>
-                                  ReportPage(targetUid: widget.otherUid),
+                                  UserProfilePage(userId: widget.otherUid),
                             ),
                           );
-                        } else if (v == 'rules') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const RulesPage(),
-                            ),
-                          );
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'requests',
-                          child: Text('Requests'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'settings',
-                          child: Text('Settings'),
-                        ),
-                        PopupMenuItem(
-                          value: 'blockToggle',
-                          child: Text(_blockedByMe ? 'Unblock' : 'Block'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'report',
-                          child: Text('Report'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'rules',
-                          child: Text('Rules'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-              body: Stack(
-                children: [
-                  _buildChatWallpaper(),
-                  Column(
-                    children: [
-                      _topBanner(),
-                      _blockedBanner(),
-                      _limitedChatBanner(),
-                      _replyPreview(),
-                      if (_isRecording)
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.mic, color: Colors.red),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Recording voice message... '
-                                  '${_formatRecordingDuration(_recordingElapsedSeconds)}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontWeight: FontWeight.w900),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Expanded(
-                        child: ChatMessageList(
-                          paginationController: _paginationController,
-                          scrollController: scrollCtrl,
-                          searchText: _searchText,
-                          currentUid: uid,
-                          clearedAt: clearedAt,
-                          onMessagesVisible: _scheduleMarkSeen,
-                          buildDateChip: _buildDateChip,
-                          buildMessageBubble: _buildMessageBubble,
-                          isSameDay: _isSameDay,
+                        },
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundImage:
+                              photo.isEmpty ? null : NetworkImage(photo),
+                          child: photo.isEmpty
+                              ? const Icon(Icons.person, size: 18)
+                              : null,
                         ),
                       ),
-                      ChatMessageInput(
-                        fieldKey: _composerFieldKey,
-                        controller: msgCtrl,
-                        focusNode: _msgFocusNode,
-                        isBlocked: _anyBlocked,
-                        blockedByCurrentUser: _blockedByMe,
-                        isRecording: _isRecording,
-                        hasTypedText: _hasTypedText,
-                        sendingText: _sendingText,
-                        sendingImage: _sendingImage,
-                        onTypingChanged: _onTypingChanged,
-                        onSend: _send,
-                        onPickImage: _pickAndSendImageOrRequest,
-                        onStartRecording: _startVoiceRecording,
-                        onStopAndSendRecording: _stopAndSendVoice,
-                        onCancelRecording: _cancelVoiceRecording,
-                        onColorPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Coming soon'),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    UserProfilePage(userId: widget.otherUid),
+                              ),
+                            );
+                          },
+                          child: SizedBox(
+                            height: 40,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                _typingLine(online, lastSeen),
+                              ],
                             ),
-                          );
-                          _msgFocusNode.requestFocus();
-                        },
+                          ),
+                        ),
                       ),
                     ],
                   ),
+            actions: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                onPressed: () {
+                  setState(() {
+                    _searchMode = !_searchMode;
+                    if (!_searchMode) _searchText = '';
+                  });
+                },
+                icon: Icon(_searchMode ? Icons.close : Icons.search, size: 21),
+              ),
+              if (!_searchMode) ...[
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  constraints:
+                      const BoxConstraints(minWidth: 38, minHeight: 38),
+                  tooltip: 'Audio call request',
+                  onPressed: _anyBlocked
+                      ? null
+                      : () => _sendRequestToOther('audio_call_request'),
+                  icon: const Icon(Icons.call, size: 21),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  constraints:
+                      const BoxConstraints(minWidth: 38, minHeight: 38),
+                  tooltip: 'Video call request',
+                  onPressed: _anyBlocked
+                      ? null
+                      : () => _sendRequestToOther('video_call_request'),
+                  icon: const Icon(Icons.videocam, size: 21),
+                ),
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 38, minHeight: 38),
+                  onSelected: (v) async {
+                    if (v == 'requests') {
+                      await _openRequestsSheet();
+                    } else if (v == 'settings') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatRoomSettingsPage(
+                            roomId: widget.roomId,
+                            otherUid: widget.otherUid,
+                          ),
+                        ),
+                      );
+                    } else if (v == 'blockToggle') {
+                      await _blockOrUnblock();
+                    } else if (v == 'report') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ReportPage(targetUid: widget.otherUid),
+                        ),
+                      );
+                    } else if (v == 'rules') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RulesPage(),
+                        ),
+                      );
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'requests',
+                      child: Text('Requests'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'settings',
+                      child: Text('Settings'),
+                    ),
+                    PopupMenuItem(
+                      value: 'blockToggle',
+                      child: Text(_blockedByMe ? 'Unblock' : 'Block'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'report',
+                      child: Text('Report'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'rules',
+                      child: Text('Rules'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          body: Stack(
+            children: [
+              _buildChatWallpaper(),
+              Column(
+                children: [
+                  _topBanner(),
+                  _blockedBanner(),
+                  _limitedChatBanner(),
+                  _replyPreview(),
+                  if (_isRecording)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.mic, color: Colors.red),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Recording voice message... '
+                              '${_formatRecordingDuration(_recordingElapsedSeconds)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Expanded(
+                    child: ChatMessageList(
+                      paginationController: _paginationController,
+                      scrollController: scrollCtrl,
+                      searchText: _searchText,
+                      currentUid: uid,
+                      clearedAt: clearedAt,
+                      onMessagesVisible: _scheduleMarkSeen,
+                      buildDateChip: _buildDateChip,
+                      buildMessageBubble: _buildMessageBubble,
+                      isSameDay: _isSameDay,
+                    ),
+                  ),
+                  ChatMessageInput(
+                    fieldKey: _composerFieldKey,
+                    controller: msgCtrl,
+                    focusNode: _msgFocusNode,
+                    isBlocked: _anyBlocked,
+                    blockedByCurrentUser: _blockedByMe,
+                    isRecording: _isRecording,
+                    hasTypedText: _hasTypedText,
+                    sendingText: _sendingText,
+                    sendingImage: _sendingImage,
+                    onTypingChanged: _onTypingChanged,
+                    onSend: _send,
+                    onPickImage: _pickAndSendImageOrRequest,
+                    onStartRecording: _startVoiceRecording,
+                    onStopAndSendRecording: _stopAndSendVoice,
+                    onCancelRecording: _cancelVoiceRecording,
+                    onColorPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Coming soon'),
+                        ),
+                      );
+                      _msgFocusNode.requestFocus();
+                    },
+                  ),
                 ],
               ),
-            );
-          },
+            ],
+          ),
         );
       },
     );
