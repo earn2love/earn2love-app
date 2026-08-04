@@ -370,7 +370,7 @@ class _HomePageState extends State<HomePage> {
     return asString(u['tier'] ?? u['subTier'], def: 'casual').toLowerCase();
   }
 
-  Widget _header(Map<String, dynamic> me) {
+  Widget _header(Map<String, dynamic> me, String uid) {
     final myName = asString(me['displayName'], def: 'mouli');
     final myTier =
         asString(me['tier'] ?? me['subTier'], def: 'LOVE').toUpperCase();
@@ -1263,7 +1263,7 @@ class _HomePageState extends State<HomePage> {
 
           return Column(
             children: [
-              _header(me),
+              _header(me, myUid),
               _filtersRow(),
               Expanded(
                 child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
