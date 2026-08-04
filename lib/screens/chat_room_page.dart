@@ -10,6 +10,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../chat/controllers/chat_pagination_controller.dart';
 import '../chat/services/chat_references.dart';
 import '../chat/services/message_service.dart';
 import '../chat/services/presence_service.dart';
@@ -71,8 +72,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   String? _playingAudioUrl;
   String _lastMarkSeenSignature = '';
 
-  int _pageSize = 30;
-  static const int _pageStep = 30;
+  late final ChatPaginationController _paginationController;
   static const int _maxImageBytes = 5 * 1024 * 1024;
   static const int _maxAudioBytes = 10 * 1024 * 1024;
 
@@ -183,6 +183,11 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       otherUid: widget.otherUid,
       roomId: widget.roomId,
     );
+    _paginationController = ChatPaginationController(
+      messagesReference: _chatReferences.messages,
+      pageSize: 30,
+    )..start();
+
     _messageService = MessageService(
       firestore: FirebaseFirestore.instance,
       currentUid: uid,
@@ -235,6 +240,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     _prefsSub?.cancel();
     _reqSub?.cancel();
     _audioPlayerStateSub?.cancel();
+    _paginationController.dispose();
     msgCtrl.dispose();
     _msgFocusNode.dispose();
     scrollCtrl.dispose();
@@ -371,11 +377,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
   void _onScrollLoadMore() {
     if (!scrollCtrl.hasClients) return;
+
     if (scrollCtrl.position.pixels >=
         scrollCtrl.position.maxScrollExtent - 280) {
-      setState(() {
-        _pageSize += _pageStep;
-      });
+      _paginationController.loadOlder();
     }
   }
 
@@ -2599,11 +2604,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
   @override
   Widget build(BuildContext context) {
-    final messagesStream = msgRef
-        .orderBy('createdAt', descending: true)
-        .limit(_pageSize)
-        .snapshots();
-
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: otherRef.snapshots(),
       builder: (context, os) {
@@ -2829,17 +2829,36 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                           ),
                         ),
                       Expanded(
-                        child:
-                            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                          stream: messagesStream,
-                          builder: (context, snap) {
-                            if (!snap.hasData) {
+                        child: AnimatedBuilder(
+                          animation: _paginationController,
+                          builder: (context, _) {
+                            if (_paginationController.initialLoading) {
                               return const Center(
                                 child: CircularProgressIndicator(),
                               );
                             }
 
-                            var docs = snap.data!.docs;
+                            if (_paginationController.error != null &&
+                                _paginationController.messages.isEmpty) {
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                    'Unable to load messages. Please check your connection.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            var docs = List<
+                                    QueryDocumentSnapshot<
+                                        Map<String, dynamic>>>.from(
+                                _paginationController.messages);
 
                             if (_searchText.isNotEmpty) {
                               docs = docs.where((doc) {
