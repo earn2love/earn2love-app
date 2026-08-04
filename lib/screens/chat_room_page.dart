@@ -19,6 +19,7 @@ import '../chat/services/typing_service.dart';
 import '../chat/widgets/message_bubble.dart';
 import '../chat/widgets/message_input.dart';
 import '../chat/widgets/message_list.dart';
+import '../chat/widgets/message_status_ticks.dart';
 import '../chat/widgets/reply_banner.dart';
 import '../chat/widgets/typing_indicator.dart';
 import '../chat/widgets/voice_message_player.dart';
@@ -2349,12 +2350,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
-  String _fmtTs(Timestamp? t) {
-    if (t == null) return '';
-    final dt = t.toDate();
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final mm = dt.minute.toString().padLeft(2, '0');
-    return '$hh:$mm';
+  String _fmtTs(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+
+    final dateTime = timestamp.toDate();
+    final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+
+    return '$hour:$minute $period';
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
@@ -2441,26 +2447,26 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     return 'last seen ${dt.day} ${months[dt.month - 1]} at $hh:$mm';
   }
 
-  Widget _messageStatus(Map<String, dynamic> m) {
-    final deliveredTo =
-        (m['deliveredTo'] as List?)?.map((e) => e.toString()).toList() ?? [];
+  Widget _messageStatus(
+    Map<String, dynamic> message,
+  ) {
+    final deliveredTo = (message['deliveredTo'] as List?)
+            ?.map((item) => item.toString())
+            .toList() ??
+        const <String>[];
+
     final seenBy =
-        (m['seenBy'] as List?)?.map((e) => e.toString()).toList() ?? [];
+        (message['seenBy'] as List?)?.map((item) => item.toString()).toList() ??
+            const <String>[];
 
-    Color color = Colors.black;
-    if (seenBy.contains(widget.otherUid)) {
-      color = Colors.green;
-    } else if (deliveredTo.contains(widget.otherUid)) {
-      color = Colors.blue;
-    }
+    final state = seenBy.contains(widget.otherUid)
+        ? ChatMessageDeliveryState.seen
+        : deliveredTo.contains(widget.otherUid)
+            ? ChatMessageDeliveryState.delivered
+            : ChatMessageDeliveryState.sent;
 
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+    return ChatMessageStatusTicks(
+      state: state,
     );
   }
 
