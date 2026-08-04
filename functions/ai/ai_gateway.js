@@ -25,6 +25,137 @@ const {
   generateAdminAssistance,
 } = require("./admin_assistant");
 
+const {
+  generateMeeraAssistance,
+} = require("./meera_assistant");
+
+exports.askMeeraAssistant = onCall(
+    {
+      secrets: ["OPENAI_API_KEY"],
+      timeoutSeconds: 45,
+      memory: "256MiB",
+    },
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      const account =
+          await assertAccountUsable(uid);
+
+      const accountData =
+          account.data || {};
+
+      const tier = String(
+          accountData.tier ||
+          accountData.subTier ||
+          "casual",
+      ).trim().toLowerCase();
+
+      const usage = await reserveAiUsage(
+          uid,
+          "meeraAssistant",
+          tier,
+      );
+
+      const data = request.data || {};
+
+      const message =
+          String(data.message || "")
+              .trim()
+              .slice(0, 3000);
+
+      if (!message) {
+        const {HttpsError} = require(
+            "firebase-functions/v2/https",
+        );
+
+        throw new HttpsError(
+            "invalid-argument",
+            "A message is required",
+        );
+      }
+
+      const result =
+          await generateMeeraAssistance({
+            message,
+            history: data.history,
+            currentScreen:
+                data.currentScreen,
+            language: {
+              languageMode:
+                  data.languageMode ||
+                  accountData
+                      .meeraLanguageMode ||
+                  "auto",
+              requestedLanguage:
+                  data.requestedLanguage,
+              preferredLanguage:
+                  accountData
+                      .meeraPreferredLanguage ||
+                  accountData.appLanguage ||
+                  "",
+              appLanguage:
+                  accountData.appLanguage ||
+                  "en",
+              secondaryLanguage:
+                  accountData
+                      .meeraSecondaryLanguage ||
+                  "",
+              scriptPreference:
+                  accountData
+                      .meeraScriptPreference ||
+                  "natural",
+              tonePreference:
+                  accountData
+                      .meeraTonePreference ||
+                  "friendly",
+              allowMixedLanguage:
+                  accountData
+                      .meeraAllowMixedLanguage !==
+                  false,
+            },
+            verifiedUserContext: {
+              tier,
+              subscriptionStatus:
+                  accountData
+                      .subscriptionStatus ||
+                  null,
+              accountStatus:
+                  accountData
+                      .accountStatus ||
+                  "active",
+              appLanguage:
+                  accountData.appLanguage ||
+                  "en",
+              matchLanguage:
+                  accountData.matchLanguage ||
+                  null,
+              interests:
+                  Array.isArray(
+                      accountData.interests,
+                  ) ?
+                    accountData.interests
+                        .slice(0, 20) :
+                    [],
+              profileCompletion:
+                  Number(
+                      accountData
+                          .profileCompletion ||
+                      0,
+                  ),
+              country:
+                  accountData.country ||
+                  null,
+            },
+          });
+
+      return {
+        ...result,
+        usage,
+      };
+    },
+);
+
 exports.askUserSupportAssistant = onCall(
     {
       secrets: ["OPENAI_API_KEY"],

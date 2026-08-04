@@ -2,6 +2,8 @@
 
 const DEFAULT_AI_CONFIG = Object.freeze({
   enabled: true,
+  meeraAssistantEnabled: true,
+  multilingualEnabled: true,
   playTogetherEnabled: true,
   userSupportEnabled: true,
   adminAssistantEnabled: true,

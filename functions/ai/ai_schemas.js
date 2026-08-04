@@ -53,6 +53,50 @@ const SupportAnswerSchema = z.object({
   ).max(5),
 });
 
+const MeeraAssistantSchema = z.object({
+  answer: z.string().min(1).max(3000),
+  detectedLanguage: z.string().min(1).max(80),
+  responseLanguage: z.string().min(1).max(80),
+  languageMode: z.enum([
+    "auto",
+    "app_language",
+    "fixed",
+    "bilingual",
+  ]),
+  category: z.enum([
+    "general",
+    "navigation",
+    "profile",
+    "matching",
+    "chat",
+    "translation",
+    "games",
+    "calls",
+    "wallet",
+    "subscription",
+    "support",
+    "safety",
+    "technical",
+  ]),
+  requiresHumanSupport: z.boolean(),
+  escalationReason: z.string().max(500),
+  suggestedActions: z.array(
+      z.object({
+        id: z.string().min(1).max(80),
+        label: z.string().min(1).max(120),
+        actionType: z.enum([
+          "navigate",
+          "insert_text",
+          "copy_text",
+          "open_support",
+          "none",
+        ]),
+        payload: z.string().max(1500),
+        requiresConfirmation: z.boolean(),
+      }),
+  ).max(5),
+});
+
 const AdminAssistantSchema = z.object({
   summary: z.string().min(1).max(1500),
   findings: z.array(
@@ -74,5 +118,6 @@ module.exports = {
   PlayPromptSchema,
   HostReactionSchema,
   SupportAnswerSchema,
+  MeeraAssistantSchema,
   AdminAssistantSchema,
 };
