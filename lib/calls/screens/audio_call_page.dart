@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/call_session.dart';
 import '../services/agora_service.dart';
 import '../services/call_service.dart';
+import '../../play_together/screens/play_together_page.dart';
 
 class AudioCallPage extends StatefulWidget {
   const AudioCallPage({
@@ -242,6 +243,23 @@ class _AudioCallPageState extends State<AudioCallPage> {
     setState(() => _speakerEnabled = enabled);
   }
 
+  Future<void> _openPlayTogether() async {
+    if (_ending || !_remoteJoined) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PlayTogetherPage(),
+      ),
+    );
+
+    if (!mounted || _ending) return;
+
+    setState(() {
+      _muted = widget.agoraService.muted;
+      _speakerEnabled = widget.agoraService.speakerEnabled;
+    });
+  }
+
   Future<void> _endCall() async {
     if (_ending) return;
 
@@ -286,6 +304,7 @@ class _AudioCallPageState extends State<AudioCallPage> {
     _statusSub?.cancel();
     _remoteSub?.cancel();
     _errorSub?.cancel();
+    _callStateSub?.cancel();
     unawaited(widget.agoraService.dispose());
     super.dispose();
   }
@@ -349,6 +368,38 @@ class _AudioCallPageState extends State<AudioCallPage> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 22),
+                FilledButton.icon(
+                  onPressed:
+                      _ending || !_remoteJoined ? null : _openPlayTogether,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF4D91),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 13,
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.sports_esports_outlined,
+                  ),
+                  label: const Text(
+                    'Play Together',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (!_remoteJoined) ...[
+                  const SizedBox(height: 7),
+                  const Text(
+                    'Available after your partner joins',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,

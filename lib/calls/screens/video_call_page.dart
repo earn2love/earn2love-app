@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../models/call_session.dart';
 import '../services/agora_service.dart';
 import '../services/call_service.dart';
+import '../../play_together/screens/play_together_page.dart';
 
 class VideoCallPage extends StatefulWidget {
   const VideoCallPage({
@@ -247,6 +248,24 @@ class _VideoCallPageState extends State<VideoCallPage> {
     await widget.agoraService.switchCamera();
   }
 
+  Future<void> _openPlayTogether() async {
+    if (_ending || !_remoteJoined) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PlayTogetherPage(),
+      ),
+    );
+
+    if (!mounted || _ending) return;
+
+    setState(() {
+      _muted = widget.agoraService.muted;
+      _speakerEnabled = widget.agoraService.speakerEnabled;
+      _cameraEnabled = widget.agoraService.cameraEnabled;
+    });
+  }
+
   Future<void> _endCall() async {
     if (_ending) return;
 
@@ -442,6 +461,35 @@ class _VideoCallPageState extends State<VideoCallPage> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 18,
+              bottom: MediaQuery.paddingOf(context).bottom + 112,
+              child: SafeArea(
+                top: false,
+                child: FilledButton.icon(
+                  onPressed:
+                      _ending || !_remoteJoined ? null : _openPlayTogether,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF4D91),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 11,
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.sports_esports_outlined,
+                    size: 20,
+                  ),
+                  label: const Text(
+                    'Play Together',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
