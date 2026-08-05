@@ -28,6 +28,7 @@ import '../calls/screens/audio_call_page.dart';
 import '../calls/screens/video_call_page.dart';
 import '../calls/services/agora_service.dart';
 import '../calls/services/call_service.dart';
+import '../ai/widgets/meera_message_assist_sheet.dart';
 import '../ai/widgets/meera_writing_assistant_sheet.dart';
 
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
@@ -83,6 +84,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   bool _searchMode = false;
   bool _hasTypedText = false;
   bool _meeraAssistBusy = false;
+  bool _meeraMessageAssistBusy = false;
 
   String _searchText = '';
   String? _recordingPath;
@@ -1669,6 +1671,257 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
+  Future<List<Map<String, String>>> _loadRecentAiChatContext() async {
+    final snapshot = await msgRef
+        .orderBy(
+          'createdAt',
+          descending: true,
+        )
+        .limit(12)
+        .get();
+
+    final values = <Map<String, String>>[];
+
+    for (final document in snapshot.docs.reversed) {
+      final data = document.data();
+
+      final type = asString(data['type'], def: 'text');
+
+      final text = asString(data['text']);
+
+      final deleted = data['deletedForEveryone'] == true;
+
+      if (type != 'text' || text.isEmpty || deleted) {
+        continue;
+      }
+
+      final senderId = asString(data['senderId']);
+
+      values.add({
+        'role': senderId == uid ? 'user' : 'other',
+        'text': text,
+      });
+    }
+
+    return values.take(8).toList(
+          growable: false,
+        );
+  }
+
+  void _insertAiReply({
+    required String value,
+    required String messageId,
+    required String senderId,
+    required String messageText,
+  }) {
+    final text = value.trim();
+
+    if (text.isEmpty || !mounted) return;
+
+    setState(() {
+      _replyingTo = <String, dynamic>{
+        'messageId': messageId,
+        'senderId': senderId,
+        'text': messageText,
+        'type': 'text',
+      };
+
+      msgCtrl
+        ..text = text
+        ..selection = TextSelection.collapsed(
+          offset: text.length,
+        );
+
+      _hasTypedText = true;
+    });
+
+    _onTypingChanged(text);
+    _msgFocusNode.requestFocus();
+  }
+
+  Future<void> _openSmartReply({
+    required String messageId,
+    required String senderId,
+    required String messageText,
+  }) async {
+    if (_anyBlocked || _meeraMessageAssistBusy || messageText.trim().isEmpty) {
+      return;
+    }
+
+    setState(
+      () => _meeraMessageAssistBusy = true,
+    );
+
+    try {
+      final contextMessages = await _loadRecentAiChatContext();
+
+      if (!mounted) return;
+
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        useSafeArea: true,
+        builder: (_) {
+          return MeeraMessageAssistSheet(
+            mode: 'reply_suggestions',
+            sourceText: messageText,
+            recentMessages: contextMessages,
+            onUse: (value) {
+              _insertAiReply(
+                value: value,
+                messageId: messageId,
+                senderId: senderId,
+                messageText: messageText,
+              );
+            },
+          );
+        },
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Smart reply failed: $error',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(
+          () => _meeraMessageAssistBusy = false,
+        );
+      }
+    }
+  }
+
+  Future<String?> _chooseMessageTranslationLanguage() {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        const languages = {
+          'en': 'English',
+          'en-GB': 'British English',
+          'te': 'Telugu',
+          'hi': 'Hindi',
+          'ta': 'Tamil',
+          'kn': 'Kannada',
+          'ml': 'Malayalam',
+          'bn': 'Bengali',
+          'ur': 'Urdu',
+          'es': 'Spanish',
+          'fr': 'French',
+          'de': 'German',
+          'pt': 'Portuguese',
+          'ar': 'Arabic',
+        };
+
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.only(
+              bottom: 18,
+            ),
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(
+                  18,
+                  4,
+                  18,
+                  10,
+                ),
+                child: Text(
+                  'Translate message to',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              ...languages.entries.map(
+                (entry) => ListTile(
+                  leading: const Icon(
+                    Icons.translate_rounded,
+                  ),
+                  title: Text(entry.value),
+                  onTap: () => Navigator.of(sheetContext).pop(entry.key),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openMessageTranslation({
+    required String messageId,
+    required String senderId,
+    required String messageText,
+  }) async {
+    if (_anyBlocked || _meeraMessageAssistBusy || messageText.trim().isEmpty) {
+      return;
+    }
+
+    final language = await _chooseMessageTranslationLanguage();
+
+    if (!mounted || language == null) {
+      return;
+    }
+
+    setState(
+      () => _meeraMessageAssistBusy = true,
+    );
+
+    try {
+      final contextMessages = await _loadRecentAiChatContext();
+
+      if (!mounted) return;
+
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        useSafeArea: true,
+        builder: (_) {
+          return MeeraMessageAssistSheet(
+            mode: 'translate',
+            sourceText: messageText,
+            requestedLanguage: language,
+            recentMessages: contextMessages,
+            onUse: (value) {
+              _insertAiReply(
+                value: value,
+                messageId: messageId,
+                senderId: senderId,
+                messageText: messageText,
+              );
+            },
+          );
+        },
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Translation failed: $error',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(
+          () => _meeraMessageAssistBusy = false,
+        );
+      }
+    }
+  }
+
   Future<void> _openMeeraWritingAssistant() async {
     if (_anyBlocked || _meeraAssistBusy) {
       return;
@@ -2941,6 +3194,16 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       onDeleteForEveryone: () => _deleteMessageForEveryone(messageId),
       onReact: () => _openReactionSheet(messageId),
       onShowInfo: () => _showMessageInfo(message),
+      onSmartReply: () => _openSmartReply(
+        messageId: messageId,
+        senderId: senderId,
+        messageText: text,
+      ),
+      onTranslate: () => _openMessageTranslation(
+        messageId: messageId,
+        senderId: senderId,
+        messageText: text,
+      ),
     );
   }
 

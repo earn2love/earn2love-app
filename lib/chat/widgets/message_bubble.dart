@@ -21,6 +21,8 @@ class ChatMessageBubble extends StatefulWidget {
     required this.onDeleteForEveryone,
     required this.onReact,
     required this.onShowInfo,
+    required this.onSmartReply,
+    required this.onTranslate,
   });
 
   final String messageId;
@@ -41,6 +43,8 @@ class ChatMessageBubble extends StatefulWidget {
   final Future<void> Function() onDeleteForEveryone;
   final Future<void> Function() onReact;
   final Future<void> Function() onShowInfo;
+  final Future<void> Function() onSmartReply;
+  final Future<void> Function() onTranslate;
 
   @override
   State<ChatMessageBubble> createState() => _ChatMessageBubbleState();
@@ -353,6 +357,10 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
                   seenByOtherUser: seenBy.contains(
                     widget.otherUid,
                   ),
+                  canUseAi: !isMe &&
+                      type == 'text' &&
+                      text.isNotEmpty &&
+                      !deletedForEveryone,
                 ),
                 onHorizontalDragUpdate: _handleHorizontalDragUpdate,
                 onHorizontalDragEnd: _handleHorizontalDragEnd,
@@ -370,6 +378,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
     required bool isMe,
     required bool deletedForEveryone,
     required bool seenByOtherUser,
+    required bool canUseAi,
   }) async {
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -402,6 +411,24 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
                     'reply',
                   ),
                 ),
+                if (canUseAi)
+                  _ActionTile(
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'Smart reply',
+                    onTap: () => Navigator.pop(
+                      context,
+                      'smartReply',
+                    ),
+                  ),
+                if (canUseAi)
+                  _ActionTile(
+                    icon: Icons.translate_rounded,
+                    title: 'Translate',
+                    onTap: () => Navigator.pop(
+                      context,
+                      'translate',
+                    ),
+                  ),
                 _ActionTile(
                   icon: Icons.emoji_emotions_outlined,
                   title: 'React',
@@ -451,6 +478,10 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
         await widget.onDeleteForEveryone();
       case 'reply':
         widget.onReply();
+      case 'smartReply':
+        await widget.onSmartReply();
+      case 'translate':
+        await widget.onTranslate();
       case 'react':
         await widget.onReact();
       case 'info':
