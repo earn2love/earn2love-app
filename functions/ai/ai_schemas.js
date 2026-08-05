@@ -97,6 +97,41 @@ const MeeraAssistantSchema = z.object({
   ).max(5),
 });
 
+const MeeraChatAssistSchema = z.object({
+  result: z.string().min(1).max(2000),
+  alternatives: z.array(
+      z.string().min(1).max(1000),
+  ).max(4),
+  detectedLanguage: z.string().min(1).max(80),
+  responseLanguage: z.string().min(1).max(80),
+  detectedTone: z.enum([
+    "neutral",
+    "friendly",
+    "warm",
+    "romantic",
+    "funny",
+    "professional",
+    "serious",
+    "unclear",
+  ]),
+  mode: z.enum([
+    "rewrite",
+    "improve",
+    "grammar",
+    "shorten",
+    "expand",
+    "friendly",
+    "romantic",
+    "funny",
+    "professional",
+    "translate",
+    "conversation_starter",
+    "reply_suggestions",
+  ]),
+  safetyFiltered: z.boolean(),
+  safetyNote: z.string().max(500),
+});
+
 const MeeraProfileCoachSchema = z.object({
   score: z.number().int().min(0).max(100),
   summary: z.string().min(1).max(1200),
@@ -167,6 +202,7 @@ module.exports = {
   HostReactionSchema,
   SupportAnswerSchema,
   MeeraAssistantSchema,
+  MeeraChatAssistSchema,
   MeeraProfileCoachSchema,
   AdminAssistantSchema,
 };

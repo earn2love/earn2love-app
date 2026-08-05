@@ -28,6 +28,7 @@ import '../calls/screens/audio_call_page.dart';
 import '../calls/screens/video_call_page.dart';
 import '../calls/services/agora_service.dart';
 import '../calls/services/call_service.dart';
+import '../ai/widgets/meera_writing_assistant_sheet.dart';
 
 import 'package:earn2love_app/screens/settings/chat_room_settings_page.dart';
 import 'package:earn2love_app/screens/settings/report_page.dart';
@@ -81,6 +82,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   bool _recordingBusy = false;
   bool _searchMode = false;
   bool _hasTypedText = false;
+  bool _meeraAssistBusy = false;
 
   String _searchText = '';
   String? _recordingPath;
@@ -1667,6 +1669,44 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
+  Future<void> _openMeeraWritingAssistant() async {
+    if (_anyBlocked || _meeraAssistBusy) {
+      return;
+    }
+
+    setState(() => _meeraAssistBusy = true);
+
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        useSafeArea: true,
+        builder: (sheetContext) {
+          return MeeraWritingAssistantSheet(
+            initialText: msgCtrl.text,
+            onReplace: (value) {
+              msgCtrl
+                ..text = value
+                ..selection = TextSelection.collapsed(
+                  offset: value.length,
+                );
+
+              _onTypingChanged(value);
+              _msgFocusNode.requestFocus();
+            },
+          );
+        },
+      );
+    } finally {
+      if (mounted) {
+        setState(
+          () => _meeraAssistBusy = false,
+        );
+      }
+    }
+  }
+
   Future<void> _send() async {
     if (_anyBlocked) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3198,6 +3238,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                       );
                       _msgFocusNode.requestFocus();
                     },
+                    onAiPressed: _openMeeraWritingAssistant,
+                    aiBusy: _meeraAssistBusy,
                   ),
                 ],
               ),

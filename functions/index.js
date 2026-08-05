@@ -162,6 +162,8 @@ exports.endInCallPlaySession =
     playTogether.endInCallPlaySession;
 
 // Shared AI Gateway
+exports.generateMeeraChatAssist =
+    aiGateway.generateMeeraChatAssist;
 exports.analyseMeeraProfile =
     aiGateway.analyseMeeraProfile;
 exports.createMeeraConversation =

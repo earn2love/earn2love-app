@@ -34,6 +34,10 @@ const {
 } = require("./meera_profile_coach");
 
 const {
+  generateChatAssistance,
+} = require("./meera_chat_assist");
+
+const {
   createConversation,
   ensureConversation,
   saveConversationMessage,
@@ -48,6 +52,80 @@ const {
   deleteMemory,
   clearMemories,
 } = require("./meera_persistence");
+
+exports.generateMeeraChatAssist = onCall(
+    {
+      secrets: ["OPENAI_API_KEY"],
+      timeoutSeconds: 45,
+      memory: "256MiB",
+    },
+    async (request) => {
+      const uid =
+          requireAuthenticatedUser(request);
+
+      const account =
+          await assertAccountUsable(uid);
+
+      const accountData =
+          account.data || {};
+
+      const tier = String(
+          accountData.tier ||
+          accountData.subTier ||
+          "casual",
+      ).trim().toLowerCase();
+
+      const usage = await reserveAiUsage(
+          uid,
+          "chatAssist",
+          tier,
+      );
+
+      const data = request.data || {};
+
+      const result =
+          await generateChatAssistance({
+            mode: data.mode,
+            text: data.text,
+            recentMessages:
+                data.recentMessages,
+            language: {
+              languageMode:
+                  data.languageMode ||
+                  accountData
+                      .meeraLanguageMode ||
+                  "auto",
+              requestedLanguage:
+                  data.requestedLanguage,
+              preferredLanguage:
+                  accountData
+                      .meeraPreferredLanguage ||
+                  accountData.appLanguage ||
+                  "",
+              appLanguage:
+                  accountData.appLanguage ||
+                  "en",
+              allowMixedLanguage:
+                  accountData
+                      .meeraAllowMixedLanguage !==
+                  false,
+              tonePreference:
+                  accountData
+                      .meeraTonePreference ||
+                  "friendly",
+              scriptPreference:
+                  accountData
+                      .meeraScriptPreference ||
+                  "natural",
+            },
+          });
+
+      return {
+        ...result,
+        usage,
+      };
+    },
+);
 
 exports.analyseMeeraProfile = onCall(
     {

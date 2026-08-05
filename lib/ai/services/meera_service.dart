@@ -1,5 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
+import '../models/meera_chat_assist.dart';
 import '../models/meera_message.dart';
 import '../models/meera_profile_coach.dart';
 
@@ -69,6 +70,32 @@ class MeeraService {
         'Meera request failed: $error',
       );
     }
+  }
+
+  Future<MeeraChatAssistResult> generateChatAssist({
+    required String mode,
+    required String text,
+    List<Map<String, String>> recentMessages = const [],
+    String languageMode = 'auto',
+    String requestedLanguage = '',
+  }) async {
+    final result = await _call(
+      'generateMeeraChatAssist',
+      {
+        'mode': mode,
+        'text': text,
+        'recentMessages': recentMessages.take(8).toList(
+              growable: false,
+            ),
+        'languageMode': languageMode,
+        if (requestedLanguage.trim().isNotEmpty)
+          'requestedLanguage': requestedLanguage.trim(),
+      },
+    );
+
+    return MeeraChatAssistResult.fromMap(
+      result,
+    );
   }
 
   Future<MeeraProfileCoachResult> analyseProfile({

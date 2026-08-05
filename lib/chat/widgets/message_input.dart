@@ -19,6 +19,8 @@ class ChatMessageInput extends StatelessWidget {
     required this.onStopAndSendRecording,
     required this.onCancelRecording,
     required this.onColorPressed,
+    required this.onAiPressed,
+    required this.aiBusy,
   });
 
   final Key fieldKey;
@@ -41,6 +43,8 @@ class ChatMessageInput extends StatelessWidget {
   final Future<void> Function() onCancelRecording;
 
   final VoidCallback onColorPressed;
+  final VoidCallback onAiPressed;
+  final bool aiBusy;
 
   String get _hintText {
     if (!isBlocked) return 'Message';
@@ -106,6 +110,23 @@ class ChatMessageInput extends StatelessWidget {
                         Icons.palette_outlined,
                         color: Colors.grey.shade600,
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Ask Meera',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: isBlocked || aiBusy ? null : onAiPressed,
+                      icon: aiBusy
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.auto_awesome_rounded,
+                              color: Color(0xFF7B4EFF),
+                            ),
                     ),
                     Expanded(
                       child: ConstrainedBox(
