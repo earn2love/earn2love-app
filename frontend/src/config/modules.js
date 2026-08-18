@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, ShieldAlert, ScanFace, IdCard, CreditCard, Wallet,
   Coins, ArrowLeftRight, BanknoteArrowDown, Phone, ListChecks, Megaphone,
   UserPlus, MessagesSquare, ShieldCheck, Globe, Bell, UserCog, ScrollText,
-  Settings, LineChart, LifeBuoy, FileText, Smartphone, BriefcaseBusiness, KeyRound,
+  Settings, LineChart, LifeBuoy, FileText, Smartphone, BriefcaseBusiness, KeyRound, Gamepad2,
 } from "lucide-react";
 
 // Sidebar navigation, grouped.
@@ -41,6 +41,7 @@ export const NAV_GROUPS = [
       { label: "Tasks & Offerwall", icon: ListChecks, to: "/m/tasks", key: "tasks" },
       { label: "Friend Requests", icon: UserPlus, to: "/m/friend-requests", key: "friend-requests" },
       { label: "Chats & Messages", icon: MessagesSquare, to: "/m/chats", key: "chats" },
+      { label: "Play Together", icon: Gamepad2, to: "/play-together", key: "games" },
     ],
   },
   {

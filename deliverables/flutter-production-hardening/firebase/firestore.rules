@@ -145,6 +145,29 @@ service cloud.firestore {
     match /calls/{id}            { allow read: if isSignedIn() && (request.auth.uid == resource.data.callerUid || request.auth.uid == resource.data.calleeUid) || isAdmin(); allow write: if false; }
     match /adminAuditLogs/{id}   { allow read: if isAdmin(); allow write: if false; }
 
+    // ---- Play Together game platform -------------------------------------
+    // Game catalog + content: readable by signed-in clients (the mobile app
+    // renders the catalog); ONLY admins/Cloud Functions may write.
+    // NOTE: trivia "correct" answers live in gameContent; if you prefer to hide
+    // them from clients entirely, restrict reads to isAdmin() and rely on the
+    // server-written session public state (which never exposes answers).
+    match /games/{gameId}        { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /gameContent/{id}      { allow read: if isSignedIn(); allow write: if isAdmin(); }
+
+    // Authoritative game sessions: FastAPI (Admin SDK) is the ONLY writer.
+    // Participants may READ the public session document; the private
+    // subcollection (hidden answers / un-revealed picks) is denied to clients.
+    match /gameSessions/{sid} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && request.auth.uid in resource.data.participantIds);
+      allow write: if false;                       // server-only
+      match /private/{doc} { allow read, write: if false; }   // hidden state
+    }
+
+    // Analytics events + sandbox previews: server-only.
+    match /gameEvents/{id}          { allow read: if isAdmin(); allow write: if false; }
+    match /gamePreviewSessions/{id} { allow read, write: if false; }
+
     // Default deny.
     match /{document=**} {
       allow read, write: if false;

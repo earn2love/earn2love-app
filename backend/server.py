@@ -19,6 +19,7 @@ import appconfig_service as appcfg
 import support_service as support
 import hr_service as hr
 import notifications_service as notif
+import games_service as games
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -505,6 +506,237 @@ async def withdrawal_review(owner_uid: str, wh_id: str, body: WithdrawalReview,
     prev, new = res
     audit(admin, f"withdrawal-{body.decision}", "withdrawals", owner_uid, wh_id, prev, new, body.reason, request)
     return {"ok": True}
+
+
+# ---------------- Play Together — Admin (games & content) ----------------
+def _require_games_admin(admin):
+    require_write(admin, "games")
+
+
+@api.get("/games/overview")
+async def games_overview(admin: dict = Depends(get_current_admin)):
+    return games.platform_overview()
+
+
+@api.get("/games")
+async def games_list(search: str = "", category: str | None = None, status: str | None = None,
+                     admin: dict = Depends(get_current_admin)):
+    return {"items": games.list_games(search, category, status)}
+
+
+@api.get("/games/{gid}")
+async def games_get(gid: str, admin: dict = Depends(get_current_admin)):
+    g = games.get_game(gid)
+    if not g:
+        raise HTTPException(status_code=404, detail="Game not found")
+    return g
+
+
+@api.get("/games/{gid}/stats")
+async def games_stats(gid: str, admin: dict = Depends(get_current_admin)):
+    return games.game_stats(gid)
+
+
+@api.post("/games")
+async def games_create(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    g = games.create_game(body, admin["email"])
+    audit(admin, "create", "games", g["gameId"], g["gameId"], None, g.get("name"), None, request)
+    return g
+
+
+@api.put("/games/{gid}")
+async def games_update(gid: str, body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    g = games.update_game(gid, body, admin["email"])
+    if not g:
+        raise HTTPException(status_code=404, detail="Game not found")
+    audit(admin, "update", "games", gid, gid, None, None, None, request)
+    return g
+
+
+@api.post("/games/reorder")
+async def games_reorder(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    res = games.reorder_games(body.get("order", []), admin["email"])
+    audit(admin, "reorder", "games", "catalog", "catalog", None, None, None, request)
+    return res
+
+
+@api.post("/games/{gid}/duplicate")
+async def games_duplicate(gid: str, request: Request, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    g = games.duplicate_game(gid, admin["email"])
+    if not g:
+        raise HTTPException(status_code=404, detail="Game not found")
+    audit(admin, "duplicate", "games", g["gameId"], gid, None, None, None, request)
+    return g
+
+
+@api.delete("/games/{gid}")
+async def games_delete(gid: str, request: Request, hard: bool = False, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    if not games.delete_game(gid, hard):
+        raise HTTPException(status_code=404, detail="Game not found")
+    audit(admin, "archive" if not hard else "delete", "games", gid, gid, None, None, None, request)
+    return {"ok": True}
+
+
+@api.post("/games/seed")
+async def games_seed(request: Request, force: bool = False, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    g = games.seed_games(force); c = games.seed_content(force)
+    audit(admin, "seed", "games", "catalog", "catalog", None, {"games": g, "content": c}, None, request)
+    return {"games": g, "content": c}
+
+
+# ---- Content management ----
+@api.get("/games-content")
+async def games_content_list(gameId: str | None = None, contentKey: str | None = None,
+                             search: str = "", admin: dict = Depends(get_current_admin)):
+    return {"items": games.list_content(gameId, contentKey, search)}
+
+
+@api.post("/games-content")
+async def games_content_create(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    c = games.create_content(body, admin["email"])
+    audit(admin, "create", "games", c["id"], c["id"], None, "content", None, request)
+    return c
+
+
+@api.put("/games-content/{cid}")
+async def games_content_update(cid: str, body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    c = games.update_content(cid, body, admin["email"])
+    if not c:
+        raise HTTPException(status_code=404, detail="Content not found")
+    audit(admin, "update", "games", cid, cid, None, "content", None, request)
+    return c
+
+
+@api.delete("/games-content/{cid}")
+async def games_content_delete(cid: str, request: Request, admin: dict = Depends(get_current_admin)):
+    _require_games_admin(admin)
+    if not games.delete_content(cid):
+        raise HTTPException(status_code=404, detail="Content not found")
+    audit(admin, "delete", "games", cid, cid, None, "content", None, request)
+    return {"ok": True}
+
+
+# ---- Admin sandbox preview (no analytics / no real participants) ----
+@api.post("/games/{gid}/preview/start")
+async def games_preview_start(gid: str, admin: dict = Depends(get_current_admin)):
+    try:
+        return games.preview_start(gid)
+    except games.GameAccessError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.get("/games/preview/{sid}")
+async def games_preview_get(sid: str, admin: dict = Depends(get_current_admin)):
+    p = games.preview_get(sid)
+    if not p:
+        raise HTTPException(status_code=404, detail="Preview not found")
+    return p
+
+
+@api.post("/games/preview/{sid}/act")
+async def games_preview_act(sid: str, body: dict, admin: dict = Depends(get_current_admin)):
+    try:
+        return games.preview_act(sid, body.get("playerId"), body.get("action", {}))
+    except (games.GameAccessError, games.engines.GameError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.post("/games/preview/{sid}/advance")
+async def games_preview_advance(sid: str, admin: dict = Depends(get_current_admin)):
+    try:
+        return games.preview_advance(sid)
+    except (games.GameAccessError, games.engines.GameError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ---------------- Play Together — Player (authoritative) API ----------------
+@api.get("/play/catalog")
+async def play_catalog(user: dict = Depends(get_current_user)):
+    """Games available to THIS user's tier (enabled, not archived)."""
+    tier = games._user_tier(user["uid"])
+    out = []
+    for g in games.list_games(status="enabled"):
+        allowed = (not g.get("tierAccess")) or (tier in g.get("tierAccess", []))
+        out.append({**g, "locked": not allowed})
+    return {"items": out, "tier": tier}
+
+
+@api.post("/play/sessions")
+async def play_create(body: dict, user: dict = Depends(get_current_user)):
+    try:
+        return games.create_session(body.get("gameId"), user["uid"],
+                                    body.get("opponentUid"), body.get("aiCharacterIds"))
+    except games.GameAccessError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@api.get("/play/sessions/{sid}")
+async def play_get(sid: str, user: dict = Depends(get_current_user)):
+    try:
+        s = games.get_session(sid, user["uid"])
+    except games.GameAccessError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return s
+
+
+@api.post("/play/sessions/{sid}/join")
+async def play_join(sid: str, user: dict = Depends(get_current_user)):
+    try:
+        s = games.join_session(sid, user["uid"])
+    except games.GameAccessError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return s
+
+
+@api.post("/play/sessions/{sid}/act")
+async def play_act(sid: str, body: dict, user: dict = Depends(get_current_user)):
+    try:
+        return games.act(sid, user["uid"], body.get("action", {}), body.get("expectedRevision"))
+    except games.GameAccessError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except games.engines.GameError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@api.post("/play/sessions/{sid}/advance")
+async def play_advance(sid: str, body: dict, user: dict = Depends(get_current_user)):
+    try:
+        return games.advance(sid, user["uid"], body.get("expectedRevision"))
+    except games.GameAccessError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except games.engines.GameError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@api.post("/play/sessions/{sid}/abandon")
+async def play_abandon(sid: str, user: dict = Depends(get_current_user)):
+    try:
+        s = games.abandon(sid, user["uid"])
+    except games.GameAccessError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return s
+
+
+@api.post("/play/sessions/{sid}/rematch")
+async def play_rematch(sid: str, user: dict = Depends(get_current_user)):
+    try:
+        return games.rematch(sid, user["uid"])
+    except games.GameAccessError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 # ---------------- Dashboard / analytics ----------------

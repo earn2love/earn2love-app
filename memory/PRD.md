@@ -126,7 +126,38 @@ audience preview, delivery stats). NOTE: live DB has ~8 users & NO device tokens
 correct; emails are @earn2love.app placeholders → email recipients 0 is correct.
 BLOCKED for full email: awaiting RESEND_API_KEY (+ optional NOTIFICATIONS_FROM_EMAIL) from user.
 
-## Backlog (post iter7 review)
+## 2026-08 — Play Together game platform (backend + admin) — CODE COMPLETE, live testing BLOCKED
+Built ONE reusable production game platform powering all 50 games.
+- Backend package `backend/games/`: `engines.py` (5 reusable mechanics — choice, trivia,
+  prompt, guess, coop — each exposing available_actions/apply_action/public_view/ai_context,
+  with public/private state separation), `registry.py` (all 50 games as data-driven defs +
+  engine mapping), `content.py` (genuine starter content pools, English, admin-expandable).
+- `backend/games_service.py`: authoritative session engine — create/join/act/advance/abandon/
+  rematch, Firestore transactions + monotonic `revision` + `actionId` idempotency, tier
+  entitlements, genuine analytics events (game_opened/started/round_completed/completed/
+  abandoned/rematch), and a SANDBOXED preview (gamePreviewSessions, no analytics). Public
+  session doc is client-readable; hidden state in private subcollection.
+- server.py endpoints: admin `/api/games*`, `/api/games-content*`, `/api/games/{id}/preview/*`,
+  stats; player `/api/play/*` (catalog, sessions, act, advance, abandon, rematch, join).
+- Frontend `pages/PlayTogether.jsx`: dashboard (overview + search/filter + enable/disable/
+  feature/archive/duplicate/seed), game editor, content manager, PLAYABLE sandbox preview
+  (uses real engine), genuine empty-state stats. Route `/play-together`, nav under Engagement (key `games`).
+- Deliverables: `firestore.rules` extended (games/gameContent read-only to clients;
+  gameSessions read-for-participants + write:false; private/** + gameEvents server-only);
+  `PLAY_TOGETHER_API_CONTRACT.md` for the Flutter team.
+- VERIFIED OFFLINE: all 50 games complete cleanly across 5 mechanics; 8 security/edge cases
+  pass (idempotency, invalid-action rejection, double-answer, turn enforcement, trivia scoring,
+  inactive guard, public-state redaction of hidden answers).
+
+### 🚨 BLOCKER (2026-08): Firebase service account REVOKED
+`FIREBASE_CLIENT_EMAIL` (…@earn2love-app.iam.gserviceaccount.com) now returns
+`invalid_grant: account not found` on direct OAuth token fetch — the service-account key was
+deleted/disabled on Google's side (it worked earlier this session; system clock is correct).
+This takes the ENTIRE backend Firestore layer down (existing admin panel + new platform).
+ACTION REQUIRED FROM USER: provide a fresh Firebase service-account JSON key for project
+`earn2love-app` (updates FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY).
+Once restored: (1) Play Together → Seed catalog, (2) run testing_agent end-to-end.
+
 - P2: split server.py (~709 lines) into modules/*.py APIRouters (HR, notifications).
 - P2: strict Pydantic model for PUT /role-permissions matrix payload.
 - P2: a11y — aria-disabled on locked super_admin permission switches.
