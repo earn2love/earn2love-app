@@ -102,17 +102,33 @@ def _length_ok(text, target):
     return n <= caps.get(target, 80) + 25
 
 
+def _quality_score(q):
+    """Composite 0..1 quality score from the guard results + filler penalty."""
+    if not q:
+        return None
+    passes = [q.get("consistencyPassed", True), q.get("repetitionPassed", True),
+              q.get("safetyPassed", True), q.get("lengthOk", True)]
+    base = sum(1 for x in passes if x) / len(passes)
+    penalty = min(0.2, (q.get("fillerCount", 0) or 0) * 0.05)
+    return round(max(0.0, base - penalty), 2)
+
+
 class CharacterEngine:
     def __init__(self, repo):
         self.repo = repo
 
     async def respond(self, character_id, user_id, user_text, *, sandbox=False,
-                      language_override=None, relationship_override=None, history_fixture=None):
+                      language_override=None, relationship_override=None, history_fixture=None,
+                      feature_flags=None):
         c = self.repo.get_character(character_id)
         if not c:
             return {"ok": False, "error": "character_not_found"}
         if not c.get("enabled") or c.get("archived"):
             return {"ok": False, "error": "character_disabled"}
+
+        flags = feature_flags or {}
+        adv_memory = flags.get("advancedMemoryEnabled", True)
+        router_enabled = flags.get("deepReasoningRouterEnabled")  # None => router's own default
 
         # 1. understanding
         history = history_fixture if history_fixture is not None else \
@@ -137,7 +153,7 @@ class CharacterEngine:
         plan = P.plan(u, c, rel, mems, lang)
 
         # 6. build prompt + transcript (compress older history for 100+ turn continuity)
-        summary = M.compress_history(history)
+        summary = M.compress_history(history) if adv_memory else ""
         sys = build_system_prompt(c, plan, mems, rel, lang, u, summary)
         transcript = "\n".join(f"{'USER' if m['sender']=='user' else c['displayName'].upper()}: {m['text']}"
                                for m in recent[-8:])
@@ -146,7 +162,7 @@ class CharacterEngine:
 
         # 7. route + generate + guards (regenerate once, escalating to the strong model)
         recent_ai = [t["text"] for t in history if t["sender"] == "character"][-8:]
-        routing = ROUTER.route(u, plan, mems)
+        routing = ROUTER.route(u, plan, mems, enabled_override=router_enabled)
         result, quality, attempts = await self._generate_guarded(sys, prompt, c, recent_ai, plan, character_id, routing)
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
@@ -170,15 +186,19 @@ class CharacterEngine:
             "ok": True,
             "responseText": text,
             "characterId": character_id,
+            "characterVersion": c.get("version", 1),
             "detectedLanguage": u["detectedLanguage"],
             "responseLanguage": lang["responseLanguage"],
             "conversationMode": u["conversationalMode"],
             "relationshipState": rel.get("state"),
             "memoryIdsUsed": [m.get("memoryId") for m in mems],
+            "memoryLayersUsed": [{"memoryId": m.get("memoryId"), "layer": m.get("_layer"),
+                                  "score": m.get("_score"), "text": (m.get("text") or "")[:90]} for m in mems],
             "characterFactIdsUsed": [wf.get("factId") for wf in c.get("worldFacts", [])[:3]],
             "plan": plan if sandbox else None,   # planner metadata only exposed in sandbox
             "routing": {"category": routing["category"], "reason": routing["reason"]} if sandbox else None,
             "quality": quality,
+            "qualityScore": _quality_score(quality),
             "usage": {"provider": result["provider"], "model": result["model"],
                       "latencyMs": result["latencyMs"], "attempts": attempts,
                       "routeCategory": routing["category"]},

@@ -14,6 +14,7 @@ from ai_engine.registry import REFERENCE_CHARACTERS, seed_reference
 from ai_engine.engine import CharacterEngine
 from ai_engine import evaluation as EVAL
 from ai_engine import rate_limit as RL
+from ai_engine import feature_flags as FF
 from ai_engine.schema import new_character, validate_character
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,28 @@ def seed_reference_to_firestore():
     return seed_reference(prod_repo())
 
 
+# ---------------- Feature flags (centralized, Firestore-backed) ----------------
+def flag_defaults():
+    return {"flags": dict(FF.DEFAULTS), "meta": FF.FLAG_META, "defaults": dict(FF.DEFAULTS)}
+
+
+def get_feature_flags():
+    return {"flags": FF.get_flags(prod_repo().db), "meta": FF.FLAG_META, "defaults": dict(FF.DEFAULTS)}
+
+
+def update_feature_flags(updates, author=""):
+    flags = FF.set_flags(prod_repo().db, updates, author)
+    return {"flags": flags, "meta": FF.FLAG_META, "defaults": dict(FF.DEFAULTS)}
+
+
+def _live_flags():
+    """Best-effort flag read; fail-open to all-enabled defaults."""
+    try:
+        return FF.get_flags(prod_repo().db)
+    except Exception:
+        return dict(FF.DEFAULTS)
+
+
 # ---------------- Production chat (persistent — Firestore) ----------------
 _prod_engine = None
 
@@ -132,6 +155,13 @@ async def chat(character_id, user_id, message, language=None, client_message_id=
                 "characterId": character_id, "relationshipState": None, "memoryIdsUsed": [],
                 "usage": {"provider": "guard", "model": "rate_limit", "latencyMs": 0, "attempts": 0}}
 
+    flags = _live_flags()
+    if not flags.get("aiCharactersEnabled", True):
+        return {"ok": True, "disabled": True,
+                "responseText": "I'm taking a short break right now — chat will be back shortly. 💛",
+                "characterId": character_id, "relationshipState": None, "memoryIdsUsed": [],
+                "usage": {"provider": "guard", "model": "feature_flag", "latencyMs": 0, "attempts": 0}}
+
     conv = prod_repo().db.collection("aiCharacterConversations").document(f"{character_id}__{user_id}")
     if client_message_id:
         snap = conv.get()
@@ -145,7 +175,8 @@ async def chat(character_id, user_id, message, language=None, client_message_id=
     generation_id = uuid.uuid4().hex
     async with _chat_lock(character_id, user_id):
         r = await prod_engine().respond(
-            character_id, user_id, message, sandbox=False, language_override=language or None)
+            character_id, user_id, message, sandbox=False, language_override=language or None,
+            feature_flags=flags)
         if r.get("ok"):
             r["generationId"] = generation_id
             if client_message_id:
@@ -201,7 +232,7 @@ async def lab_chat(session_id, message, language=None, relationship_state=None):
     r = await sess["engine"].respond(
         sess["characterId"], "lab_user", message, sandbox=True,
         language_override=language or None, relationship_override=relationship_state or None,
-        history_fixture=list(sess["history"]))
+        history_fixture=list(sess["history"]), feature_flags=_live_flags())
     if r.get("ok"):
         sess["history"].append({"sender": "user", "text": message})
         sess["history"].append({"sender": "character", "text": r["responseText"]})

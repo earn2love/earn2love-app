@@ -379,3 +379,27 @@ ref_ananya (Telugu): consistency 1.0 / nonRep 1.0 / multilingual 1.0 / safety 1.
 ### REMAINING: 2e Admin Character Lab v2 (show routing category/reason, memory IDs+layers, quality,
 consistency/repetition status, side-by-side model benchmark, character version) + centralized Feature Flags;
 then evaluation v2 harness (100/250-turn live run, contradiction-trap suite) + long-conversation report.
+
+## 2026-08 — AI Engine v2, Phase 2e (part 1): Feature Flags + Admin Character Lab v2 (DONE & VERIFIED)
+User approved the Phase-1 audit (`/app/memory/AI_CHAT_V2_AUDIT.md`); building in the audit order but
+CHECKPOINTING after a+b before the LLM-heavy Benchmark (c) / Evaluation v2 (d) / index audit (e).
+### (a) Centralized Feature Flags — `backend/ai_engine/feature_flags.py`
+Firestore-backed single doc `aiFeatureFlags/global`, 30s cache, fail-OPEN to all-enabled DEFAULTS.
+Flags: aiCharactersEnabled (kill switch), smartReplyEnabled, translationEnabled, advancedMemoryEnabled,
+deepReasoningRouterEnabled, characterVersioningEnabled. Endpoints GET/PUT `/api/ai/flags` (PUT is
+require_write ai-characters + audit-logged). WIRED functionally: ai_service.chat reads flags →
+aiCharactersEnabled=false returns friendly "on a break" reply with NO LLM call; engine.respond takes a
+`feature_flags` kwarg → deepReasoningRouterEnabled=false forces the strong reasoner (router
+enabled_override), advancedMemoryEnabled=false skips history compression. Lab sandbox also reads live flags.
+### (b) Admin Character Lab v2 — engine sandbox response + `AICharacters.jsx`
+engine.respond now returns (sandbox): routing {category, reason}, memoryLayersUsed [{memoryId, layer,
+score, text}], characterVersion, qualityScore (composite 0..1). Lab diagnostics panel now shows Route
+tier + reason, character version, quality score %, memory retrieved w/ per-item layer+score, plus existing
+consistency/repetition/safety/latency/model. Reply hint shows route category. Feature Flags admin dialog
+(Switch per flag, optimistic + audit) opened via toolbar "Feature Flags" button (canEdit only).
+VERIFIED: GET/PUT flags persist live (curl); Lab greeting→FAST_SOCIAL/gpt-5.4-mini, advice→DEEP_REASONING/
+gpt-5.6-sol, memory fixture surfaced as explicit layer; frontend screenshots of flags dialog + Lab v2 diag.
+NOT self-tested via testing_agent this round (verified by curl + Playwright screenshots).
+### REMAINING (awaiting user go-ahead — LLM-heavy): (c) Model Benchmark (admin-only side-by-side compare),
+(d) Evaluation v2 harness (100/250-turn + contradiction-trap + returning-after-gap → report),
+(e) Firestore index/cost audit for AI collections. Optional: semantic embedding memory (separate phase).

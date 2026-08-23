@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import {
   Bot, Search, Loader2, FlaskConical, Pencil, BarChart3, Sparkles, Send, RotateCcw,
   ShieldCheck, Repeat, Languages, Brain, Gauge, MessagesSquare, CheckCircle2, XCircle, Trash2, Power,
+  Flag, Cpu, GitBranch, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -36,6 +38,7 @@ export default function AICharacters() {
   const [lab, setLab] = useState(null);
   const [editing, setEditing] = useState(null);
   const [stored, setStored] = useState(false);
+  const [flagsOpen, setFlagsOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,6 +115,7 @@ export default function AICharacters() {
             </SelectContent>
           </Select>
           {filtersActive && <Button variant="ghost" size="sm" data-testid="ai-clear-filters" onClick={clearFilters}>Clear filters</Button>}
+          {canEdit && <Button variant="outline" data-testid="ai-feature-flags-open" onClick={() => setFlagsOpen(true)}><Flag className="h-4 w-4 mr-1.5" />Feature Flags</Button>}
           {canEdit && <Button data-testid="ai-new" onClick={() => setEditing({ _new: true, displayName: "", isAi: true, age: 25, country: "", profession: "", languages: ["English"], personalityTraits: [], replyLengthPreference: "short", emojiStyle: "sparing", humorStyle: "light", curiosityLevel: 0.5, confidenceLevel: 0.5, warmthLevel: 0.5, playfulnessLevel: 0.5, directnessLevel: 0.5, romanceLevel: 0.1, tierAccess: ["casual", "friendship", "love"], enabled: true })} className="gradient-brand text-white border-0"><Bot className="h-4 w-4 mr-1.5" />New Character</Button>}
         </div>
         <p className="text-xs text-muted-foreground -mt-2" data-testid="ai-result-count">{filtered.length} character{filtered.length === 1 ? "" : "s"}{filtered.length !== chars.length ? ` (of ${chars.length})` : ""}</p>
@@ -165,6 +169,7 @@ export default function AICharacters() {
       </div>
       {lab && <CharacterLab character={lab} onClose={() => setLab(null)} />}
       {editing && <CharacterEditor character={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {flagsOpen && <FeatureFlagsDialog onClose={() => setFlagsOpen(false)} />}
     </div>
   );
 }
@@ -228,7 +233,7 @@ function CharacterLab({ character, onClose }) {
                   <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
                     <button onClick={() => m.meta && setSelected(m.meta)} className={cn("max-w-[80%] rounded-2xl px-3.5 py-2 text-sm text-left", m.role === "user" ? "bg-pink-500 text-white" : m.role === "error" ? "bg-rose-500/10 text-rose-500 border border-rose-500/30" : "bg-muted", m.meta && "cursor-pointer hover:ring-2 hover:ring-pink-500/40")} data-testid={m.role === "character" ? `lab-reply-${i}` : undefined}>
                       {m.text}
-                      {m.meta && <span className="block mt-1 text-[10px] opacity-60">{m.meta.responseLanguage} · {m.meta.usage?.latencyMs}ms · tap for diagnostics</span>}
+                      {m.meta && <span className="block mt-1 text-[10px] opacity-60">{m.meta.responseLanguage} · {m.meta.usage?.routeCategory || m.meta.usage?.model} · {m.meta.usage?.latencyMs}ms · tap for diagnostics</span>}
                     </button>
                   </div>
                 ))}
@@ -257,18 +262,36 @@ function CharacterLab({ character, onClose }) {
               {!selected ? <p className="text-[11px] text-muted-foreground">Tap a reply to inspect its diagnostics.</p>
                 : (
                   <div className="space-y-2 text-[11px]" data-testid="lab-diagnostics">
+                    {selected.routing && (
+                      <div className="rounded-md border border-pink-500/25 bg-pink-500/5 p-2 space-y-1" data-testid="lab-routing">
+                        <div className="flex items-center justify-between"><span className="text-muted-foreground flex items-center gap-1"><Cpu className="h-3 w-3" />Route tier</span><span className="font-semibold text-pink-500">{selected.routing.category}</span></div>
+                        <p className="text-[10px] text-muted-foreground">{selected.routing.reason}</p>
+                      </div>
+                    )}
                     <Diag icon={Languages} label="Detected" value={selected.detectedLanguage} />
                     <Diag icon={Languages} label="Response lang" value={selected.responseLanguage} />
                     <Diag icon={MessagesSquare} label="Mode" value={selected.conversationMode} />
                     <Diag icon={Brain} label="Relationship" value={selected.relationshipState} />
-                    <Diag icon={Brain} label="Memory used" value={(selected.memoryIdsUsed || []).length + " item(s)"} />
+                    <Diag icon={GitBranch} label="Character version" value={`v${selected.characterVersion ?? 1}`} />
                     <div className="flex gap-2 pt-1">
                       <Pass ok={selected.quality?.consistencyPassed} icon={ShieldCheck} label="Consistency" />
                       <Pass ok={selected.quality?.repetitionPassed} icon={Repeat} label="No-repeat" />
                       <Pass ok={selected.quality?.safetyPassed} icon={ShieldCheck} label="Safety" />
                     </div>
+                    <Diag icon={Star} label="Quality score" value={selected.qualityScore != null ? `${Math.round(selected.qualityScore * 100)}%` : "—"} />
                     <Diag icon={Gauge} label="Latency" value={`${selected.usage?.latencyMs}ms · ${selected.usage?.attempts} attempt(s)`} />
                     <Diag icon={Bot} label="Model" value={`${selected.usage?.provider}/${selected.usage?.model}`} />
+                    <div className="pt-1" data-testid="lab-memory-layers">
+                      <p className="text-muted-foreground flex items-center gap-1 mb-1"><Brain className="h-3 w-3" />Memory retrieved ({(selected.memoryLayersUsed || []).length})</p>
+                      {(selected.memoryLayersUsed || []).length === 0
+                        ? <p className="text-[10px] text-muted-foreground">Nothing relevant retrieved.</p>
+                        : (selected.memoryLayersUsed || []).map((m, i) => (
+                          <div key={i} className="flex items-start gap-1.5 mb-1">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-500 shrink-0 capitalize">{m.layer}</span>
+                            <span className="text-[10px] text-muted-foreground leading-snug">{m.text}{m.score != null ? ` · ${m.score}` : ""}</span>
+                          </div>
+                        ))}
+                    </div>
                     {selected.plan && <details className="mt-1"><summary className="cursor-pointer text-muted-foreground">Response plan</summary><pre className="whitespace-pre-wrap break-words text-[10px] mt-1 bg-muted/40 p-2 rounded">{JSON.stringify(selected.plan, null, 1)}</pre></details>}
                   </div>
                 )}
@@ -330,6 +353,72 @@ function CharacterEditor({ character, onClose, onSaved }) {
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button data-testid="ai-save" onClick={save} disabled={saving} className="gradient-brand text-white border-0">{saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+/* ------------------------------ Feature Flags (admin) ------------------------------ */
+function FeatureFlagsDialog({ onClose }) {
+  const [flags, setFlags] = useState(null);
+  const [meta, setMeta] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null); // key currently saving
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get("/ai/flags");
+        setFlags(data.flags || {}); setMeta(data.meta || {});
+      } catch (e) { toast.error(formatApiError(e.response?.data?.detail || e)); }
+      setLoading(false);
+    })();
+  }, []);
+
+  const toggle = async (key, value) => {
+    const prev = flags;
+    setFlags((f) => ({ ...f, [key]: value })); setSaving(key);
+    try {
+      const { data } = await api.put("/ai/flags", { flags: { [key]: value } });
+      setFlags(data.flags || {});
+      toast.success(`${meta[key]?.label || key} ${value ? "enabled" : "disabled"}`);
+    } catch (e) {
+      setFlags(prev);
+      toast.error(formatApiError(e.response?.data?.detail || e));
+    }
+    setSaving(null);
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg" data-testid="ai-feature-flags">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Flag className="h-4 w-4 text-pink-500" />AI Feature Flags</DialogTitle>
+          <DialogDescription>Central kill-switches for the AI stack. Changes apply within ~30s across all pods.</DialogDescription>
+        </DialogHeader>
+        {loading || !flags ? (
+          <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : (
+          <div className="space-y-1">
+            {Object.keys(flags).map((key) => (
+              <div key={key} className="flex items-start justify-between gap-4 py-2.5 border-b border-border last:border-0" data-testid={`ai-flag-row-${key}`}>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{meta[key]?.label || key}</p>
+                  <p className="text-[11px] text-muted-foreground leading-snug">{meta[key]?.help}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                  {saving === key && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                  <Switch data-testid={`ai-flag-${key}`} checked={!!flags[key]} disabled={saving === key} onCheckedChange={(v) => toggle(key, v)} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} data-testid="ai-flags-close">Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

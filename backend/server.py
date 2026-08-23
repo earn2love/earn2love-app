@@ -866,6 +866,23 @@ async def ai_seed(admin: dict = Depends(get_current_admin)):
     return {"seeded": ids}
 
 
+# ---- Centralized AI feature flags (admin) ----
+@api.get("/ai/flags")
+async def ai_get_flags(admin: dict = Depends(get_current_admin)):
+    return await _fs_guarded(ai_svc.get_feature_flags, ai_svc.flag_defaults())
+
+
+@api.put("/ai/flags")
+async def ai_put_flags(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "ai-characters")
+    updates = body.get("flags") if isinstance(body.get("flags"), dict) else body
+    res = await _fs_guarded(lambda: ai_svc.update_feature_flags(updates, admin["email"]), None)
+    if res is None:
+        raise HTTPException(status_code=503, detail="Could not update flags (Firestore unavailable or invalid payload)")
+    audit(admin, "update", "ai-characters", "feature-flags", "feature-flags", None, None, updates, request)
+    return res
+
+
 @api.delete("/ai/characters/{cid}")
 async def ai_delete(cid: str, request: Request, admin: dict = Depends(get_current_admin)):
     require_write(admin, "ai-characters")

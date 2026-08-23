@@ -45,11 +45,12 @@ def classify(u, plan, memories):
     return STANDARD_SOCIAL, "default social"
 
 
-def route(u, plan, memories, *, category_override=None):
+def route(u, plan, memories, *, category_override=None, enabled_override=None):
+    enabled = ENABLED if enabled_override is None else enabled_override
     if category_override:
         cat = category_override
         reason = "explicit category"
-    elif not ENABLED:
+    elif not enabled:
         cat = DEEP_REASONING
         reason = "router disabled — using strong model"
     else:
