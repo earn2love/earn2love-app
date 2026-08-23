@@ -20,6 +20,7 @@ import support_service as support
 import hr_service as hr
 import notifications_service as notif
 import games_service as games
+import ai_service as ai_svc
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -737,6 +738,128 @@ async def play_rematch(sid: str, user: dict = Depends(get_current_user)):
         return games.rematch(sid, user["uid"])
     except games.GameAccessError as e:
         raise HTTPException(status_code=403, detail=str(e))
+
+
+# ---------------- Advanced AI Character Engine ----------------
+import asyncio as _asyncio
+
+
+async def _fs_guarded(fn, fallback, timeout=4.0):
+    """Run a (possibly blocking) Firestore call with a timeout so the admin UI never
+    hangs while the Firebase credential is unavailable."""
+    try:
+        loop = _asyncio.get_event_loop()
+        return await _asyncio.wait_for(loop.run_in_executor(None, fn), timeout=timeout)
+    except Exception as e:
+        logger.warning(f"firestore guarded call failed/timed out: {type(e).__name__}")
+        return fallback
+
+
+@api.get("/ai/characters")
+async def ai_list(admin: dict = Depends(get_current_admin)):
+    stored = await _fs_guarded(ai_svc.list_stored, [])
+    ref = ai_svc.reference_characters()
+    ref_ids = {c["characterId"] for c in ref}
+    merged = ref + [c for c in stored if c.get("characterId") not in ref_ids]
+    return {"items": merged, "storedAvailable": len(stored) > 0, "referenceCount": len(ref)}
+
+
+@api.get("/ai/characters/reference")
+async def ai_reference(admin: dict = Depends(get_current_admin)):
+    return {"items": ai_svc.reference_characters()}
+
+
+@api.get("/ai/characters/{cid}")
+async def ai_get(cid: str, admin: dict = Depends(get_current_admin)):
+    c = next((x for x in ai_svc.reference_characters() if x["characterId"] == cid), None)
+    if not c:
+        c = await _fs_guarded(lambda: ai_svc.get_character(cid), None)
+    if not c:
+        raise HTTPException(status_code=404, detail="Character not found")
+    return c
+
+
+@api.post("/ai/characters")
+async def ai_create(body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "ai-characters")
+    try:
+        c = ai_svc.upsert_character(body, admin["email"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    audit(admin, "create", "ai-characters", c["characterId"], c["characterId"], None, c.get("displayName"), None, request)
+    return c
+
+
+@api.put("/ai/characters/{cid}")
+async def ai_update(cid: str, body: dict, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "ai-characters")
+    try:
+        c = ai_svc.upsert_character({**body, "characterId": cid}, admin["email"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    audit(admin, "update", "ai-characters", cid, cid, None, None, None, request)
+    return c
+
+
+@api.post("/ai/characters/{cid}/version")
+async def ai_new_version(cid: str, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "ai-characters")
+    c = ai_svc.new_version(cid, admin["email"])
+    if not c:
+        raise HTTPException(status_code=404, detail="Character not found")
+    return c
+
+
+@api.get("/ai/characters/{cid}/versions")
+async def ai_versions(cid: str, admin: dict = Depends(get_current_admin)):
+    return {"items": await _fs_guarded(lambda: ai_svc.list_versions(cid), [])}
+
+
+@api.get("/ai/characters/{cid}/metrics")
+async def ai_metrics(cid: str, admin: dict = Depends(get_current_admin)):
+    return await _fs_guarded(lambda: ai_svc.metrics(cid), {"hasData": False, "count": 0})
+
+
+@api.post("/ai/characters/{cid}/flags")
+async def ai_flags(cid: str, body: dict, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "ai-characters")
+    c = await _fs_guarded(lambda: ai_svc.set_flags(cid, body.get("enabled"), body.get("archived")), None)
+    if not c:
+        raise HTTPException(status_code=404, detail="Character not found or Firestore unavailable")
+    return c
+
+
+@api.post("/ai/characters/seed-reference")
+async def ai_seed(admin: dict = Depends(get_current_admin)):
+    require_write(admin, "ai-characters")
+    ids = ai_svc.seed_reference_to_firestore()
+    return {"seeded": ids}
+
+
+# ---- AI Character Lab (sandbox — never touches production) ----
+@api.post("/ai/lab/start")
+async def ai_lab_start(body: dict, admin: dict = Depends(get_current_admin)):
+    try:
+        return ai_svc.lab_start(body.get("characterId"), body.get("memoryFixtures"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.post("/ai/lab/chat")
+async def ai_lab_chat(body: dict, admin: dict = Depends(get_current_admin)):
+    try:
+        r = await ai_svc.lab_chat(body.get("sessionId"), body.get("message", ""),
+                                  body.get("language"), body.get("relationshipState"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not r.get("ok"):
+        raise HTTPException(status_code=502, detail=r.get("error", "engine_error"))
+    return r
+
+
+@api.post("/ai/lab/reset")
+async def ai_lab_reset(body: dict, admin: dict = Depends(get_current_admin)):
+    return ai_svc.lab_reset(body.get("sessionId"))
 
 
 # ---------------- Dashboard / analytics ----------------

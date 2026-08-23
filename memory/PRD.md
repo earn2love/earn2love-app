@@ -178,3 +178,34 @@ in `/app/e2l_production_hardening/`, audit in `PRODUCTION_AUDIT.md`):
   NOT verified (needs live Firebase+secrets+devices): Stripe webhook credit, Agora,
   Android/iOS builds. Flutter UI/branding/entrypoint fixes remain (see spec §11).
 
+
+
+## 2026-08 — Advanced AI Character Engine (Phases 1–5) — ENGINE PROVEN OFFLINE, live persistence BLOCKED
+Built a modular, provider-agnostic AI Character Engine as a SEPARATE layer (backend/ai_engine/),
+touching no existing systems (support bot, chat, wallet, games, notifications, profiles preserved).
+Pipeline: understanding → identity/world-model → layered memory → relationship state → language
+style → conversation planner → provider layer → consistency/repetition/safety guards → persistence.
+- Modules: schema, repository (interface + InMemory + Firestore), registry (3 reference chars),
+  provider (emergentintegrations; env AI_ENGINE_PROVIDER=openai / AI_ENGINE_MODEL=gpt-5.6-sol; swappable),
+  understanding, memory (A working/B episodic/C long-term/D relationship/E character facts + deterministic
+  ranking), relationship (new/familiar/comfortable/established, non-manipulative), language_style
+  (Telugu/Hindi/Tamil-English mixing), planner, guards, engine (orchestrator), evaluation.
+- Service ai_service.py + endpoints /api/ai/* (character CRUD/versions/metrics/flags/seed + AI Character
+  Lab: start/chat/reset). Firestore-guarded so admin UI never hangs while creds down.
+- Frontend pages/AICharacters.jsx: list + editor (identity + level sliders) + AI Character Lab sandbox
+  (chat + live diagnostics: language, relationship, memory IDs, guard pass/fail, latency, model, plan).
+  Route /ai-characters, nav under Engagement (key ai-characters).
+- 3 reference characters (intentionally different, all strong reasoning): Ananya (warm/playful, Hyderabad,
+  Telugu-English), Marcus (direct/witty, London), Sora (quiet/perceptive, Vancouver).
+- Firestore collections (backend-authoritative, client write:false): aiCharacters (client-read),
+  aiCharacterVersions/Memories/RelationshipState/Conversations/Metrics/Evaluations. Rules added.
+- VERIFIED OFFLINE (in-memory repo + real GPT-5.6): divergence distinct (avg sim 0.07); 15-turn battery
+  Ananya & Marcus 1.0 all dimensions, Sora strong; multilingual + memory callback + contradiction
+  resistance + repetition avoidance + guards all pass.
+- BLOCKED (needs Firebase key): live Firestore persistence, production CRUD, security-rules + concurrency,
+  conversation restoration. Do NOT mark production-ready until these live tests pass.
+- Deliverable: deliverables/flutter-production-hardening/AI_CHARACTER_ENGINE.md. 67 production characters NOT generated yet (by design).
+
+## ⏳ Pending live-test queue (run in order the moment the new Firebase service-account key is active)
+1. Verify Firebase auth/token. 2. Play Together: seed 50 games + 535 content, run full E2E. 3. AI Engine:
+seed-reference, live persistence/restoration/rules tests. Do not reset unrelated production data.

@@ -168,6 +168,23 @@ service cloud.firestore {
     match /gameEvents/{id}          { allow read: if isAdmin(); allow write: if false; }
     match /gamePreviewSessions/{id} { allow read, write: if false; }
 
+    // ---- Advanced AI Character Engine -----------------------------------
+    // Character catalog: signed-in clients may READ (to render AI profiles);
+    // ONLY admins/backend may write. All AI profiles are labelled isAi:true.
+    match /aiCharacters/{cid}        { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /aiCharacterVersions/{id}  { allow read: if isAdmin();    allow write: if false; }
+    // Per-user memory / conversations / relationship / metrics / evaluations:
+    // backend-authoritative. Clients never write engine state and read their own
+    // conversation via the backend API, not by querying these directly.
+    match /aiCharacterMemories/{id}           { allow read: if isAdmin(); allow write: if false; }
+    match /aiCharacterRelationshipState/{id}  { allow read: if isAdmin(); allow write: if false; }
+    match /aiCharacterConversations/{id} {
+      allow read: if isAdmin(); allow write: if false;
+      match /turns/{t} { allow read: if isAdmin(); allow write: if false; }
+    }
+    match /aiCharacterMetrics/{id}     { allow read: if isAdmin(); allow write: if false; }
+    match /aiCharacterEvaluations/{id} { allow read: if isAdmin(); allow write: if false; }
+
     // Default deny.
     match /{document=**} {
       allow read, write: if false;
