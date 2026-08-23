@@ -32,22 +32,86 @@ def _recency_weight(mem):
 
 def score_memory(mem, query_kw, understanding):
     mem_kw = _keywords(mem.get("text", "") + " " + " ".join(mem.get("tags", [])))
-    overlap = len(query_kw & mem_kw) / (len(query_kw) + 1e-6) if query_kw else 0.0
+    # bidirectional (Jaccard-style) semantic overlap — robust to memory length
+    overlap = len(query_kw & mem_kw) / len(query_kw | mem_kw) if (query_kw and mem_kw) else 0.0
     importance = float(mem.get("importance", 0.4))
     explicit = 0.3 if mem.get("explicitSave") else 0.0
     rel = 0.15 if mem.get("relationshipRelevant") else 0.0
     recency = _recency_weight(mem)
     referenced_boost = 0.25 if understanding.get("userReferencedPast") else 0.0
-    return 0.45 * overlap + 0.2 * importance + 0.15 * recency + explicit + rel + referenced_boost
+    return 0.5 * overlap + 0.2 * importance + 0.15 * recency + explicit + rel + referenced_boost
+
+
+def _layer(mem):
+    if mem.get("explicitSave") or mem.get("type") in ("user_fact", "long_term"):
+        return "explicit"
+    if mem.get("relationshipRelevant") and mem.get("type") not in ("episodic",):
+        return "relationship"
+    if mem.get("type") == "episodic" or float(mem.get("importance", 0)) >= 0.5:
+        return "episodic"
+    return "working"
 
 
 def retrieve(repo, cid, uid, understanding, k=4):
+    """Layered retrieval: always surface top explicit long-term fact (durable identity of
+    the user), then fill remaining budget by blended relevance across episodic/relationship."""
     query_kw = _keywords(" ".join(understanding.get("topics", [])))
     mems = repo.list_memories(cid, uid)
-    scored = [(score_memory(m, query_kw, understanding), m) for m in mems]
-    scored = [s for s in scored if s[0] > 0.12 or understanding.get("userReferencedPast")]
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [{**m, "_score": round(sc, 3)} for sc, m in scored[:k]]
+    scored = [(score_memory(m, query_kw, understanding), {**m, "_layer": _layer(m)}) for m in mems]
+    picked, seen = [], set()
+    # 1. guarantee one explicit long-term memory if any exist
+    explicit = sorted([s for s in scored if s[1]["_layer"] == "explicit"], key=lambda x: x[0], reverse=True)
+    if explicit:
+        sc, m = explicit[0]
+        picked.append({**m, "_score": round(sc, 3)}); seen.add(m.get("memoryId") or m.get("text"))
+    # 2. fill by score (relevance-gated unless user referenced the past)
+    rest = sorted([s for s in scored if (s[0] > 0.12 or understanding.get("userReferencedPast"))],
+                  key=lambda x: x[0], reverse=True)
+    for sc, m in rest:
+        key = m.get("memoryId") or m.get("text")
+        if key in seen:
+            continue
+        picked.append({**m, "_score": round(sc, 3)}); seen.add(key)
+        if len(picked) >= k:
+            break
+    return picked[:k]
+
+
+def is_duplicate(text, existing_texts):
+    """True if a candidate memory is a near-duplicate of one already stored."""
+    kw = _keywords(text)
+    for e in existing_texts:
+        ek = _keywords(e)
+        if not kw or not ek:
+            continue
+        if text.strip().lower() == e.strip().lower():
+            return True
+        if len(kw & ek) / len(kw | ek) >= 0.8:
+            return True
+    return False
+
+
+DURABLE_SUMMARY = re.compile(r"\b(career|job|work|marriage|breakup|divorce|money|debt|health|family|"
+                             r"future|quit|resign|university|degree|dream|move|moving|exam|interview)\b", re.I)
+
+
+def compress_history(turns, keep_recent=8, max_items=6):
+    """Extractive summary of OLDER turns so 100+ turn conversations don't blow the prompt.
+    Keeps the recent turns raw (handled by the engine); summarises meaningful older user turns."""
+    older = turns[:-keep_recent] if len(turns) > keep_recent else []
+    if not older:
+        return ""
+    picks = []
+    for t in older:
+        if t.get("sender") != "user":
+            continue
+        txt = (t.get("text") or "").strip()
+        if len(txt) >= 12 and DURABLE_SUMMARY.search(txt):
+            picks.append(txt[:120])
+    if not picks:
+        return ""
+    picks = picks[-max_items:]
+    return "Earlier in your history together, the person mentioned: " + "; ".join(picks) + "."
 
 
 # Explicit long-term memory extraction (user asks to remember, or states a durable fact).

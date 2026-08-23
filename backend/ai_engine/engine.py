@@ -42,7 +42,7 @@ EMOJI_HINT = {"none": "Do not use emojis.", "sparing": "At most one emoji, only 
               "frequent": "A few emojis are fine, but don't overdo it."}
 
 
-def build_system_prompt(c, plan, memories, rel, lang, u):
+def build_system_prompt(c, plan, memories, rel, lang, u, summary=""):
     facts = []
     for wf in c.get("worldFacts", []):
         tag = " [immutable]" if wf.get("immutable") else ""
@@ -74,6 +74,7 @@ YOUR WORLD FACTS (stay consistent; if something isn't defined, stay natural/unce
 
 WHAT YOU KNOW ABOUT THIS PERSON (relevant memory only):
 {chr(10).join(mem_lines)}
+{('CONVERSATION SO FAR (older context — stay consistent with it): ' + summary) if summary else ''}
 Relationship: {rel.get('state')}. {R.STYLE_BY_STATE.get(rel.get('state'), '')}
 
 INTELLIGENCE: You are genuinely smart and can reason well about careers, tech, travel, relationships, life decisions and general knowledge. Personality changes HOW you express intelligence, never how much.
@@ -115,8 +116,9 @@ class CharacterEngine:
 
         # 1. understanding
         history = history_fixture if history_fixture is not None else \
-            [{"sender": t["sender"], "text": t["text"]} for t in self.repo.get_turns(character_id, user_id, limit=12)]
-        u = U.analyze(user_text, history)
+            [{"sender": t["sender"], "text": t["text"]} for t in self.repo.get_turns(character_id, user_id, limit=40)]
+        recent = history[-12:]
+        u = U.analyze(user_text, recent)
         if language_override:
             u["languageCode"] = language_override
             u["detectedLanguage"] = language_override
@@ -134,15 +136,16 @@ class CharacterEngine:
             lang = L.resolve({"languageCode": language_override, "topics": u["topics"]}, c)
         plan = P.plan(u, c, rel, mems, lang)
 
-        # 6. build prompt + transcript
-        sys = build_system_prompt(c, plan, mems, rel, lang, u)
+        # 6. build prompt + transcript (compress older history for 100+ turn continuity)
+        summary = M.compress_history(history)
+        sys = build_system_prompt(c, plan, mems, rel, lang, u, summary)
         transcript = "\n".join(f"{'USER' if m['sender']=='user' else c['displayName'].upper()}: {m['text']}"
-                               for m in history[-8:])
+                               for m in recent[-8:])
         prompt = (f"Recent conversation:\n{transcript}\n\nLatest message from the person: {user_text}"
                   if transcript else f"The person says: {user_text}")
 
         # 7. route + generate + guards (regenerate once, escalating to the strong model)
-        recent_ai = [t["text"] for t in self.repo.get_turns(character_id, user_id) if t["sender"] == "character"][-5:]
+        recent_ai = [t["text"] for t in history if t["sender"] == "character"][-8:]
         routing = ROUTER.route(u, plan, mems)
         result, quality, attempts = await self._generate_guarded(sys, prompt, c, recent_ai, plan, character_id, routing)
         if not result["ok"]:
@@ -156,7 +159,8 @@ class CharacterEngine:
             self.repo.append_turn(character_id, user_id, {"sender": "character", "text": text, "index": idx + 1})
             R.advance(self.repo, character_id, user_id, u)
             new_mem = M.maybe_extract(user_text, u)
-            if new_mem:
+            if new_mem and not M.is_duplicate(new_mem.get("text", ""),
+                                               [m.get("text", "") for m in self.repo.list_memories(character_id, user_id)]):
                 self.repo.add_memory(character_id, user_id, {**new_mem, "relationshipRelevant": True})
             self.repo.record_metric(character_id, {"latencyMs": result["latencyMs"], "model": result["model"],
                                                     "attempts": attempts, "quality": quality, "userId": user_id,
@@ -194,7 +198,7 @@ class CharacterEngine:
                 break
             text = re.sub(r"^\s*(\w+):\s*", "", res["text"]).strip()  # strip accidental "Name:" prefix
             rep_ok, rep_reason, off = G.repetition_check(text, recent_ai)
-            con_ok, con_reason = G.consistency_check(text, c)
+            con_ok, con_reason = G.consistency_check(text, c, recent_ai)
             saf_ok, saf_reason, _ = G.safety_check(text)
             length_ok = _length_ok(text, plan["targetLength"])
             quality = {"consistencyPassed": con_ok, "repetitionPassed": rep_ok,

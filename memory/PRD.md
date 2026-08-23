@@ -354,3 +354,28 @@ career-decision→gpt-5.6-sol, memory-callback→MEMORY_HEAVY, banter→gpt-5.4.
 2d Repetition/consistency v2 (semantic similarity, contradiction repair);
 2e Admin Character Lab v2 + Model Benchmark + centralized Feature Flags + character version surfacing;
 Then evaluation v2 harness (100/250-turn, multilingual, contradiction traps) + long-conversation report.
+
+## 2026-08 — AI Engine v2, Phases 2b/2c/2d (DONE & VERIFIED)
+### Understanding v2 (understanding.py) — additive, deterministic (no extra LLM cost)
+Added rich structured signals alongside existing keys: primaryIntent, reasoningDepth (low/medium/high),
+desiredReplyLength (micro/very_short/short/medium/detailed), userEnergy, sarcasmPossible,
+disagreementDetected, mixedLanguagePattern, culturalStyle, memoryLikelyUseful, topicChanged. These feed
+the router + planner so replies match the moment. Verified: advice→seek_advice/high/medium; "Em chestunnav lol"→telugu-english mixed.
+### Memory v2 (memory.py)
+Layered retrieval: guarantees a top EXPLICIT long-term memory then fills by blended relevance across
+episodic/relationship/working (each tagged _layer); bidirectional (Jaccard) semantic overlap scoring;
+is_duplicate() dedup before persisting (no memory spam); compress_history() extractive summary of OLDER
+turns (durable topics) so 100+ turn conversations don't blow the prompt — engine now fetches 40 turns,
+keeps recent 12 raw + injects the summary. Verified: compression + dedup + layered pick.
+### Consistency v2 (guards.py)
+repetition_check now semantic: last-8 window, Jaccard + bigram-phrase overlap (0.45) + repeated openings/
+questions. consistency_check(text, character, history) adds CROSS-HISTORY contradiction detection (catches
+identity drift, e.g. said "my sister" earlier then "only child") on top of config-fact + profession checks.
+A guard failure triggers the repair regeneration on the STRONG model (router). Verified: phrasing dup caught;
+history contradiction caught.
+### Live validation (upgraded pipeline, full 15-turn battery, no regressions)
+ref_marcus: consistency 1.0 / nonRep 0.93 / multilingual 1.0 / safety 1.0 / memory 1.0 / 0 err.
+ref_ananya (Telugu): consistency 1.0 / nonRep 1.0 / multilingual 1.0 / safety 1.0 / memory 1.0 / 0 err.
+### REMAINING: 2e Admin Character Lab v2 (show routing category/reason, memory IDs+layers, quality,
+consistency/repetition status, side-by-side model benchmark, character version) + centralized Feature Flags;
+then evaluation v2 harness (100/250-turn live run, contradiction-trap suite) + long-conversation report.

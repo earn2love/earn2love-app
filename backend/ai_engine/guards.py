@@ -41,15 +41,26 @@ def _jaccard(a, b):
     return len(sa & sb) / len(sa | sb)
 
 
-def repetition_check(text, recent_texts, sim_threshold=0.6):
-    recent = recent_texts[-5:]
+def _bigrams(t):
+    w = _norm(t).split()
+    return set(zip(w, w[1:]))
+
+
+def repetition_check(text, recent_texts, sim_threshold=0.5):
+    recent = recent_texts[-8:]
     for r in recent:
         if _jaccard(text, r) >= sim_threshold:
             return False, "too_similar_to_recent", r
     op = _opening(text)
     if op and sum(1 for r in recent if _opening(r) == op) >= 1:
         return False, "repeated_opening", op
-    # repeated stock question
+    # semantic phrase reuse: heavy bigram overlap with a recent reply
+    tb = _bigrams(text)
+    if len(tb) >= 4:
+        for r in recent:
+            rb = _bigrams(r)
+            if rb and len(tb & rb) / len(tb | rb) >= 0.45:
+                return False, "repeated_phrasing", r[:60]
     q = re.findall(r"[^.?!]*\?", text)
     for question in q:
         for r in recent:
@@ -58,22 +69,34 @@ def repetition_check(text, recent_texts, sim_threshold=0.6):
     return True, None, None
 
 
-def consistency_check(text, character):
+SELF_SIBLING = re.compile(r"\bmy (brother|sister|sibling)s?\b", re.I)
+SELF_ONLY = re.compile(r"\bi'?m an only child\b", re.I)
+
+
+def consistency_check(text, character, history=None):
     tl = text.lower()
     for p in AI_PATTERNS:
         if re.search(p, tl):
             return False, f"assistant_persona:{p}"
-    # protected-fact contradictions (high-risk: sibling structure)
+    # protected-fact contradictions vs the character's CONFIG
     sib = character.get("siblings"); only = character.get("onlyChild")
-    if only is True and re.search(r"\bmy (brother|sister|sibling)s?\b", tl):
+    if only is True and SELF_SIBLING.search(tl):
         return False, "contradiction:claimed_sibling_but_only_child"
-    if (sib and sib > 0) and re.search(r"\bi'?m an only child\b", tl):
+    if (sib and sib > 0) and SELF_ONLY.search(tl):
         return False, "contradiction:claimed_only_child_but_has_siblings"
+    # cross-HISTORY contradiction: character contradicts what it said earlier (even when
+    # config leaves it undefined) — catches identity drift over long conversations.
+    if history:
+        said_sibling = any(SELF_SIBLING.search((h or "").lower()) for h in history)
+        said_only = any(SELF_ONLY.search((h or "").lower()) for h in history)
+        if said_sibling and SELF_ONLY.search(tl):
+            return False, "contradiction:history_said_sibling_now_only_child"
+        if said_only and SELF_SIBLING.search(tl):
+            return False, "contradiction:history_said_only_child_now_sibling"
     prof = (character.get("profession") or "").lower()
     if prof and re.search(r"\bi (am|work) as an? ([a-z ]+)\b", tl):
         m = re.search(r"\bi (?:am|work) as an? ([a-z ]+)", tl)
         claimed = (m.group(1) if m else "").strip()
-        # only flag a clear different single-word profession claim
         if claimed and claimed.split()[0] not in prof and prof.split()[0] not in claimed:
             return False, f"contradiction:profession(said '{claimed}', is '{prof}')"
     return True, None
