@@ -1,0 +1,52 @@
+{
+  "summary": "Iteration-9 retest of the four iter8 fixes plus full regression of Play Together and the AI Character Engine against the LIVE preview backend + Firestore. Backend: 25/27 pytest cases passed (new suite /app/backend/tests/test_iter9_fixes.py). All four fixes VERIFIED: (1) tier default 'casual' — untiered user gets 49/50 unlocked in /api/play/catalog (tier=='casual') and POST /api/play/sessions now returns 200 (love-only game still 403 'tier'); (2) bodyless POST /api/play/sessions/{sid}/advance returns 200; (3) NEW POST /api/ai/chat generates a reply, persists to Firestore and recalls the stored fact (dog 'Pepper' / Kyoto) on turn 2 AND from a brand-new HTTP session — GET /api/ai/chat/{cid}/history returned 6 persisted turns + relationship, aiCharacterMemories / aiCharacterRelationshipState / aiCharacterMetrics / conversation turns all written; (4) DELETE /api/ai/characters/{cid} deletes stored chars (200), rejects ref_ananya with 400 'Reference characters cannot be deleted', 404 for unknown. Regressions all green: idempotent actionId, revision-mismatch 409, out-of-turn 409, completion + redaction, abandon/rematch, sandbox preview for all 5 mechanics with ZERO analytics writes, AI Lab multi-turn + language/relationship override with zero production writes. Frontend: admin login, Play Together (50 cards, preview play/advance for choice + guess mechanics, stats + content dialogs), AI Characters (3 reference cards, create via UI, delete button + window.confirm, 'Disabled' badge, Lab selects with 7/5 options, Lab reply) all pass. All QA artifacts cleaned from Firestore (verified 0 QA users / 0 QA chars / 0 conversations / 50 games / 3 ref chars remain).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/ai/chat", "issue": "Unknown characterId returns 502 'character_not_found' instead of 404. The engine returns {ok:false, error:'character_not_found'|'character_disabled'} and server.py maps every non-ok result to 502, so client-side errors are reported as upstream failures. Map character_not_found->404 and character_disabled->403/409."},
+      {"endpoint": "POST /api/ai/chat (persistence)", "issue": "FirestoreCharacterRepository.append_turn() writes only aiCharacterConversations/{cid}__{uid}/turns and never materialises the parent document (snapshot.exists == False, no characterId/userId/updatedAt). Consequence proven during cleanup: collection('aiCharacterConversations').stream() returns nothing, so conversations are invisible to listing/GC and turns become orphaned when the user is deleted — I had to enumerate with list_documents() (see tests/cleanup_iter9_orphan_turns.py). Fix: set() the parent doc with merge=True on first turn."},
+      {"endpoint": "DELETE /api/ai/characters/{cid}", "issue": "No cascade: aiCharacterVersions, aiCharacterMemories, aiCharacterRelationshipState, aiCharacterMetrics and conversation turns for the deleted character are left orphaned in Firestore."},
+      {"endpoint": "GET /api/ai/characters/{cid}/metrics", "issue": "aiCharacterMetrics documents carry no userId (engine.record_metric only stores characterId/latency/model/attempts/quality), so per-user attribution, GDPR deletion and QA cleanup are impossible."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AICharacters editor (ai-editor dialog)", "issue": "There is no enable/disable control anywhere in the AI Characters UI (0 switches in the editor; only sliders). POST /api/ai/characters/{cid}/flags exists but is unreachable from the admin panel, so an admin can never produce or clear the new 'Disabled' state — I had to disable via the API to verify the badge renders.", "selector": "[data-testid=\"ai-editor\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AI Characters / Play Together dialogs", "issues": ["React a11y warning repeated on every dialog open: 'Missing `Description` or `aria-describedby={undefined}` for DialogContent' — add DialogDescription or aria-describedby to game-preview / game-stats / content-manager / ai-editor / character-lab."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_fixes.py",
+    "/app/backend/tests/cleanup_iter9.py",
+    "/app/backend/tests/cleanup_iter9_orphan_turns.py",
+    "/app/test_reports/pytest/iter9_results.xml"
+  ],
+  "action_items": [
+    "Map engine failures in POST /api/ai/chat to proper status codes (character_not_found -> 404, character_disabled -> 403) instead of blanket 502.",
+    "Materialise the parent aiCharacterConversations/{cid}__{uid} doc (set merge=True with characterId/userId/updatedAt/turnCount) so conversations are listable and GC-able.",
+    "Cascade DELETE /api/ai/characters/{cid} to versions/memories/relationship/metrics/turns.",
+    "Add an Enabled/Disabled toggle to the AI Characters card or editor wired to POST /api/ai/characters/{cid}/flags (the new ai-disabled-<cid> badge is otherwise unreachable from the UI).",
+    "Add userId to aiCharacterMetrics documents.",
+    "Add DialogDescription/aria-describedby to the admin dialogs."
+  ],
+  "critical_code_review_comments": [
+    "ai_engine/repository.py get_turns() streams the entire turns subcollection and slices in Python; list_memories() streams all memories per request. Both are unbounded reads per chat turn — add order_by('index').limit_to_last(n) / a limit on memories before production traffic.",
+    "server.py /api/ai/chat has no rate limiting or message-length cap; each call issues 1-2 LLM completions billed to EMERGENT_LLM_KEY and is reachable by any authenticated Firebase user.",
+    "games_service._user_tier now silently defaults to 'casual' on ANY Firestore exception — a transient Firestore outage grants entitlements rather than failing closed; consider distinguishing 'doc missing' (default casual) from 'lookup failed' (retry/deny)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter9_fixes.py",
+    "/app/backend/tests/cleanup_iter9.py",
+    "/app/backend/tests/cleanup_iter9_orphan_turns.py"
+  ],
+  "success_rate": {"backend": "93% (25/27; 2 minor failures documented above)", "frontend": "100% of tested flows (1 UI gap: no enable/disable control)"},
+  "seed_data_creation": "No seeding. Created and then deleted: 11 throwaway Firebase Auth users + users/{uid} docs (createdByQA=true, one deliberately WITHOUT a tier field), ~8 gameSessions + 27 gameEvents, 9 gamePreviewSessions, 3 TEST_QA AI characters (2 via API, 1 via UI), and the aiCharacter* docs written by /api/ai/chat. Firestore verified clean afterwards: 0 QA users, aiCharacters == [ref_ananya, ref_marcus, ref_sora], 0 conversations/memories/metrics, 50 games untouched.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "demo.admin@earn2love.com / Earn2Love@Demo2026 (super_admin) — works. earn2loveofficial@gmail.com still fails signInWithPassword; /app/memory/test_credentials.md is accurate.",
+  "context_for_next_testing_agent": "Use /app/backend/tests/test_iter9_fixes.py as the regression suite (pytest -n 2 --dist loadscope from pytest.ini; whole file runs in ~25s). Two tests are intentionally left failing to document open defects: TestAIProductionChat::test_conversation_parent_doc_has_metadata (phantom parent doc) and ::test_chat_validation (502 instead of 404 for unknown character). Helper _casual_game() must match tierAccess containing 'casual' — every one of the 50 games sets tierAccess, none are empty. ALWAYS run `python tests/cleanup_iter9.py` followed by `python tests/cleanup_iter9_orphan_turns.py` after any run that touches /api/ai/chat; the second script is mandatory because conversation parent docs are phantom and invisible to .stream().",
+  "rca_of_the_issue": "Both remaining failures live in the new production chat path. (1) Firestore does not create ancestor documents implicitly: append_turn() only calls .collection('turns').add(), so aiCharacterConversations/{cid}__{uid} stays a phantom document — GET /api/ai/chat/{cid}/history still works (it reads the subcollection directly) but the conversation cannot be listed, counted or garbage-collected via a collection query. (2) server.ai_chat() raises HTTPException(502, r['error']) for every non-ok engine result; ai_engine/engine.py returns ok:false with error='character_not_found' (line 111) / 'character_disabled' (line 113) for pure client errors, so a bad characterId surfaces as 502."
+}

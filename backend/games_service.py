@@ -330,12 +330,18 @@ def _event(game_id, session_id, event, extra=None, preview=False):
 # ==========================================================================
 # Entitlements
 # ==========================================================================
+DEFAULT_TIER = "casual"  # base entitlement — every authenticated user is at least casual
+
+
 def _user_tier(uid):
     try:
         d = get_db().collection("users").document(uid).get()
-        return (d.to_dict() or {}).get("tier") if d.exists else None
-    except Exception:
-        return None
+        if d.exists:
+            return (d.to_dict() or {}).get("tier") or DEFAULT_TIER
+        return DEFAULT_TIER
+    except Exception as e:
+        logger.warning(f"tier lookup failed for {uid}: {type(e).__name__}; defaulting to {DEFAULT_TIER}")
+        return DEFAULT_TIER
 
 
 class GameAccessError(Exception):

@@ -10,17 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Bot, Search, Loader2, FlaskConical, Pencil, BarChart3, Sparkles, Send, RotateCcw,
-  ShieldCheck, Repeat, Languages, Brain, Gauge, MessagesSquare, CheckCircle2, XCircle,
+  ShieldCheck, Repeat, Languages, Brain, Gauge, MessagesSquare, CheckCircle2, XCircle, Trash2, Power,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const LANGS = [
-  { code: "", label: "Auto-detect" }, { code: "english", label: "English" },
+  { code: "__auto__", label: "Auto-detect" }, { code: "english", label: "English" },
   { code: "telugu-english", label: "Telugu-English" }, { code: "hindi-english", label: "Hindi-English" },
   { code: "tamil-english", label: "Tamil-English" }, { code: "telugu", label: "Telugu" }, { code: "hindi", label: "Hindi" },
 ];
-const REL_STATES = ["", "new", "familiar", "comfortable", "established"];
+const REL_STATES = ["__auto__", "new", "familiar", "comfortable", "established"];
 const AVATAR = { ref_ananya: "from-pink-500/30 to-rose-500/20 text-pink-500", ref_marcus: "from-sky-500/30 to-indigo-500/20 text-sky-500", ref_sora: "from-emerald-500/30 to-teal-500/20 text-emerald-500" };
 
 export default function AICharacters() {
@@ -45,6 +45,24 @@ export default function AICharacters() {
     const q = query.trim().toLowerCase();
     return chars.filter((c) => !q || `${c.displayName} ${c.profession} ${(c.personalityTraits || []).join(" ")} ${c.city}`.toLowerCase().includes(q));
   }, [chars, query]);
+
+  const removeChar = useCallback(async (c) => {
+    if (!window.confirm(`Delete "${c.displayName}"? This permanently removes the character from Firestore.`)) return;
+    try {
+      await api.delete(`/ai/characters/${c.characterId}`);
+      toast.success(`${c.displayName} deleted`);
+      load();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail || e)); }
+  }, [load]);
+
+  const toggleEnabled = useCallback(async (c) => {
+    const next = c.enabled === false;
+    try {
+      await api.post(`/ai/characters/${c.characterId}/flags`, { enabled: next });
+      toast.success(`${c.displayName} ${next ? "enabled" : "disabled"}`);
+      load();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail || e)); }
+  }, [load]);
 
   return (
     <div data-testid="ai-characters-page">
@@ -75,6 +93,7 @@ export default function AICharacters() {
                     <div className="flex items-center gap-1.5">
                       <p className="font-semibold truncate">{c.displayName}</p>
                       <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 shrink-0">AI</span>
+                      {c.enabled === false && <span data-testid={`ai-disabled-${c.characterId}`} className="text-[9px] px-1.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-600 shrink-0">Disabled</span>}
                     </div>
                     <p className="text-[11px] text-muted-foreground truncate">{c.profession}</p>
                     <p className="text-[11px] text-muted-foreground truncate">{c.city}{c.city && c.country ? ", " : ""}{c.country} · {c.age}</p>
@@ -92,6 +111,8 @@ export default function AICharacters() {
                 <div className="flex items-center gap-1 pt-2 border-t border-border">
                   <Button size="sm" data-testid={`ai-lab-${c.characterId}`} onClick={() => setLab(c)} className="gradient-brand text-white border-0 flex-1"><FlaskConical className="h-4 w-4 mr-1.5" />Lab</Button>
                   {canEdit && <Button size="sm" variant="outline" data-testid={`ai-edit-${c.characterId}`} onClick={() => setEditing(c)}><Pencil className="h-4 w-4" /></Button>}
+                  {canEdit && !String(c.characterId).startsWith("ref_") && <Button size="sm" variant="outline" data-testid={`ai-toggle-${c.characterId}`} onClick={() => toggleEnabled(c)} className={cn(c.enabled === false ? "text-emerald-500 hover:text-emerald-600" : "text-amber-500 hover:text-amber-600")} title={c.enabled === false ? "Enable" : "Disable"}><Power className="h-4 w-4" /></Button>}
+                  {canEdit && !String(c.characterId).startsWith("ref_") && <Button size="sm" variant="outline" data-testid={`ai-delete-${c.characterId}`} onClick={() => removeChar(c)} className="text-rose-500 hover:text-rose-600"><Trash2 className="h-4 w-4" /></Button>}
                 </div>
               </div>
             ))}
@@ -178,11 +199,11 @@ function CharacterLab({ character, onClose }) {
           <div className="flex flex-col min-h-0 overflow-y-auto p-4 space-y-4">
             <DialogHeader className="p-0"><DialogTitle className="text-sm">Sandbox controls</DialogTitle></DialogHeader>
             <div><Label className="text-xs">Language</Label>
-              <Select value={lang} onValueChange={setLang}><SelectTrigger data-testid="lab-lang" className="h-9"><SelectValue /></SelectTrigger>
+              <Select value={lang || "__auto__"} onValueChange={(v) => setLang(v === "__auto__" ? "" : v)}><SelectTrigger data-testid="lab-lang" className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>{LANGS.map((l) => <SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>)}</SelectContent></Select></div>
             <div><Label className="text-xs">Relationship state</Label>
-              <Select value={rel} onValueChange={setRel}><SelectTrigger data-testid="lab-rel" className="h-9"><SelectValue placeholder="Auto (from turns)" /></SelectTrigger>
-                <SelectContent>{REL_STATES.map((r) => <SelectItem key={r} value={r}>{r || "Auto (from turns)"}</SelectItem>)}</SelectContent></Select></div>
+              <Select value={rel || "__auto__"} onValueChange={(v) => setRel(v === "__auto__" ? "" : v)}><SelectTrigger data-testid="lab-rel" className="h-9"><SelectValue placeholder="Auto (from turns)" /></SelectTrigger>
+                <SelectContent>{REL_STATES.map((r) => <SelectItem key={r} value={r}>{r === "__auto__" ? "Auto (from turns)" : r}</SelectItem>)}</SelectContent></Select></div>
             <div><Label className="text-xs">Memory fixtures (one per line)</Label>
               <Textarea rows={3} value={fixtures} onChange={(e) => setFixtures(e.target.value)} placeholder="e.g. My dream is to visit Japan." className="text-xs" data-testid="lab-fixtures" />
               <Button size="sm" variant="outline" className="w-full mt-2" onClick={start} data-testid="lab-restart"><RotateCcw className="h-3.5 w-3.5 mr-1.5" />Restart session</Button></div>
@@ -241,12 +262,12 @@ function CharacterEditor({ character, onClose, onSaved }) {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Display name</Label><Input data-testid="ai-name" value={f.displayName || ""} onChange={(e) => set("displayName", e.target.value)} /></div>
-            <div><Label>Age (18+)</Label><Input type="number" value={f.age || 18} onChange={(e) => set("age", Number(e.target.value))} /></div>
-            <div><Label>City</Label><Input value={f.city || ""} onChange={(e) => set("city", e.target.value)} /></div>
-            <div><Label>Country</Label><Input value={f.country || ""} onChange={(e) => set("country", e.target.value)} /></div>
-            <div className="col-span-2"><Label>Profession</Label><Input value={f.profession || ""} onChange={(e) => set("profession", e.target.value)} /></div>
-            <div className="col-span-2"><Label>Languages (comma-separated)</Label><Input value={(f.languages || []).join(", ")} onChange={(e) => set("languages", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} /></div>
-            <div className="col-span-2"><Label>Personality traits (comma-separated)</Label><Input value={(f.personalityTraits || []).join(", ")} onChange={(e) => set("personalityTraits", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} /></div>
+            <div><Label>Age (18+)</Label><Input data-testid="ai-age" type="number" value={f.age || 18} onChange={(e) => set("age", Number(e.target.value))} /></div>
+            <div><Label>City</Label><Input data-testid="ai-city" value={f.city || ""} onChange={(e) => set("city", e.target.value)} /></div>
+            <div><Label>Country</Label><Input data-testid="ai-country" value={f.country || ""} onChange={(e) => set("country", e.target.value)} /></div>
+            <div className="col-span-2"><Label>Profession</Label><Input data-testid="ai-profession" value={f.profession || ""} onChange={(e) => set("profession", e.target.value)} /></div>
+            <div className="col-span-2"><Label>Languages (comma-separated)</Label><Input data-testid="ai-languages" value={(f.languages || []).join(", ")} onChange={(e) => set("languages", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} /></div>
+            <div className="col-span-2"><Label>Personality traits (comma-separated)</Label><Input data-testid="ai-traits" value={(f.personalityTraits || []).join(", ")} onChange={(e) => set("personalityTraits", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} /></div>
             <div><Label>Reply length</Label>
               <Select value={f.replyLengthPreference} onValueChange={(v) => set("replyLengthPreference", v)}><SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{["very_short", "short", "medium", "long"].map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></div>
@@ -260,7 +281,7 @@ function CharacterEditor({ character, onClose, onSaved }) {
                 <input type="range" min="0" max="1" step="0.05" value={f[k] || 0} onChange={(e) => set(k, Number(e.target.value))} className="w-full accent-pink-500" data-testid={`ai-level-${k}`} /></div>
             ))}
           </div>
-          <div className="col-span-2"><Label>Communication style</Label><Textarea rows={2} value={f.communicationStyle || ""} onChange={(e) => set("communicationStyle", e.target.value)} /></div>
+          <div className="col-span-2"><Label>Communication style</Label><Textarea data-testid="ai-comm-style" rows={2} value={f.communicationStyle || ""} onChange={(e) => set("communicationStyle", e.target.value)} /></div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>

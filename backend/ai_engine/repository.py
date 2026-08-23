@@ -9,6 +9,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from google.cloud import firestore
 
 
 def _now():
@@ -73,6 +74,8 @@ class InMemoryCharacterRepository(CharacterRepository):
         return out
 
     def get_character(self, cid): return self.characters.get(cid)
+
+    def delete_character(self, cid): return self.characters.pop(cid, None) is not None
 
     def upsert_character(self, c):
         c["updatedAt"] = _now()
@@ -145,6 +148,26 @@ class FirestoreCharacterRepository(CharacterRepository):
         d = self.db.collection("aiCharacters").document(cid).get()
         return d.to_dict() if d.exists else None
 
+    def delete_character(self, cid):
+        ref = self.db.collection("aiCharacters").document(cid)
+        if not ref.get().exists:
+            return False
+        # cascade: delete child records keyed by characterId
+        for coll in ("aiCharacterVersions", "aiCharacterMemories", "aiCharacterMetrics", "aiCharacterEvaluations"):
+            for d in self.db.collection(coll).where("characterId", "==", cid).stream():
+                d.reference.delete()
+        # relationship + conversation docs are keyed "{cid}__{uid}" (parent may be phantom -> use list_documents)
+        for d in self.db.collection("aiCharacterRelationshipState").list_documents():
+            if d.id.startswith(f"{cid}__"):
+                d.delete()
+        for d in self.db.collection("aiCharacterConversations").list_documents():
+            if d.id.startswith(f"{cid}__"):
+                for t in d.collection("turns").stream():
+                    t.reference.delete()
+                d.delete()
+        ref.delete()
+        return True
+
     def upsert_character(self, c):
         c["updatedAt"] = _now()
         self.db.collection("aiCharacters").document(c["characterId"]).set(c, merge=True)
@@ -169,7 +192,7 @@ class FirestoreCharacterRepository(CharacterRepository):
         return mem
 
     def list_memories(self, cid, uid):
-        q = self.db.collection("aiCharacterMemories").where("characterId", "==", cid).where("userId", "==", uid)
+        q = self.db.collection("aiCharacterMemories").where("characterId", "==", cid).where("userId", "==", uid).limit(500)
         return [d.to_dict() for d in q.stream()]
 
     def get_relationship(self, cid, uid):
@@ -181,13 +204,20 @@ class FirestoreCharacterRepository(CharacterRepository):
         return state
 
     def append_turn(self, cid, uid, turn):
-        self.db.collection("aiCharacterConversations").document(f"{cid}__{uid}").collection("turns").add(turn)
+        conv = self.db.collection("aiCharacterConversations").document(f"{cid}__{uid}")
+        conv.set({"characterId": cid, "userId": uid, "updatedAt": _now(),
+                  "turnCount": firestore.Increment(1)}, merge=True)
+        conv.collection("turns").add(turn)
 
     def get_turns(self, cid, uid, limit=None):
         col = self.db.collection("aiCharacterConversations").document(f"{cid}__{uid}").collection("turns")
-        docs = [d.to_dict() for d in col.stream()]
+        if limit:
+            q = col.order_by("index", direction=firestore.Query.DESCENDING).limit(int(limit))
+            docs = [d.to_dict() for d in q.stream()]
+        else:
+            docs = [d.to_dict() for d in col.stream()]
         docs.sort(key=lambda t: t.get("index", 0))
-        return docs[-limit:] if limit else docs
+        return docs
 
     def record_metric(self, cid, metric):
         self.db.collection("aiCharacterMetrics").add({**metric, "characterId": cid, "at": _now()})

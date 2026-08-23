@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, Body
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -82,6 +82,12 @@ class SupportUserMessage(BaseModel):
 class SupportAgentAction(BaseModel):
     text: str | None = None
     status: str | None = None
+
+
+class AiChatBody(BaseModel):
+    characterId: str
+    message: str
+    language: str | None = None
 
 
 def client_ip(request: Request) -> str:
@@ -712,9 +718,9 @@ async def play_act(sid: str, body: dict, user: dict = Depends(get_current_user))
 
 
 @api.post("/play/sessions/{sid}/advance")
-async def play_advance(sid: str, body: dict, user: dict = Depends(get_current_user)):
+async def play_advance(sid: str, body: dict | None = Body(None), user: dict = Depends(get_current_user)):
     try:
-        return games.advance(sid, user["uid"], body.get("expectedRevision"))
+        return games.advance(sid, user["uid"], (body or {}).get("expectedRevision"))
     except games.GameAccessError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except games.engines.GameError as e:
@@ -834,6 +840,46 @@ async def ai_seed(admin: dict = Depends(get_current_admin)):
     require_write(admin, "ai-characters")
     ids = ai_svc.seed_reference_to_firestore()
     return {"seeded": ids}
+
+
+@api.delete("/ai/characters/{cid}")
+async def ai_delete(cid: str, request: Request, admin: dict = Depends(get_current_admin)):
+    require_write(admin, "ai-characters")
+    if cid in {c["characterId"] for c in ai_svc.reference_characters()}:
+        raise HTTPException(status_code=400, detail="Reference characters cannot be deleted")
+    ok = await _fs_guarded(lambda: ai_svc.delete_character(cid), False)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Character not found or Firestore unavailable")
+    audit(admin, "delete", "ai-characters", cid, cid, None, None, None, request)
+    return {"ok": True}
+
+
+# ---- Production chat (persistent conversation — Group Play / Flutter client) ----
+@api.post("/ai/chat")
+async def ai_chat(body: AiChatBody, user: dict = Depends(get_current_user)):
+    """Authenticated user chats with an AI character. Persists memory / relationship /
+    turns / metrics to Firestore so context carries across sessions."""
+    if not (body.message or "").strip():
+        raise HTTPException(status_code=400, detail="message is required")
+    if len(body.message) > 2000:
+        raise HTTPException(status_code=400, detail="message too long (max 2000 characters)")
+    try:
+        r = await ai_svc.chat(body.characterId, user["uid"], body.message, body.language)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not r.get("ok"):
+        err = r.get("error", "engine_error")
+        code = {"character_not_found": 404, "character_disabled": 403}.get(err, 502)
+        raise HTTPException(status_code=code, detail=err)
+    return r
+
+
+@api.get("/ai/chat/{cid}/history")
+async def ai_chat_history(cid: str, user: dict = Depends(get_current_user)):
+    """Restore a user's persisted conversation + relationship with a character."""
+    turns = await _fs_guarded(lambda: ai_svc.chat_history(cid, user["uid"]), [])
+    rel = await _fs_guarded(lambda: ai_svc.relationship_state(cid, user["uid"]), {"state": "new"})
+    return {"turns": turns, "relationship": rel}
 
 
 # ---- AI Character Lab (sandbox — never touches production) ----

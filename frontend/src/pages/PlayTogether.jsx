@@ -393,24 +393,24 @@ function PlayerControls({ pid, action, prompt, onAct }) {
         <div className="space-y-1.5">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex items-center gap-2">
-              <button onClick={() => setLie(i)} className={cn("h-4 w-4 rounded-full border shrink-0", lie === i ? "bg-rose-500 border-rose-500" : "border-muted-foreground")} title="Mark as lie" />
+              <button data-testid={`preview-lie-${pid}-${i}`} onClick={() => setLie(i)} className={cn("h-4 w-4 rounded-full border shrink-0", lie === i ? "bg-rose-500 border-rose-500" : "border-muted-foreground")} title="Mark as lie" />
               <Input className="h-8" placeholder={`Statement ${i + 1}${lie === i ? " (lie)" : ""}`} value={stmts[i]} onChange={(e) => setStmts((s) => s.map((v, j) => j === i ? e.target.value : v))} />
             </div>
           ))}
-          <Button size="sm" className="w-full" disabled={stmts.some((s) => !s.trim()) || lie === null} onClick={() => onAct(pid, { type: "set_secret", statements: stmts, lieIndex: lie, actionId: `${pid}-${Date.now()}` })}>Set statements</Button>
+          <Button size="sm" className="w-full" data-testid={`preview-set-secret-${pid}`} disabled={stmts.some((s) => !s.trim()) || lie === null} onClick={() => onAct(pid, { type: "set_secret", statements: stmts, lieIndex: lie, actionId: `${pid}-${Date.now()}` })}>Set statements</Button>
         </div>
       )}
       {(t === "respond" || t === "contribute") && !action.options && (
         <div className="flex gap-2">
-          <Input className="h-8" value={text} onChange={(e) => setText(e.target.value)} placeholder="Type response…" />
-          <Button size="sm" disabled={!text.trim()} onClick={() => { onAct(pid, { type: t, value: text, actionId: `${pid}-${Date.now()}` }); setText(""); }}>Send</Button>
+          <Input className="h-8" data-testid={`preview-text-${pid}`} value={text} onChange={(e) => setText(e.target.value)} placeholder="Type response…" />
+          <Button size="sm" data-testid={`preview-send-${pid}`} disabled={!text.trim()} onClick={() => { onAct(pid, { type: t, value: text, actionId: `${pid}-${Date.now()}` }); setText(""); }}>Send</Button>
         </div>
       )}
       {t === "contribute" && action.options && (
         <div className="grid gap-1.5">
           {action.options.map((o) => {
             const label = prompt?.options?.find((x) => x.key === o)?.label ?? o;
-            return <button key={o} onClick={() => onAct(pid, { type: "contribute", value: o, actionId: `${pid}-${Date.now()}-${o}` })} className="w-full text-left px-3 py-2 rounded-lg border border-border hover:border-pink-500/50 text-sm">{label}</button>;
+            return <button key={o} data-testid={`preview-opt-${pid}-${o}`} onClick={() => onAct(pid, { type: "contribute", value: o, actionId: `${pid}-${Date.now()}-${o}` })} className="w-full text-left px-3 py-2 rounded-lg border border-border hover:border-pink-500/50 text-sm">{label}</button>;
           })}
         </div>
       )}

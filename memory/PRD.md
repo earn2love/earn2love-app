@@ -209,3 +209,31 @@ style → conversation planner → provider layer → consistency/repetition/saf
 ## ⏳ Pending live-test queue (run in order the moment the new Firebase service-account key is active)
 1. Verify Firebase auth/token. 2. Play Together: seed 50 games + 535 content, run full E2E. 3. AI Engine:
 seed-reference, live persistence/restoration/rules tests. Do not reset unrelated production data.
+
+## 2026-08 — Firebase RESTORED + LIVE E2E of Play Together & AI Engine (DONE & VERIFIED)
+Rotated Firebase service-account key injected into backend/.env (same service account
+firebase-adminsdk-fbsvc@earn2love-app; project earn2love-app). Firestore connectivity confirmed.
+Seeded LIVE (idempotent, no force, production user data untouched): 50 games + 535 gameContent
+docs + 3 AI reference characters (ref_ananya/ref_marcus/ref_sora, all enabled).
+- iteration_8: live E2E — backend 37/38, frontend 95%. Confirmed live Firestore transactions,
+  actionId idempotency, revision-lock 409, out-of-turn rejection, completion + hidden-state
+  redaction, sandbox preview (5 mechanics, zero analytics), AI CRUD/versioning, AI Lab.
+- FIXES (verified live): (1) tier lockout — games_service._user_tier now defaults untiered/missing
+  users to 'casual' (base entitlement) so gameplay is unblocked; love-only game still gated.
+  (2) POST /api/play/sessions/{sid}/advance body now optional (Body(None)) — no more 422.
+  (3) NEW production persistent chat: POST /api/ai/chat + GET /api/ai/chat/{cid}/history
+  (ai_service.chat/chat_history/relationship_state via CharacterEngine(prod_repo()).respond(sandbox=False)) —
+  memory/relationship/turns/metrics now written to Firestore; cross-session recall confirmed.
+  (4) DELETE /api/ai/characters/{cid} (rejects reference chars) + UI delete/enable-disable buttons
+  + 'Disabled' badge on cards.
+- iteration_9 retest: all 4 fixes GREEN (25/27 backend; 2 were documented follow-ups). Then fixed
+  the follow-ups (verified live): AI-chat error→status mapping (character_not_found→404,
+  character_disabled→403), materialised aiCharacterConversations parent doc (characterId/userId/
+  turnCount, now listable), CASCADE delete (versions/memories/relationship/metrics/turns),
+  userId on aiCharacterMetrics, bounded Firestore reads (get_turns order_by+limit, list_memories
+  limit 500), 2000-char message cap on /api/ai/chat, and a card enable/disable toggle wired to /flags.
+- Test credentials: demo.admin@earn2love.com / Earn2Love@Demo2026 (super_admin). The bootstrapped
+  earn2loveofficial@gmail.com currently FAILS signInWithPassword. App redirects to '/' post-login.
+- P1 NEXT: generate the remaining 67 production AI characters (only now that live persistence is proven).
+  P2: integrate the AI Character Engine into a Play Together session (Group Play AI); add rate-limiting
+  to /api/ai/chat; add DialogDescription/aria-describedby to admin dialogs.

@@ -157,7 +157,7 @@ class CharacterEngine:
             if new_mem:
                 self.repo.add_memory(character_id, user_id, {**new_mem, "relationshipRelevant": True})
             self.repo.record_metric(character_id, {"latencyMs": result["latencyMs"], "model": result["model"],
-                                                    "attempts": attempts, "quality": quality})
+                                                    "attempts": attempts, "quality": quality, "userId": user_id})
 
         return {
             "ok": True,

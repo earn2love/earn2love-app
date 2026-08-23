@@ -95,8 +95,39 @@ def metrics(cid):
             "repetitionPassRate": round(sum(1 for m in ms if (m.get("quality") or {}).get("repetitionPassed", True)) / len(ms), 2)}
 
 
+def delete_character(cid):
+    return prod_repo().delete_character(cid)
+
+
 def seed_reference_to_firestore():
     return seed_reference(prod_repo())
+
+
+# ---------------- Production chat (persistent — Firestore) ----------------
+_prod_engine = None
+
+
+def prod_engine():
+    global _prod_engine
+    if _prod_engine is None:
+        _prod_engine = CharacterEngine(prod_repo())
+    return _prod_engine
+
+
+async def chat(character_id, user_id, message, language=None):
+    """Production, PERSISTENT conversation: memory/relationship/turns/metrics are
+    written to Firestore (sandbox=False). This is the entry point Group Play / the
+    Flutter client uses; the AI Lab stays sandbox-only."""
+    return await prod_engine().respond(
+        character_id, user_id, message, sandbox=False, language_override=language or None)
+
+
+def chat_history(character_id, user_id, limit=100):
+    return prod_repo().get_turns(character_id, user_id, limit=limit)
+
+
+def relationship_state(character_id, user_id):
+    return prod_repo().get_relationship(character_id, user_id) or {"state": "new"}
 
 
 # ---------------- AI Character Lab (sandbox, in-memory) ----------------

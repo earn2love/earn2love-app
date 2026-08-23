@@ -1,0 +1,59 @@
+{
+  "summary": "LIVE Firestore validation of System A (Play Together, 50 games) and System B (AI Character Engine). Backend: 38 pytest cases against the public preview URL with real Firebase ID tokens — 37 passed (97%). Verified 50 games + 535 gameContent docs, admin mutations persisting in Firestore, sandbox preview for all 5 mechanics with zero analytics leakage, and the authoritative /api/play/* flow (create/join/act with actionId idempotency, revision locking 409, out-of-turn rejection, completion, hidden-state redaction, abandon/rematch, tier gating). AI: 3 reference characters live, character CRUD + versioning persists, Lab multi-turn conversations answered by openai/gpt-5.6-sol with full diagnostics. Frontend: login, Play Together list/search/filters, enable-disable/feature/duplicate/archive persistence after reload, content+stats dialogs, previews for choice/trivia/prompt/guess/coop all advancing rounds, AI Characters page, Lab multi-turn + diagnostics + language/relationship override + restart, character create/edit via UI. Two significant gaps found: (1) the AI Character Lab crashed the page with a Radix Select error (blocked 100% of Lab UI until fixed), (2) live AI memory/relationship/conversation persistence is NOT implemented — the Lab is sandbox-only and no production chat endpoint exists, so those Firestore collections are empty. All QA-created artifacts were cleaned up (see seed_data_creation).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "AI engine (ai_service.lab_chat / ai_engine.engine.respond)", "issue": "Requested feature not implemented: engine.respond is only ever called with sandbox=True (Lab) and there is no production chat endpoint, so nothing is ever written to aiCharacterMemories / aiCharacterRelationshipState / aiCharacterConversations / aiCharacterMetrics — all 4 collections are EMPTY in live Firestore and 'fresh session restores prior context' cannot happen. Verified separately that FirestoreCharacterRepository itself works (add_memory/list_memories, set_relationship/get_relationship, append_turn/get_turns, record_metric round-trip OK), so only the wiring is missing.", "priority": "HIGH"},
+      {"endpoint": "GET /api/play/catalog + POST /api/play/sessions", "issue": "All 50 games are tier-gated (49 = casual/friendship/love, 1 = love only) and games_service._user_tier() returns None when users/{uid} has no 'tier' field -> every game is locked and session creation returns 403 'tier'. Any legitimate user document without an explicit tier (including all admin accounts) cannot play a single game. Needs a default-tier fallback or explicit product decision.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/play/sessions/{sid}/advance", "issue": "Handler declares `body: dict` as a required parameter, so a bodyless POST returns 422 (Field required). expectedRevision should be optional -> use `body: dict | None = Body(None)`. This is the single failing pytest case (test_advance_without_body)."},
+      {"endpoint": "AI Lab diagnostics", "issue": "relationshipState never progresses beyond 'new' and auto-extracted in-conversation memories are never returned in memoryIdsUsed (only explicit memoryFixtures are). Consistent with the sandbox no-persist design, but it means relationship escalation/auto-memory extraction remains unverified against live data."},
+      {"endpoint": "/api/ai/characters", "issue": "No DELETE endpoint for characters — QA-created characters could only be removed by direct Firestore deletion."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AICharacters.jsx / CharacterLab", "issue": "CRITICAL (fixed by tester): opening the Character Lab crashed the app with 'Uncaught runtime error: A <Select.Item /> must have a value prop that is not an empty string' because LANGS[0].code === '' and REL_STATES[0] === ''. The whole Lab (System B admin sandbox) was unusable. Applied a minimal sentinel fix ('__auto__' mapped back to '' on change) — please review and keep it.", "selector": "[data-testid=\"character-lab\"], [data-testid=\"lab-lang\"], [data-testid=\"lab-rel\"]", "priority": "CRITICAL"},
+      {"component": "AICharacters.jsx / CharacterEditor", "issue": "Labels are not associated with their inputs (no htmlFor/id), so get_by_label / screen readers cannot resolve City, Country, Profession, etc.", "selector": "[data-testid=\"ai-editor\"] label", "priority": "MEDIUM"},
+      {"component": "AICharacters.jsx / CharacterEditor", "issue": "Required fields (country, profession, personalityTraits) are not marked in the UI and there is no client-side validation — saving shows only a server 400 toast 'missing required field: ...'.", "selector": "[data-testid=\"ai-save\"]", "priority": "MEDIUM"},
+      {"component": "AICharacters.jsx card actions", "issue": "No disable/archive/delete control for characters in the admin UI even though POST /api/ai/characters/{id}/flags exists; test/unwanted characters cannot be removed from the panel.", "selector": "[data-testid^=\"ai-card-\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Play Together (/play-together)", "issues": ["50 cards render in one un-paginated grid; consider pagination or virtualisation as the catalog grows"]},
+      {"screen": "AI Characters (/ai-characters)", "issues": ["Character cards give no indication of enabled/disabled state (flags endpoint exists but state is not surfaced)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter8_games_ai.py",
+    "/app/backend/tests/cleanup_iter8.py",
+    "/app/test_reports/pytest/iter8_results.xml"
+  ],
+  "action_items": [
+    "Make the body optional on POST /api/play/sessions/{sid}/advance (currently 422 on a bodyless call).",
+    "Decide and implement the tier fallback: today a user doc without 'tier' is locked out of all 50 games (403).",
+    "Wire the AI engine to production persistence (a non-sandbox chat path) so aiCharacterMemories / aiCharacterRelationshipState / aiCharacterConversations / aiCharacterMetrics are actually written, then re-verify cross-session recall. Repository layer already works.",
+    "Review/keep the Radix Select sentinel fix in AICharacters.jsx (empty-string SelectItem values crash the Lab). Audit other Select usages for '' values.",
+    "Associate labels with inputs (htmlFor/id) and add required-field markers + client-side validation in the character editor.",
+    "Add a disable/archive (or delete) action for AI characters in the admin UI and surface enabled state on the cards."
+  ],
+  "critical_code_review_comments": [
+    "ai_service.lab_* is the only caller of engine.respond and always passes sandbox=True; there is no production entry point, so the 'persistent memory/relationship' feature is effectively dead code in the deployed app.",
+    "server.py play/advance uses an un-typed required `body: dict`; prefer a Pydantic model with an optional expectedRevision for all /api/play/* mutating endpoints.",
+    "games_service._user_tier() silently returns None for missing users docs and the caller converts that into a hard 403 — an unauthenticated-looking failure mode for legitimate users; log and default instead.",
+    "Frontend Radix Selects must never use '' as a SelectItem value; the AICharacters Lab crash shows this pattern is not lint-protected."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter8_games_ai.py",
+    "/app/backend/tests/cleanup_iter8.py",
+    "/app/frontend/src/pages/AICharacters.jsx",
+    "/app/frontend/src/pages/PlayTogether.jsx"
+  ],
+  "success_rate": {"backend": "97% (37/38 pytest cases)", "frontend": "95% (all flows pass; Lab required a Select fix first)"},
+  "seed_data_creation": "Created and then fully deleted: 7 throwaway Firebase Auth players + users/{uid} docs (tier casual, createdByQA:true) needed because every game is tier-gated, 14 gameSessions + 55 gameEvents, 22 gamePreviewSessions, 3 TEST_QA aiCharacters (+2 versions, 1 memory/relationship/metric doc from the direct repository round-trip test), 1 duplicated game (mood_match_copy_*). cleanup_iter8.py ran twice and reports 0 remaining. Production data (users, wallets, reports, the 50 games, 535 content docs, 3 reference characters) was not modified; enable/feature toggles used during testing were reverted and re-verified.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "demo.admin@earn2love.com / Earn2Love@Demo2026 works. The documented second admin earn2loveofficial@gmail.com / Earn2Love#Admin2026 FAILS Firebase signInWithPassword (INVALID_LOGIN_CREDENTIALS) — update /app/memory/test_credentials.md. Note: login redirects to '/' not '/dashboard'.",
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=<preview url> python -m pytest tests/test_iter8_games_ai.py -n 0 -v. The suite auto-provisions throwaway tiered players (Firebase signUp + users doc) because all 50 games are tier-gated; ALWAYS run tests/cleanup_iter8.py afterwards (it only deletes docs with QA markers: createdByQA users, TEST_QA/test_qa characters, *_copy_* games, gamePreviewSessions, and sessions/events owned by QA uids). Only test_advance_without_body should fail until the 422 bug is fixed. Do not re-seed games/content. Firestore connectivity, transactions, revision/actionId idempotency and public-state redaction are all confirmed working live.",
+  "rca_of_the_issue": "Lab crash: Radix UI (used by shadcn Select) throws when a SelectItem has value='' because '' is reserved for clearing the selection; AICharacters.jsx used '' for 'Auto-detect' language and 'Auto (from turns)' relationship, so mounting the Lab dialog threw during render and React unmounted the tree (dev overlay). Fixed with a '__auto__' sentinel mapped back to '' in onValueChange. Advance 422: FastAPI treats `body: dict` as a required JSON body. AI persistence gap: engine.respond(..., sandbox=True) short-circuits all repository writes and no non-sandbox caller exists."
+}
