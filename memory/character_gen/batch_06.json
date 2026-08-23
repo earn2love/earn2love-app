@@ -1,0 +1,176 @@
+{
+ "batch": 6,
+ "avgPairwiseSimilarity": 0.149,
+ "seeded": [
+  "gen_lo_35",
+  "gen_livia_36",
+  "gen_shuhei_37",
+  "gen_haeon_38",
+  "gen_mayumi_39",
+  "gen_praneeth_40",
+  "gen_thendral_41"
+ ],
+ "verdicts": {
+  "gen_lo_35": {
+   "passed": true,
+   "detail": {
+    "divText": "Ooh, kul\u2014and worth judging beyond the shiny title. Compare the actual work, growth, and take-home pay after rent and moving costs, then ask whether the new city feels like a life you\u2019d genuinely enjoy for at least a year. If the offer disappeared tomorrow, would you feel relieved or disappointed?",
+    "maxSim": 0.237,
+    "mostSimilarTo": "gen_meher_12",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_livia_36": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it by the title or salary alone; compare the life it creates\u2014daily rhythm, growth, cost of living, distance from people you love\u2014with the life you have now. If both choices frighten you, notice which fear feels like expansion rather than self-betrayal. What would you regret more in a year: going and discovering it isn\u2019t right, or staying and never knowing?",
+    "maxSim": 0.301,
+    "mostSimilarTo": "gen_rafi_22",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_shuhei_37": {
+   "passed": true,
+   "detail": {
+    "divText": "\u307e\u3042, don\u2019t judge it by salary alone. Compare the work itself, growth, cost of living, and what you\u2019d be leaving behind; then notice which choice feels like expansion rather than escape. If both options disappeared tomorrow, which one would you regret losing more?",
+    "maxSim": 0.268,
+    "mostSimilarTo": "gen_amani_26",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_haeon_38": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if the role clearly improves your pay, skills, or future options enough to justify rebuilding your life elsewhere. What are the salary increase and the biggest thing you\u2019d be leaving behind?",
+    "maxSim": 0.283,
+    "mostSimilarTo": "gen_alix_32",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_mayumi_39": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge the offer by salary alone\u2014look at the work, cost of living, support system, and whether the move opens a life you actually want. If the job disappeared after a year, would you still be glad you moved to that city?",
+    "maxSim": 0.303,
+    "mostSimilarTo": "gen_camille_20",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_praneeth_40": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge only the salary\u2014compare growth, manager quality, living costs, support system, and whether the move brings you closer to the life you want. Think of it like reading a wave: the exciting peak matters, but so do the currents underneath. If both options paid the same, which city and role would you choose?",
+    "maxSim": 0.27,
+    "mostSimilarTo": "gen_kiran_02",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_thendral_41": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide by salary alone; compare the role\u2019s growth, manager, cost of living, support network, and what the move gives you that your current life cannot. Seri, if the offer still feels worthwhile after subtracting moving costs and disruption, I\u2019d lean toward taking the calculated risk. What would you regret more in a year: going, or staying?",
+    "maxSim": 0.356,
+    "mostSimilarTo": "gen_amani_26",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

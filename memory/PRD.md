@@ -237,3 +237,40 @@ docs + 3 AI reference characters (ref_ananya/ref_marcus/ref_sora, all enabled).
 - P1 NEXT: generate the remaining 67 production AI characters (only now that live persistence is proven).
   P2: integrate the AI Character Engine into a Play Together session (Group Play AI); add rate-limiting
   to /api/ai/chat; add DialogDescription/aria-describedby to admin dialogs.
+
+## 2026-08 — AI-chat rate limiting + FULL 70-character roster (DONE & VERIFIED)
+### Part 1 — Production AI-chat rate limiting & abuse/cost guards
+New module backend/ai_engine/rate_limit.py — Firestore-backed atomic counters (survive
+restarts, safe across pods) enforced in ai_service.chat() before any LLM call:
+- Per-user sliding windows: 20/min, 300/hour, 1500/day (env-overridable AI_CHAT_PER_MINUTE/HOUR/DAY).
+- Duplicate-spam guard: same message 5×+ in a row (AI_CHAT_DUP_SPAM_THRESHOLD).
+- Platform-wide daily circuit breaker (AI_CHAT_PLATFORM_DAILY_CAP, default 50000) to protect the LLM budget.
+- 2000-char message cap; fail-OPEN on Firestore errors (never blocks legit chat on a transient outage).
+- On any trip → SOFT cooldown response (ok:true, cooldown:true, friendly responseText, retryAfterSeconds,
+  usage.provider="guard") — NO LLM call, so no cost. Doc ids avoid Firestore-reserved "__..__" (use
+  "platform_daily"). Verified live: minute cap (20→deny), dup (5th→deny), circuit breaker, soft cooldown.
+
+### Part 2 — Generated the remaining 67 production AI characters (70 total incl. 3 reference)
+Data-only generation — NO engine changes, NO scripted replies. Every character is a structured
+profile authored by GPT-5.6 (backend/ai_engine/character_factory.py: 67 curated diversity seeds
+across locale/language/profession/archetype/gender/age) and runs through the identical
+CharacterEngine (reasoning/memory/relationship/multilingual/consistency/repetition/safety).
+Orchestrator backend/scripts/generate_characters.py — resumable, batches of 7, concurrency-limited,
+and GATES each batch before seeding the next:
+- divergence: each new char's reply to a shared prompt must be distinct from every other char
+  (max pairwise Jaccard <0.45, batch avg <0.30) — measured vs a cached population baseline.
+- 15-turn long-conversation battery: characterConsistency ≥0.9, nonRepetition ≥0.7,
+  multilingualQuality ≥0.75, safety =1.0, 0 errors. Failing chars regenerate once with a
+  distinctness/consistency nudge; only passing chars are seeded to Firestore.
+RESULT: 67/67 seeded, 0 failures. Population: avg pairwise similarity 0.149 (gate <0.30),
+max pair 0.386 (<0.45); all batteries passed. Diversity: 22 countries; languages incl.
+Telugu/Hindi/Tamil/Marathi/Bengali/Kannada/Gujarati/Punjabi + Spanish/French/Japanese/Korean/
+Swahili/Yoruba etc. No duplicate names (one collision auto-fixed: gen_marisol_18 → gen_mara_18).
+Per-batch eval reports saved under /app/memory/character_gen/batch_*.json; progress checkpoint at
+/app/memory/character_gen/progress.json. GET /api/ai/characters now returns 70. characterIds: gen_<name>_<nn>.
+NOTE: provider timeouts on a few seeds were retried (they stay "pending", never falsely "failed"); one
+needed AI_ENGINE_TIMEOUT=90 to complete. Testing: verified at the service/eval/Firestore layer (not via
+testing_agent this round).
+- P2 REMAINING: Group Play AI (drop a character into a Play Together session); pagination/search on the
+  70-card admin grid; DialogDescription/aria-describedby on admin dialogs; consider order_by index on
+  aiCharacterMemories for very high-volume users.

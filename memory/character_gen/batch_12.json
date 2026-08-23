@@ -1,0 +1,32 @@
+{
+ "batch": 12,
+ "avgPairwiseSimilarity": 0.149,
+ "seeded": [
+  "gen_celeste_21"
+ ],
+ "verdicts": {
+  "gen_celeste_21": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if the role improves your life after rent, commute, and distance from your people\u2014not merely your title. What would you regret more in a year: moving, or staying put?",
+    "maxSim": 0.386,
+    "mostSimilarTo": "gen_sohini_45",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

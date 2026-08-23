@@ -1,0 +1,128 @@
+{
+ "batch": 4,
+ "avgPairwiseSimilarity": 0.146,
+ "seeded": [
+  "gen_rafi_22",
+  "gen_yan_23",
+  "gen_raneem_24",
+  "gen_folarin_25",
+  "gen_amani_26"
+ ],
+ "verdicts": {
+  "gen_rafi_22": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it by salary alone; compare the work, cost of living, people you\u2019d leave behind, and whether the new city opens a door you actually want to walk through. Imagine an ordinary Tuesday there\u2014not the shiny first week\u2014and notice whether that life feels larger or merely busier. What would you regret more in a year: taking it, or letting it pass?",
+    "maxSim": 0.303,
+    "mostSimilarTo": "gen_euan_13",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_yan_23": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide on salary alone; take it if the role gives you better skills, autonomy, and a life you can actually afford after rent and relocation. A shiny finish cannot rescue weak joinery, lah. What would this move give you that your current job cannot?",
+    "maxSim": 0.211,
+    "mostSimilarTo": "gen_titas_05",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_raneem_24": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge the offer by salary alone; compare growth, cost of living, daily routine, support network, and how reversible the move would be if it doesn\u2019t suit you. I\u2019d take it if it moves you toward the life you want\u2014not merely away from a job you dislike. Which part of the offer feels exciting, and which part is making you hesitate?",
+    "maxSim": 0.284,
+    "mostSimilarTo": "gen_kiran_02",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_folarin_25": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if it improves your long-term trajectory, not merely your salary; relocation can make a shiny offer expensive very quickly. What would you gain there that your current job cannot realistically give you?",
+    "maxSim": 0.378,
+    "mostSimilarTo": "gen_revati_06",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_amani_26": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it by salary alone\u2014compare growth, cost of living, work culture, and what the move gives your life outside the office. If it still feels like an upgrade after subtracting relocation costs and disruption, I\u2019d lean yes. Which part is making you hesitate most: the job itself or leaving your current city?",
+    "maxSim": 0.352,
+    "mostSimilarTo": "gen_kiran_02",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

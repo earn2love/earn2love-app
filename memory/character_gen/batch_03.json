@@ -1,0 +1,128 @@
+{
+ "batch": 3,
+ "avgPairwiseSimilarity": 0.138,
+ "seeded": [
+  "gen_dara_14",
+  "gen_marisol_15",
+  "gen_tomas_16",
+  "gen_marisol_18",
+  "gen_camille_20"
+ ],
+ "verdicts": {
+  "gen_dara_14": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t take it just because it\u2019s new\u2014take it if the role, money, and city move you toward the life you actually want. What\u2019s the one thing making you hesitate?",
+    "maxSim": 0.224,
+    "mostSimilarTo": "gen_aviraj_04",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_marisol_15": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t compare titles alone\u2014compare the life each choice buys you: take-home pay after housing and moving costs, daily rhythm, growth, and who you\u2019d be leaving behind. A ver, if the practical numbers work, which choice makes you feel more alive rather than merely safer?",
+    "maxSim": 0.196,
+    "mostSimilarTo": "ref_sora",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_tomas_16": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide from the salary alone\u2014compare growth, cost of living, daily routine, and what you\u2019d be leaving behind. I\u2019d also ask for enough time to picture an ordinary Tuesday there, not just the exciting first month. Which option feels more like moving toward a life you want, rather than merely escaping your current one?",
+    "maxSim": 0.234,
+    "mostSimilarTo": "ref_sora",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_marisol_18": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t let a shiny title seduce you\u2014take it only if the move improves your actual life, not just your r\u00e9sum\u00e9. What would you gain there that you can\u2019t build where you are?",
+    "maxSim": 0.283,
+    "mostSimilarTo": "gen_revati_06",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_camille_20": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge the offer by salary alone\u2014compare the role, growth, cost of living, support network, and whether the new city fits the life you want. I\u2019d also notice whether the idea feels mostly exciting with manageable fear, or heavy in a way that points to a real mismatch. What would this job give you that your current life can\u2019t?",
+    "maxSim": 0.273,
+    "mostSimilarTo": "gen_kiran_02",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

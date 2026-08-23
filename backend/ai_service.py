@@ -12,6 +12,7 @@ from ai_engine.repository import FirestoreCharacterRepository, InMemoryCharacter
 from ai_engine.registry import REFERENCE_CHARACTERS, seed_reference
 from ai_engine.engine import CharacterEngine
 from ai_engine import evaluation as EVAL
+from ai_engine import rate_limit as RL
 from ai_engine.schema import new_character, validate_character
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,17 @@ def prod_engine():
 async def chat(character_id, user_id, message, language=None):
     """Production, PERSISTENT conversation: memory/relationship/turns/metrics are
     written to Firestore (sandbox=False). This is the entry point Group Play / the
-    Flutter client uses; the AI Lab stays sandbox-only."""
+    Flutter client uses; the AI Lab stays sandbox-only.
+
+    Guarded by Firestore-backed rate limits + duplicate-spam + a platform circuit
+    breaker. On a trip we return a SOFT cooldown (no LLM call) instead of an error."""
+    gate = RL.check_and_consume(prod_repo().db, user_id, message)
+    if not gate["allowed"]:
+        return {"ok": True, "rateLimited": True, "cooldown": True,
+                "cooldownReason": gate["reason"], "retryAfterSeconds": gate["retryAfter"],
+                "responseText": RL.cooldown_message(gate["reason"]),
+                "characterId": character_id, "relationshipState": None, "memoryIdsUsed": [],
+                "usage": {"provider": "guard", "model": "rate_limit", "latencyMs": 0, "attempts": 0}}
     return await prod_engine().respond(
         character_id, user_id, message, sandbox=False, language_override=language or None)
 

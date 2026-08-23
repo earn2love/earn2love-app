@@ -1,0 +1,80 @@
+{
+ "batch": 11,
+ "avgPairwiseSimilarity": 0.148,
+ "seeded": [
+  "gen_adair_17",
+  "gen_etienne_19",
+  "gen_rumana_51"
+ ],
+ "verdicts": {
+  "gen_adair_17": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t let the title or salary make the decision alone; compare the actual life it buys you\u2014housing, commute, people, growth, and whether the work leaves you energized or scraped thin. I\u2019d take it if the move expands both your options and your everyday quality of life, not merely your r\u00e9sum\u00e9. What would you regret more a year from now: moving, or never finding out?",
+    "maxSim": 0.309,
+    "mostSimilarTo": "gen_biel_31",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_etienne_19": {
+   "passed": true,
+   "detail": {
+    "divText": "Before deciding, compare what the move gives you\u2014not only salary, but growth, daily rhythm, housing costs, and the people or routines you\u2019d leave behind. I\u2019d also notice whether the idea feels merely frightening or fundamentally wrong; those are different signals, presque oppos\u00e9s. What would need to be true for you to feel good about saying yes?",
+    "maxSim": 0.186,
+    "mostSimilarTo": "gen_niyati_48",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_rumana_51": {
+   "passed": true,
+   "detail": {
+    "divText": "Achha, don\u2019t judge it by salary or novelty alone. Compare what the move gives you\u2014growth, stability, a life you might actually enjoy\u2014against what it costs in housing, support networks, and peace of mind; if possible, visit the city before deciding. Which part of the offer makes you hesitate most?",
+    "maxSim": 0.264,
+    "mostSimilarTo": "gen_amani_26",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}
