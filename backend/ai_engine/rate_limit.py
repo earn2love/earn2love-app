@@ -19,6 +19,8 @@ PER_DAY = int(os.environ.get("AI_CHAT_PER_DAY", 1500))
 PLATFORM_PER_DAY = int(os.environ.get("AI_CHAT_PLATFORM_DAILY_CAP", 50000))
 DUP_SPAM_THRESHOLD = int(os.environ.get("AI_CHAT_DUP_SPAM_THRESHOLD", 5))
 
+AI_PREVIEW_DAILY_CAP = int(os.environ.get("AI_PREVIEW_DAILY_CAP", 400))
+
 COLL = "aiRateLimits"
 PLATFORM_DOC = "platform_daily"
 
@@ -108,4 +110,30 @@ def _consume_platform(db, dk):
         return _t(txn)
     except Exception as e:
         logger.warning(f"platform circuit-breaker check failed: {type(e).__name__}: {e}; allowing")
+        return True
+
+
+
+def consume_preview_ai(db, admin_uid):
+    """Per-admin daily cap on sandbox-preview AI moves (each move = 1 LLM call).
+    Returns True if allowed, False when the daily cap is reached. Fails open."""
+    now = _now()
+    dk = now.strftime("%Y%m%d")
+    ref = db.collection(COLL).document(f"preview_{admin_uid or 'admin'}")
+    txn = db.transaction()
+
+    @firestore.transactional
+    def _t(t):
+        snap = ref.get(transaction=t)
+        d = snap.to_dict() if snap.exists else {}
+        count = d.get("dayCount", 0) if d.get("dayKey") == dk else 0
+        if count >= AI_PREVIEW_DAILY_CAP:
+            return False
+        t.set(ref, {"dayKey": dk, "dayCount": count + 1, "updatedAt": now.isoformat()}, merge=True)
+        return True
+
+    try:
+        return _t(txn)
+    except Exception as e:
+        logger.warning(f"preview AI budget check failed: {type(e).__name__}: {e}; allowing")
         return True

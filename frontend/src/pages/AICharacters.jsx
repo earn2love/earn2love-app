@@ -29,8 +29,8 @@ export default function AICharacters() {
   const [chars, setChars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [country, setCountry] = useState("__all__");
-  const [language, setLanguage] = useState("__all__");
+  const [country, setCountry] = useState(() => localStorage.getItem("ai_filter_country") || "__all__");
+  const [language, setLanguage] = useState(() => localStorage.getItem("ai_filter_language") || "__all__");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 12;
   const [lab, setLab] = useState(null);
@@ -57,6 +57,10 @@ export default function AICharacters() {
   }, [chars, query, country, language]);
 
   useEffect(() => { setPage(1); }, [query, country, language]);
+  useEffect(() => { localStorage.setItem("ai_filter_country", country); }, [country]);
+  useEffect(() => { localStorage.setItem("ai_filter_language", language); }, [language]);
+  const filtersActive = query || country !== "__all__" || language !== "__all__";
+  const clearFilters = () => { setQuery(""); setCountry("__all__"); setLanguage("__all__"); };
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
   const paged = useMemo(() => filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE), [filtered, pageSafe]);
@@ -107,6 +111,7 @@ export default function AICharacters() {
               {languages.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
             </SelectContent>
           </Select>
+          {filtersActive && <Button variant="ghost" size="sm" data-testid="ai-clear-filters" onClick={clearFilters}>Clear filters</Button>}
           {canEdit && <Button data-testid="ai-new" onClick={() => setEditing({ _new: true, displayName: "", isAi: true, age: 25, country: "", profession: "", languages: ["English"], personalityTraits: [], replyLengthPreference: "short", emojiStyle: "sparing", humorStyle: "light", curiosityLevel: 0.5, confidenceLevel: 0.5, warmthLevel: 0.5, playfulnessLevel: 0.5, directnessLevel: 0.5, romanceLevel: 0.1, tierAccess: ["casual", "friendship", "love"], enabled: true })} className="gradient-brand text-white border-0"><Bot className="h-4 w-4 mr-1.5" />New Character</Button>}
         </div>
         <p className="text-xs text-muted-foreground -mt-2" data-testid="ai-result-count">{filtered.length} character{filtered.length === 1 ? "" : "s"}{filtered.length !== chars.length ? ` (of ${chars.length})` : ""}</p>

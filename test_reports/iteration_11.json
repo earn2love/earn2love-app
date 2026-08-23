@@ -1,0 +1,49 @@
+{
+  "summary": "Iteration 11 e2e testing of the four new features (PLAY & CHAT, MULTI-AI ROOMS, PREVIEW BUDGET GUARD, CLEAR FILTERS) against the LIVE preview URL + LIVE Firestore. Backend: new pytest suite /app/backend/tests/test_iter11_playchat_multiai.py — 15/15 passing (persistent chat + history restore, 3-player multi-AI trivia played to completion with 3 scores, 6-player allowed, 7-player rejected 400 'at most 6', unknown AI id 400, preview budget cap [T,T,T,F] at service layer, aiBudgetExceeded surfaced, 50 games all maxPlayers=6, 70 characters). Frontend: admin login -> '/', nav 'Play & Chat' -> /play-chat, searchable grid, chat 2-way with Firestore persistence verified across a full page reload, pc-challenge -> trivia game vs Marcus completed 8/8 rounds with named scores (You 0 / Marcus 8), multi-AI room with 1 and 3 extra AIs (4-player) started and a 3-player trivia completed (You 0 / Ananya 8 / Sora 8 draw), AI Characters clear-filters + localStorage persistence + pagination verified, PlayTogether single-AI preview regression verified (preview-ai-note shown, preview-ai-budget correctly absent). No 500s, no blocked clicks, no console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/play/sessions", "issue": "Duplicate AI ids are accepted: {gameId:'general_trivia', aiCharacterIds:['ref_marcus','ref_marcus']} returns 200 but the duplicate collapses, so the session silently seats fewer players than requested. Should 400 or de-duplicate explicitly."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PlayChat / GameRunner (RevealView)", "issue": "The round reveal renders a raw JSON.stringify dump of pub.revealed to the admin (developer output in an end-user-style panel). PlayTogether's preview reveal is formatted; PlayChat should match.", "selector": "[data-testid=\"pc-game-runner\"] pre", "priority": "MEDIUM"},
+      {"component": "PlayChat / GameRunner", "issue": "No way to abandon/leave an in-flight game. 'Back to setup' (pc-game-exit) only appears after completion and does not call /api/play/sessions/{sid}/abandon, so quitting mid-game (pc-back / tab switch / reload) leaves ACTIVE orphan gameSessions in Firestore forever (I found leftover ACTIVE sessions from my own aborted run).", "selector": "[data-testid=\"pc-game-runner\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AI Characters filters", "issues": ["Language options are not narrowed by the selected country, so trivially empty combinations are reachable (Brazil + Arabic -> '0 characters (of 70)'). Clear filters does recover correctly."]},
+      {"screen": "Play Together preview", "issues": ["Preview UI still exposes only ONE AI opponent (preview-opponent-select); the multi-AI capability (aiCharacterIds) that the backend/preview_start now supports is reachable only from Play & Chat. Informational vs the 'Play Together session can seat more than one AI' requirement."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter11_playchat_multiai.py",
+    "/app/backend/tests/iter11_budget_flag_check.py",
+    "/app/backend/tests/cleanup_iter11.py",
+    "/app/test_reports/pytest/iter11.xml"
+  ],
+  "action_items": [
+    "Reject or de-duplicate duplicate aiCharacterIds in POST /api/play/sessions (currently 200 with a silently smaller room).",
+    "Replace the raw JSON reveal dump in PlayChat's RevealView with the formatted reveal used in PlayTogether.",
+    "Add an abandon/leave control in PlayChat's GameRunner (and call /api/play/sessions/{sid}/abandon on exit) so quitting mid-game does not leave ACTIVE orphan sessions in Firestore.",
+    "Optional: narrow the language dropdown by the selected country on /ai-characters; optional: expose multi-AI opponents in the PlayTogether preview dialog."
+  ],
+  "critical_code_review_comments": [
+    "games_service.create_session does not de-duplicate ai_ids before the maxPlayers check, so ['x','x'] passes validation and then collapses in scores/submitted.",
+    "PlayChat.jsx GameRunner unmounts without releasing the session (no abandon call) — a leak of ACTIVE sessions; also there is no polling/refetch, so a mid-game reload loses the in-progress session entirely from the UI (session state is component-local, not resumable).",
+    "PlayChat RevealView ignores its `label` prop and prints JSON — dev artifact in production UI."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter11_playchat_multiai.py",
+    "/app/backend/tests/iter11_budget_flag_check.py",
+    "/app/backend/tests/cleanup_iter11.py"
+  ],
+  "success_rate": {"backend": "100% (15/15 pytest; 1 minor validation gap reported)", "frontend": "100% of tested flows passed (2 medium UI/UX defects reported)"},
+  "seed_data_creation": "No permanent seed data. Temporary: chat turns with ref_ananya/ref_marcus for the demo admin, several gameSessions (incl. multi-AI), sandbox previews, and an aiRateLimits/preview_<adminUid> counter. ALL removed via cleanup: 5 admin-hosted gameSessions + their private/gameEvents docs, 3 gamePreviewSessions, 2 aiCharacterConversations (+memories/relationship), and the preview rate-limit doc. Verified after cleanup: 70 aiCharacters and 50 games intact. AI_PREVIEW_DAILY_CAP env was NOT modified (budget-exceeded path was proven by temporarily forcing the Firestore counter to the cap and restoring it).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "demo.admin@earn2love.com / Earn2Love@Demo2026 (super_admin, uid yAminztkDhT5gjPID9XeLp2QmCU2) — works; login redirects to '/'.",
+  "context_for_next_testing_agent": "Reusable suite: /app/backend/tests/test_iter11_playchat_multiai.py (multi-AI rooms, chat persistence, budget guard, registry integrity) — run with `pytest tests/test_iter11_playchat_multiai.py` from /app/backend (pytest.ini pins -n 2 --dist loadscope). Playwright notes: pc-advance / pc-opt-* are disabled while `busy`, so wrap clicks in try/except with waits (do NOT force). Multi-AI 'Add opponent' select items have no data-testid — use [role=\"option\"]. general_trivia has 8 rounds; a 3-player game takes ~90s of LLM calls. Budget-exceeded UI (preview-ai-budget) was proven at API level (aiBudgetExceeded=true) but not visually asserted in the DOM. Always run /app/backend/tests/cleanup_iter11.py afterwards; avoid hammering /api/ai/chat (20/min).",
+  "rca_of_the_issue": "N/A for feature correctness — all four features work end to end. Orphan ACTIVE sessions root cause: PlayChat's GameRunner keeps session state only in React state and never calls /api/play/sessions/{sid}/abandon on unmount/exit, so any mid-game navigation leaves the Firestore session in status=active with the AI turn already consumed."
+}

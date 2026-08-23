@@ -23,6 +23,7 @@ import Permissions from "@/pages/Permissions";
 import Profile from "@/pages/Profile";
 import PlayTogether from "@/pages/PlayTogether";
 import AICharacters from "@/pages/AICharacters";
+import PlayChat from "@/pages/PlayChat";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import Roles from "@/pages/Roles";
@@ -52,6 +53,7 @@ function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/play-together" element={<PlayTogether />} />
               <Route path="/ai-characters" element={<AICharacters />} />
+              <Route path="/play-chat" element={<PlayChat />} />
               <Route path="/m/:key" element={<ModulePage />} />
               <Route path="/countries" element={<Countries />} />
               <Route path="/settings" element={<Settings />} />

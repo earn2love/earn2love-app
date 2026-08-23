@@ -405,6 +405,7 @@ function GamePreview({ game, onClose }) {
                     })
                   )}
                   {opponent !== "human" && <p className="text-[10px] text-center text-pink-500/80" data-testid="preview-ai-note">{label(opponent)} is thinking &amp; playing automatically</p>}
+                  {pub.aiBudgetExceeded && <p className="text-[10px] text-center text-amber-500" data-testid="preview-ai-budget">Daily preview AI limit reached — the AI won't auto-move until tomorrow.</p>}
                   <ScoreRow scores={pub.scores} label={label} />
                 </>
               )}

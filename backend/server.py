@@ -634,13 +634,17 @@ async def games_content_delete(cid: str, request: Request, admin: dict = Depends
 # ---- Admin sandbox preview (no analytics / no real participants) ----
 @api.post("/games/{gid}/preview/start")
 async def games_preview_start(gid: str, body: dict | None = Body(None), admin: dict = Depends(get_current_admin)):
+    b = body or {}
+    ai_ids = b.get("aiCharacterIds")
+    if ai_ids is None and b.get("aiCharacterId"):
+        ai_ids = [b.get("aiCharacterId")]
     try:
-        p = games.preview_start(gid, (body or {}).get("aiCharacterId"))
+        p = games.preview_start(gid, ai_ids)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except games.GameAccessError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    await games.preview_run_ai_turns(p["sessionId"])
+    await games.preview_run_ai_turns(p["sessionId"], admin.get("uid"))
     return games.preview_get(p["sessionId"])
 
 
@@ -658,7 +662,7 @@ async def games_preview_act(sid: str, body: dict, admin: dict = Depends(get_curr
         games.preview_act(sid, body.get("playerId"), body.get("action", {}))
     except (games.GameAccessError, games.engines.GameError) as e:
         raise HTTPException(status_code=400, detail=str(e))
-    await games.preview_run_ai_turns(sid)
+    await games.preview_run_ai_turns(sid, admin.get("uid"))
     return games.preview_get(sid)
 
 
@@ -668,7 +672,7 @@ async def games_preview_advance(sid: str, admin: dict = Depends(get_current_admi
         games.preview_advance(sid)
     except (games.GameAccessError, games.engines.GameError) as e:
         raise HTTPException(status_code=400, detail=str(e))
-    await games.preview_run_ai_turns(sid)
+    await games.preview_run_ai_turns(sid, admin.get("uid"))
     return games.preview_get(sid)
 
 

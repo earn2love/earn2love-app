@@ -308,7 +308,7 @@ def _public_doc(auth, meta):
         "aiCharacterIds": auth["ai"], "status": auth["status"],
         "startedAt": auth["startedAt"], "lastActivityAt": auth["lastActivityAt"],
         "completedAt": auth.get("completedAt"), "isPreview": meta.get("isPreview", False),
-        "gameName": meta.get("gameName"),
+        "gameName": meta.get("gameName"), "aiBudgetExceeded": meta.get("aiBudgetExceeded", False),
     })
     return pub
 
@@ -382,8 +382,11 @@ def create_session(game_id, host_uid, opponent_uid=None, ai_ids=None):
         raise GameAccessError("Game not found")
     _check_access(game, host_uid)
     participants = [host_uid] + ([opponent_uid] if opponent_uid else [])
-    ai_ids = ai_ids or []
+    ai_ids = list(dict.fromkeys(ai_ids or []))  # de-duplicate — no silently smaller rooms
     _validate_ai_ids(game, ai_ids)
+    max_players = int(game.get("maxPlayers", 2))
+    if len(participants) + len(ai_ids) > max_players:
+        raise ValueError(f"This game supports at most {max_players} players")
     if len(participants) + len(ai_ids) < 2:
         # waiting room: a session can start in 'waiting' until a second player joins
         pass
@@ -592,31 +595,35 @@ async def run_ai_turns(sid):
 PREVIEW_PLAYERS = ["preview_p1", "preview_p2"]
 
 
-def preview_start(game_id, ai_character_id=None):
+def preview_start(game_id, ai_character_ids=None):
     game = get_game(game_id)
     if not game:
         raise GameAccessError("Game not found")
     sid = "preview_" + uuid.uuid4().hex[:10]
     rounds = int(game.get("configuration", {}).get("rounds", 6))
-    if ai_character_id:
-        _validate_ai_ids(game, [ai_character_id])
+    ai_ids = list(dict.fromkeys([a for a in (ai_character_ids or []) if a]))
+    if ai_ids:
+        _validate_ai_ids(game, ai_ids)
         participants = [PREVIEW_PLAYERS[0]]
-        ai_ids = [ai_character_id]
+        max_players = int(game.get("maxPlayers", 2))
+        if len(participants) + len(ai_ids) > max_players:
+            raise ValueError(f"This game supports at most {max_players} players")
     else:
         participants = list(PREVIEW_PLAYERS)
-        ai_ids = []
     auth = _new_auth(sid, game, participants, ai_ids, rounds)
     meta = {"hostUserId": "preview", "gameName": game["name"], "isPreview": True,
-            "aiCharacterId": ai_character_id}
+            "aiCharacterIds": ai_ids}
     _persist(sid, auth, meta, preview=True)
     pub = _public_doc(auth, meta)
     pub["actionsByPlayer"] = {p: engines.available_actions(auth, p) for p in participants}
     return pub
 
 
-async def preview_run_ai_turns(sid):
-    """Drive AI turns inside a sandbox preview (no analytics, no production writes)."""
+async def preview_run_ai_turns(sid, admin_uid=None):
+    """Drive AI turns inside a sandbox preview (no analytics, no production writes).
+    Guarded by a per-admin daily LLM-move budget."""
     from games import ai_play
+    from ai_engine import rate_limit as RL
     import ai_service
     for _ in range(ai_play.MAX_AI_STEPS):
         loaded = _preview_load(sid)
@@ -627,6 +634,11 @@ async def preview_run_ai_turns(sid):
             return
         target = next((a for a in auth.get("ai", []) if engines.available_actions(auth, a)), None)
         if not target:
+            return
+        if not RL.consume_preview_ai(get_db(), admin_uid):
+            meta["aiBudgetExceeded"] = True
+            _persist(sid, auth, meta, preview=True)
+            logger.warning(f"preview AI budget reached for admin {admin_uid} ({sid})")
             return
         character = ai_service.get_character(target)
         if not character:

@@ -43,6 +43,7 @@ export const NAV_GROUPS = [
       { label: "Chats & Messages", icon: MessagesSquare, to: "/m/chats", key: "chats" },
       { label: "Play Together", icon: Gamepad2, to: "/play-together", key: "games" },
       { label: "AI Characters", icon: Bot, to: "/ai-characters", key: "ai-characters" },
+      { label: "Play & Chat", icon: MessagesSquare, to: "/play-chat", key: "ai-characters" },
     ],
   },
   {

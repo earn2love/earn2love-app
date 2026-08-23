@@ -303,3 +303,27 @@ result count (ai-result-count), and pagination (ai-pagination / ai-page-prev/nex
 - Preview AI drives are admin-only but unbounded LLM spend (no rate limit like /api/ai/chat) — add a
   per-admin preview cap if abused. Roster filtering/paging is client-side (fine at 70; add server paging if it grows).
 - P3: DialogDescription/aria-describedby on admin dialogs; 'clear all filters' button; batch multi-AI turns.
+
+## 2026-08 — Play & Chat + Multi-AI Rooms + Preview Budget + Clear Filters (DONE & VERIFIED)
+### Play & Chat (new page /play-chat, PlayChat.jsx)
+Admin acts as the end-user (same Firebase token drives /api/ai/chat + /api/play/*). Pick any of the
+70 characters -> PERSISTENT chat (history restored from Firestore across sessions) -> "Challenge to a
+game" starts a REAL match inline; you play via action controls and the AI(s) auto-play to completion
+with named scores. Nav "Play & Chat" (key ai-characters), route in App.js.
+### Multi-AI Rooms
+Engine was already N-player; raised maxPlayers 2->6 on all 50 games (registry + Firestore migration).
+create_session()/preview_start() de-duplicate ai ids, validate them, and enforce maxPlayers (7 -> 400).
+Player API + Play & Chat "group game" UI seat up to 6 players (you + up to 5 AIs); all AIs auto-play.
+### Preview Budget Guard
+ai_engine/rate_limit.consume_preview_ai(db, admin_uid): per-admin daily cap (AI_PREVIEW_DAILY_CAP=400,
+env-tunable) on sandbox AI moves. When hit, preview keeps working but AI stops auto-moving and
+_public_doc surfaces aiBudgetExceeded -> PlayTogether shows preview-ai-budget note.
+### Clear Filters
+AICharacters.jsx: one-tap ai-clear-filters button + country/language persisted to localStorage
+(ai_filter_country / ai_filter_language).
+### Verification (iteration_11: backend 15/15, frontend 100%)
+Persistent chat + reload restore, trivia vs Marcus 8/8, 3-player multi-AI trivia (draw 8-8), 6 allowed /
+7 rejected, unknown AI 400, budget cap [T,T,T,F], clear-filters+persistence, single-AI preview regression.
+Fixed after report (self-tested): duplicate ai ids now de-duplicated; PlayChat GameRunner now abandons the
+session on exit/unmount (Leave button + cleanup) so no orphan ACTIVE sessions; RevealView formatted (no raw JSON).
+Known optional nits: language dropdown not narrowed by country; preview dialog still single-AI (multi-AI reachable via Play & Chat).

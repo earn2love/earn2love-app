@@ -92,7 +92,7 @@ def build_game(entry, sort_index):
         "featured": num in (1, 11, 21, 41),
         "sortOrder": sort_index,
         "minPlayers": 2,
-        "maxPlayers": 2,
+        "maxPlayers": 6,
         "estimatedMinutes": mins,
         "difficulty": diff,
         "tierAccess": tiers,
