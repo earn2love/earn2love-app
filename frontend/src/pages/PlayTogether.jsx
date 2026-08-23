@@ -302,13 +302,38 @@ function GamePreview({ game, onClose }) {
   const [sid, setSid] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [opponent, setOpponent] = useState("human");
+  const [aiChars, setAiChars] = useState([]);
+  const supportsAI = game.supportsAI !== false;
+
+  useEffect(() => {
+    if (!supportsAI) return;
+    api.get("/ai/characters").then(({ data }) => setAiChars((data.items || []).filter((c) => c.enabled !== false)))
+      .catch(() => {});
+  }, [supportsAI]);
+
+  const aiName = useMemo(() => {
+    const m = {};
+    aiChars.forEach((c) => { m[c.characterId] = c.displayName; });
+    return m;
+  }, [aiChars]);
+
+  const label = useCallback((pid) => {
+    if (pid === "preview_p1") return "You";
+    if (pid === "preview_p2") return "Player 2";
+    return aiName[pid] ? `${aiName[pid]} (AI)` : "AI";
+  }, [aiName]);
 
   const start = useCallback(async () => {
     setLoading(true); setErr("");
-    try { const { data } = await api.post(`/games/${game.gameId}/preview/start`); setSid(data.sessionId); setState(data); }
+    try {
+      const body = opponent !== "human" ? { aiCharacterId: opponent } : {};
+      const { data } = await api.post(`/games/${game.gameId}/preview/start`, body);
+      setSid(data.sessionId); setState(data);
+    }
     catch (e) { setErr(formatApiError(e.response?.data?.detail || e)); }
     setLoading(false);
-  }, [game.gameId]);
+  }, [game.gameId, opponent]);
   useEffect(() => { start(); }, [start]);
 
   const act = async (pid, action) => {
@@ -321,11 +346,28 @@ function GamePreview({ game, onClose }) {
   };
 
   const pub = state;
+  const players = opponent !== "human" ? ["preview_p1"] : ["preview_p1", "preview_p2"];
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md max-h-[92vh] overflow-y-auto" data-testid="game-preview">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><Play className="h-4 w-4 text-pink-500" />Preview — {game.name}</DialogTitle></DialogHeader>
         <p className="text-[11px] text-amber-500 -mt-2">Sandboxed simulation · no real sessions, scores or analytics are affected.</p>
+        {supportsAI && (
+          <div className="flex items-center gap-2" data-testid="preview-opponent-row">
+            <Label className="text-xs shrink-0">Opponent</Label>
+            <Select value={opponent} onValueChange={setOpponent}>
+              <SelectTrigger className="h-8 text-xs" data-testid="preview-opponent-select"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="human" data-testid="preview-opponent-human">Player 2 (human)</SelectItem>
+                {aiChars.map((c) => (
+                  <SelectItem key={c.characterId} value={c.characterId} data-testid={`preview-opponent-${c.characterId}`}>
+                    🤖 {c.displayName} · {c.city}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {loading ? <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           : err ? <div className="py-10 text-center text-sm text-rose-500">{err}</div>
           : pub && (
@@ -340,15 +382,15 @@ function GamePreview({ game, onClose }) {
                 <div className="text-center py-6 space-y-2">
                   <Sparkles className="h-8 w-8 mx-auto text-pink-500" />
                   <p className="font-semibold">Game complete!</p>
-                  <p className="text-sm text-muted-foreground">{pub.result?.type === "scored" ? (pub.result.draw ? "It's a draw" : `Winner: ${pub.result.winners?.join(", ")}`) : "Nicely done together."}</p>
-                  <ScoreRow scores={pub.scores} />
+                  <p className="text-sm text-muted-foreground">{pub.result?.type === "scored" ? (pub.result.draw ? "It's a draw" : `Winner: ${(pub.result.winners || []).map(label).join(", ")}`) : "Nicely done together."}</p>
+                  <ScoreRow scores={pub.scores} label={label} />
                   <Button onClick={start} data-testid="preview-restart" variant="outline" className="mt-2"><RotateCcw className="h-4 w-4 mr-1.5" />Play again</Button>
                 </div>
               ) : (
                 <>
                   {pub.prompt && <div className="rounded-xl bg-card border border-border p-3 text-center font-medium">{pub.prompt.prompt}</div>}
-                  {pub.setter && <p className="text-[11px] text-center text-muted-foreground">Setter: {pub.setter === "preview_p1" ? "Player 1" : "Player 2"} · {pub.subphase}</p>}
-                  {pub.turn && <p className="text-[11px] text-center text-muted-foreground">Turn: {pub.turn === "preview_p1" ? "Player 1" : "Player 2"}</p>}
+                  {pub.setter && <p className="text-[11px] text-center text-muted-foreground">Setter: {label(pub.setter)} · {pub.subphase}</p>}
+                  {pub.turn && <p className="text-[11px] text-center text-muted-foreground">Turn: {label(pub.turn)}</p>}
 
                   {pub.phase === "reveal" ? (
                     <div className="space-y-2">
@@ -356,13 +398,14 @@ function GamePreview({ game, onClose }) {
                       <Button onClick={advance} data-testid="preview-advance" className="w-full gradient-brand text-white border-0">Next round<ChevronRight className="h-4 w-4 ml-1" /></Button>
                     </div>
                   ) : (
-                    ["preview_p1", "preview_p2"].map((pid) => {
+                    players.map((pid) => {
                       const acts = pub.actionsByPlayer?.[pid] || [];
-                      if (acts.length === 0) return <p key={pid} className="text-[11px] text-center text-muted-foreground/70">{pid === "preview_p1" ? "Player 1" : "Player 2"} — waiting…</p>;
+                      if (acts.length === 0) return <p key={pid} className="text-[11px] text-center text-muted-foreground/70">{label(pid)} — waiting…</p>;
                       return <PlayerControls key={pid} pid={pid} action={acts[0]} prompt={pub.prompt} onAct={act} />;
                     })
                   )}
-                  <ScoreRow scores={pub.scores} />
+                  {opponent !== "human" && <p className="text-[10px] text-center text-pink-500/80" data-testid="preview-ai-note">{label(opponent)} is thinking &amp; playing automatically</p>}
+                  <ScoreRow scores={pub.scores} label={label} />
                 </>
               )}
             </div>
@@ -418,10 +461,10 @@ function PlayerControls({ pid, action, prompt, onAct }) {
   );
 }
 
-const ScoreRow = ({ scores }) => (
+const ScoreRow = ({ scores, label }) => (
   <div className="flex items-center justify-center gap-4 text-xs pt-1 border-t border-border">
     {Object.entries(scores || {}).map(([p, s]) => (
-      <span key={p} className="flex items-center gap-1"><Circle className="h-2 w-2 fill-pink-500 text-pink-500" />{p === "preview_p1" ? "P1" : p === "preview_p2" ? "P2" : p}: <b>{s}</b></span>
+      <span key={p} className="flex items-center gap-1"><Circle className="h-2 w-2 fill-pink-500 text-pink-500" />{label ? label(p) : p}: <b>{s}</b></span>
     ))}
   </div>
 );

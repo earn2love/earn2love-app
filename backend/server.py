@@ -633,11 +633,15 @@ async def games_content_delete(cid: str, request: Request, admin: dict = Depends
 
 # ---- Admin sandbox preview (no analytics / no real participants) ----
 @api.post("/games/{gid}/preview/start")
-async def games_preview_start(gid: str, admin: dict = Depends(get_current_admin)):
+async def games_preview_start(gid: str, body: dict | None = Body(None), admin: dict = Depends(get_current_admin)):
     try:
-        return games.preview_start(gid)
+        p = games.preview_start(gid, (body or {}).get("aiCharacterId"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except games.GameAccessError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    await games.preview_run_ai_turns(p["sessionId"])
+    return games.preview_get(p["sessionId"])
 
 
 @api.get("/games/preview/{sid}")
@@ -651,17 +655,21 @@ async def games_preview_get(sid: str, admin: dict = Depends(get_current_admin)):
 @api.post("/games/preview/{sid}/act")
 async def games_preview_act(sid: str, body: dict, admin: dict = Depends(get_current_admin)):
     try:
-        return games.preview_act(sid, body.get("playerId"), body.get("action", {}))
+        games.preview_act(sid, body.get("playerId"), body.get("action", {}))
     except (games.GameAccessError, games.engines.GameError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+    await games.preview_run_ai_turns(sid)
+    return games.preview_get(sid)
 
 
 @api.post("/games/preview/{sid}/advance")
 async def games_preview_advance(sid: str, admin: dict = Depends(get_current_admin)):
     try:
-        return games.preview_advance(sid)
+        games.preview_advance(sid)
     except (games.GameAccessError, games.engines.GameError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+    await games.preview_run_ai_turns(sid)
+    return games.preview_get(sid)
 
 
 # ---------------- Play Together — Player (authoritative) API ----------------
@@ -679,10 +687,14 @@ async def play_catalog(user: dict = Depends(get_current_user)):
 @api.post("/play/sessions")
 async def play_create(body: dict, user: dict = Depends(get_current_user)):
     try:
-        return games.create_session(body.get("gameId"), user["uid"],
-                                    body.get("opponentUid"), body.get("aiCharacterIds"))
+        s = games.create_session(body.get("gameId"), user["uid"],
+                                 body.get("opponentUid"), body.get("aiCharacterIds"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except games.GameAccessError as e:
         raise HTTPException(status_code=403, detail=str(e))
+    await games.run_ai_turns(s["sessionId"])
+    return games.get_session(s["sessionId"], user["uid"])
 
 
 @api.get("/play/sessions/{sid}")
@@ -704,27 +716,34 @@ async def play_join(sid: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail=str(e))
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
-    return s
+    await games.run_ai_turns(sid)
+    return games.get_session(sid, user["uid"])
 
 
 @api.post("/play/sessions/{sid}/act")
 async def play_act(sid: str, body: dict, user: dict = Depends(get_current_user)):
     try:
-        return games.act(sid, user["uid"], body.get("action", {}), body.get("expectedRevision"))
+        result = games.act(sid, user["uid"], body.get("action", {}), body.get("expectedRevision"))
     except games.GameAccessError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except games.engines.GameError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    await games.run_ai_turns(sid)
+    s = games.get_session(sid, user["uid"])
+    s["events"] = result.get("events", [])
+    return s
 
 
 @api.post("/play/sessions/{sid}/advance")
 async def play_advance(sid: str, body: dict | None = Body(None), user: dict = Depends(get_current_user)):
     try:
-        return games.advance(sid, user["uid"], (body or {}).get("expectedRevision"))
+        games.advance(sid, user["uid"], (body or {}).get("expectedRevision"))
     except games.GameAccessError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except games.engines.GameError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    await games.run_ai_turns(sid)
+    return games.get_session(sid, user["uid"])
 
 
 @api.post("/play/sessions/{sid}/abandon")

@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration-10 validation of the two new features against the LIVE preview URL + Firestore. Backend: new pytest suite /app/backend/tests/test_iter10_groupplay_ai.py — 15/17 passed (both failures are the SAME defect: unknown aiCharacterId is accepted). GROUP PLAY AI verified end-to-end over HTTP: POST /api/play/sessions {gameId:'general_trivia', aiCharacterIds:['ref_marcus']} -> ACTIVE session with submitted={host, ref_marcus}; after each human act/bodyless advance the AI auto-took its turn and the round revealed; game played to completion (8/8 rounds) with final scores {human:0, ref_marcus:8} — the AI reasoned the correct trivia answers, no scripted replies. No hidden-answer leak: '_correct' only appears inside `revealed` during phase=='reveal'. Admin preview sandbox with an AI opponent completed for ALL 5 mechanics (would_you_rather/choice, general_trivia/trivia, guess_my_answer + two_truths_and_a_lie/guess, conversation_cards/prompt, build_a_story/coop); participants==['preview_p1'] only, no preview_p2 controls, and gameEvents count unchanged (zero analytics writes). 2-human preview regression still completes. FRONTEND: login with demo.admin@earn2love.com redirects to '/'; PlayTogether preview dialog exposes preview-opponent-select with 70 AI options + 'Player 2 (human)'; selecting Marcus restarts as You-vs-AI, preview-ai-note shows 'Marcus (AI) is thinking & playing automatically', the AI auto-plays and choice/trivia/guess all reached 'Game complete!' with named scores (You / Marcus (AI)) — trivia winner Marcus (AI) 8-0, guess winner You 2-1. ROSTER BROWSING: ai-result-count=70, PAGE_SIZE 12 -> 'Page 1 of 6' (last page 10 cards), prev/next correctly disabled at ends; country=India -> 23 characters (of 70), page indicator resets to 'Page 1 of 2' and 0 non-India cards rendered; +language=Telugu -> 5; bogus search -> 0 + ai-empty; clearing both filters restores 70. Regression: ref_* cards correctly have no toggle/delete, gen_* cards have ai-toggle/ai-delete, and Character Lab chat for gen_aadi_08 returned an in-character reply in 1356ms. All QA artifacts cleaned (0 QA users, 0 previews, 70 chars / 50 games intact).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/play/sessions and POST /api/games/{gid}/preview/start", "issue": "aiCharacterIds / aiCharacterId are NOT validated against the roster. Posting aiCharacterIds:['does_not_exist_xyz'] returns 200 and creates an ACTIVE session whose AI seat can never act (ai_service.get_character returns None -> run_ai_turns/preview_run_ai_turns silently `return`). Reproduced: after the human acts, phase stays 'answering' with submitted={'preview_p1':True,'nope_xyz':False} forever — the session is permanently stuck (a preview has no abandon path at all). Validate the id exists AND is enabled, return 400/404, and log a warning when get_character() returns None instead of returning silently.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "games_service.run_ai_turns / preview_run_ai_turns", "issue": "Every failure mode (missing character, decide_action -> None, GameError) exits the loop quietly, so a stuck AI turn is indistinguishable from 'waiting for human'. Only the GameError branch logs. Add a logger.warning for the character-missing / action-None cases and surface a 'aiError' flag on the public doc."},
+      {"endpoint": "POST /api/games/preview/*", "issue": "No cost guard: each AI-opponent preview round fires 1 LLM completion per AI move (a full 8-round trivia preview = 8+ completions) billed to EMERGENT_LLM_KEY, with no rate limit on the preview endpoints (unlike /api/ai/chat). Any admin can loop this."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AI Characters roster", "issues": ["Filtering/pagination is fully client-side over all 70 characters fetched at once — fine at 70, but there is no server-side paging/limit for when the roster grows.", "No 'clear all filters' affordance; the user must reset country and language selects individually (minor)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter10_groupplay_ai.py",
+    "/app/backend/tests/cleanup_iter10.py",
+    "/app/test_reports/pytest/iter10_results.xml"
+  ],
+  "action_items": [
+    "Validate aiCharacterIds/aiCharacterId against the enabled roster in games_service.create_session() and preview_start(); reject with 400/404 instead of creating an unplayable session.",
+    "Log (and ideally expose) AI-turn failures in run_ai_turns/preview_run_ai_turns rather than returning silently."
+  ],
+  "critical_code_review_comments": [
+    "ai_play.decide_action can return {'type':'answer','value':None} when both tmpl['options'] and prompt options are empty; apply_action would then raise and the AI turn is dropped silently — guard for empty option sets.",
+    "run_ai_turns re-reads the authoritative private doc on every one of MAX_AI_STEPS iterations and applies each AI move in its own transaction; for multi-AI sessions this is N+1 Firestore round trips per human action. Acceptable now (2-player), but cap/batch before group play with >1 AI.",
+    "Preview sandbox AI drives are unbounded LLM spend from an admin-only endpoint with no rate limit — add the same limiter used on /api/ai/chat."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter10_groupplay_ai.py",
+    "/app/backend/tests/cleanup_iter10.py"
+  ],
+  "success_rate": {"backend": "88% (15/17; both failures = the single missing aiCharacterId validation)", "frontend": "100% of tested flows (Group Play AI preview for choice/trivia/guess, roster search+filters+pagination, 2-human regression, Character Lab)"},
+  "seed_data_creation": "No seeding. Created and then deleted: 2 throwaway Firebase Auth QA users + users/{uid} docs (createdByQA=true), 4 gameSessions + 26 gameEvents, 31 gamePreviewSessions. Verified after cleanup: 70 aiCharacters, 50 games, 0 QA users, 0 preview docs.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "demo.admin@earn2love.com / Earn2Love@Demo2026 (super_admin) — works, redirects to '/'. /app/memory/test_credentials.md is accurate.",
+  "context_for_next_testing_agent": "Run `python -m pytest tests/test_iter10_groupplay_ai.py -n 0 -q -s` from /app/backend (pytest.ini forces -n 2 --dist loadscope; use -n 0 for serial, NOT -p no:xdist). Whole suite ~95s. Two tests (test_invalid_ai_character_id_rejected, test_preview_unknown_ai_id) are intentionally left failing to document the missing aiCharacterId validation; test_phantom_ai_preview_stalls documents its consequence and will auto-skip once validation lands. ALWAYS run `python tests/cleanup_iter10.py` afterwards (it deletes createdByQA users, their sessions/events and gamePreviewSessions younger than 3h). AI moves are fast (~1-3s each), so 240s HTTP timeouts are plenty.",
+  "rca_of_the_issue": "server.play_create/games_preview_start pass the caller-supplied aiCharacterIds straight into games_service.create_session/_new_auth without any existence check. The engine happily seats the unknown id as a player (it appears in auth['ai'] and in submitted/scores), but ai_service.get_character(target) returns None inside run_ai_turns/preview_run_ai_turns, which then `return`s without logging. Result: the AI seat has available_actions but no actor, so the round never reaches both-submitted and the session/preview is stuck in 'answering' indefinitely."
+}

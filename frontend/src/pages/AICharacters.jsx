@@ -29,6 +29,10 @@ export default function AICharacters() {
   const [chars, setChars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [country, setCountry] = useState("__all__");
+  const [language, setLanguage] = useState("__all__");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 12;
   const [lab, setLab] = useState(null);
   const [editing, setEditing] = useState(null);
   const [stored, setStored] = useState(false);
@@ -41,10 +45,21 @@ export default function AICharacters() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const countries = useMemo(() => Array.from(new Set(chars.map((c) => c.country).filter(Boolean))).sort(), [chars]);
+  const languages = useMemo(() => Array.from(new Set(chars.flatMap((c) => c.languages || []).filter(Boolean))).sort(), [chars]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return chars.filter((c) => !q || `${c.displayName} ${c.profession} ${(c.personalityTraits || []).join(" ")} ${c.city}`.toLowerCase().includes(q));
-  }, [chars, query]);
+    return chars.filter((c) =>
+      (!q || `${c.displayName} ${c.profession} ${(c.personalityTraits || []).join(" ")} ${c.city}`.toLowerCase().includes(q))
+      && (country === "__all__" || c.country === country)
+      && (language === "__all__" || (c.languages || []).includes(language)));
+  }, [chars, query, country, language]);
+
+  useEffect(() => { setPage(1); }, [query, country, language]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages);
+  const paged = useMemo(() => filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE), [filtered, pageSafe]);
 
   const removeChar = useCallback(async (c) => {
     if (!window.confirm(`Delete "${c.displayName}"? This permanently removes the character from Firestore.`)) return;
@@ -73,19 +88,36 @@ export default function AICharacters() {
             <Sparkles className="h-4 w-4" /> Showing the <b className="mx-1">3 reference characters</b>. Stored production characters appear once Firebase is connected. The Character Lab works now.
           </div>
         )}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input data-testid="ai-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search characters…" className="pl-9 h-10" />
           </div>
+          <Select value={country} onValueChange={setCountry}>
+            <SelectTrigger className="h-10 w-[170px]" data-testid="ai-filter-country"><SelectValue placeholder="Country" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="__all__" data-testid="ai-country-all">All countries</SelectItem>
+              {countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={language} onValueChange={setLanguage}>
+            <SelectTrigger className="h-10 w-[170px]" data-testid="ai-filter-language"><SelectValue placeholder="Language" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="__all__" data-testid="ai-language-all">All languages</SelectItem>
+              {languages.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
           {canEdit && <Button data-testid="ai-new" onClick={() => setEditing({ _new: true, displayName: "", isAi: true, age: 25, country: "", profession: "", languages: ["English"], personalityTraits: [], replyLengthPreference: "short", emojiStyle: "sparing", humorStyle: "light", curiosityLevel: 0.5, confidenceLevel: 0.5, warmthLevel: 0.5, playfulnessLevel: 0.5, directnessLevel: 0.5, romanceLevel: 0.1, tierAccess: ["casual", "friendship", "love"], enabled: true })} className="gradient-brand text-white border-0"><Bot className="h-4 w-4 mr-1.5" />New Character</Button>}
         </div>
+        <p className="text-xs text-muted-foreground -mt-2" data-testid="ai-result-count">{filtered.length} character{filtered.length === 1 ? "" : "s"}{filtered.length !== chars.length ? ` (of ${chars.length})` : ""}</p>
 
         {loading ? (
           <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="py-20 text-center text-sm text-muted-foreground" data-testid="ai-empty">No characters match your filters.</div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((c) => (
+            {paged.map((c) => (
               <div key={c.characterId} data-testid={`ai-card-${c.characterId}`} className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
                 <div className="flex items-start gap-3">
                   <div className={cn("grid place-items-center h-12 w-12 rounded-full bg-gradient-to-br text-lg font-bold shrink-0", AVATAR[c.characterId] || "from-violet-500/30 to-fuchsia-500/20 text-violet-500")}>{(c.displayName || "?")[0]}</div>
@@ -116,6 +148,13 @@ export default function AICharacters() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 pt-2" data-testid="ai-pagination">
+            <Button variant="outline" size="sm" data-testid="ai-page-prev" disabled={pageSafe <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
+            <span className="text-xs text-muted-foreground" data-testid="ai-page-indicator">Page {pageSafe} of {totalPages}</span>
+            <Button variant="outline" size="sm" data-testid="ai-page-next" disabled={pageSafe >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
           </div>
         )}
       </div>

@@ -360,6 +360,22 @@ def _check_access(game, uid):
 # ==========================================================================
 # Sessions (authoritative, real players)
 # ==========================================================================
+def _validate_ai_ids(game, ai_ids):
+    """Reject unknown/disabled AI characters (and games that don't support AI) BEFORE
+    seating them — otherwise the AI seat can never act and the session gets stuck."""
+    if not ai_ids:
+        return
+    if game.get("supportsAI") is False:
+        raise ValueError("This game does not support AI opponents")
+    import ai_service
+    for aid in ai_ids:
+        c = ai_service.get_character(aid)
+        if not c:
+            raise ValueError(f"AI character not found: {aid}")
+        if c.get("enabled") is False:
+            raise ValueError(f"AI character is disabled: {aid}")
+
+
 def create_session(game_id, host_uid, opponent_uid=None, ai_ids=None):
     game = get_game(game_id)
     if not game:
@@ -367,6 +383,7 @@ def create_session(game_id, host_uid, opponent_uid=None, ai_ids=None):
     _check_access(game, host_uid)
     participants = [host_uid] + ([opponent_uid] if opponent_uid else [])
     ai_ids = ai_ids or []
+    _validate_ai_ids(game, ai_ids)
     if len(participants) + len(ai_ids) < 2:
         # waiting room: a session can start in 'waiting' until a second player joins
         pass
@@ -536,23 +553,95 @@ def rematch(sid, uid):
 
 
 # ==========================================================================
+# Group Play AI — drive authoritative turns for AI participants
+# ==========================================================================
+async def run_ai_turns(sid):
+    """After a human action, let any AI participant take its due turns through the
+    SAME validated action path. Reasoning happens outside the Firestore transaction;
+    each decided move is applied via the transactional act()."""
+    from games import ai_play
+    import ai_service
+    for _ in range(ai_play.MAX_AI_STEPS):
+        snap = get_db().collection(SESSIONS).document(sid).collection("private").document("authoritative").get()
+        if not snap.exists:
+            return
+        auth = snap.to_dict()["state"]
+        if auth.get("status") != "active":
+            return
+        target = next((a for a in auth.get("ai", []) if engines.available_actions(auth, a)), None)
+        if not target:
+            return
+        character = ai_service.get_character(target)
+        if not character:
+            logger.warning(f"AI turn skipped: character '{target}' not found in session {sid}")
+            return
+        action = await ai_play.decide_action(character, engines.ai_context(auth, target))
+        if not action:
+            logger.warning(f"AI turn skipped: decide_action returned no valid move for {target} in {sid}")
+            return
+        try:
+            act(sid, target, action)
+        except (GameAccessError, engines.GameError) as e:
+            logger.warning(f"AI turn failed for {target} in {sid}: {e}")
+            return
+
+
+# ==========================================================================
 # Preview (sandbox) — same engine/content, NO analytics / NO real participants
 # ==========================================================================
 PREVIEW_PLAYERS = ["preview_p1", "preview_p2"]
 
 
-def preview_start(game_id):
+def preview_start(game_id, ai_character_id=None):
     game = get_game(game_id)
     if not game:
         raise GameAccessError("Game not found")
     sid = "preview_" + uuid.uuid4().hex[:10]
     rounds = int(game.get("configuration", {}).get("rounds", 6))
-    auth = _new_auth(sid, game, list(PREVIEW_PLAYERS), [], rounds)
-    meta = {"hostUserId": "preview", "gameName": game["name"], "isPreview": True}
+    if ai_character_id:
+        _validate_ai_ids(game, [ai_character_id])
+        participants = [PREVIEW_PLAYERS[0]]
+        ai_ids = [ai_character_id]
+    else:
+        participants = list(PREVIEW_PLAYERS)
+        ai_ids = []
+    auth = _new_auth(sid, game, participants, ai_ids, rounds)
+    meta = {"hostUserId": "preview", "gameName": game["name"], "isPreview": True,
+            "aiCharacterId": ai_character_id}
     _persist(sid, auth, meta, preview=True)
     pub = _public_doc(auth, meta)
-    pub["actionsByPlayer"] = {p: engines.available_actions(auth, p) for p in PREVIEW_PLAYERS}
+    pub["actionsByPlayer"] = {p: engines.available_actions(auth, p) for p in participants}
     return pub
+
+
+async def preview_run_ai_turns(sid):
+    """Drive AI turns inside a sandbox preview (no analytics, no production writes)."""
+    from games import ai_play
+    import ai_service
+    for _ in range(ai_play.MAX_AI_STEPS):
+        loaded = _preview_load(sid)
+        if not loaded:
+            return
+        auth, meta = loaded
+        if auth.get("status") != "active":
+            return
+        target = next((a for a in auth.get("ai", []) if engines.available_actions(auth, a)), None)
+        if not target:
+            return
+        character = ai_service.get_character(target)
+        if not character:
+            logger.warning(f"preview AI turn skipped: character '{target}' not found ({sid})")
+            return
+        action = await ai_play.decide_action(character, engines.ai_context(auth, target))
+        if not action:
+            logger.warning(f"preview AI turn skipped: no valid move for {target} ({sid})")
+            return
+        try:
+            engines.apply_action(auth, target, action)
+        except engines.GameError as e:
+            logger.warning(f"preview AI turn failed for {target}: {e}")
+            return
+        _persist(sid, auth, meta, preview=True)
 
 
 def _preview_load(sid):

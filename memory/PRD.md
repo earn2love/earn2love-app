@@ -274,3 +274,32 @@ testing_agent this round).
 - P2 REMAINING: Group Play AI (drop a character into a Play Together session); pagination/search on the
   70-card admin grid; DialogDescription/aria-describedby on admin dialogs; consider order_by index on
   aiCharacterMemories for very high-volume users.
+
+## 2026-08 — Group Play AI + Roster browsing (DONE & VERIFIED)
+### Group Play AI — users can play AGAINST any of the 70 characters
+New backend/games/ai_play.py — decide_action() maps every engine action type
+(answer/respond/contribute/set_secret/guess) to a VALID in-character move via GPT-5.6, with
+deterministic fallbacks and empty-option guards. The AI plays through the SAME validated action
+path as a human (engines.available_actions -> apply_action); it never sees hidden state (correct
+answers / opponent secret) — it reasons from the public prompt. NO scripted replies, NO engine changes.
+- games_service.run_ai_turns(sid) drives authoritative AI turns (each move via transactional act());
+  preview_run_ai_turns(sid) drives them in the admin sandbox. Wired into player API
+  (/api/play/sessions[/{sid}/join|act|advance] now auto-play AI then return refreshed session) and
+  preview API (/api/games/{gid}/preview/start accepts {aiCharacterId}; act/advance drive AI).
+- create_session()/preview_start() now VALIDATE aiCharacterIds against the enabled roster (unknown/
+  disabled/AI-unsupported -> 400) so an AI seat can never stall a session; silent AI-turn skips now log.
+- Frontend PlayTogether.jsx sandbox: Opponent selector (data-testid preview-opponent-select) with
+  'Player 2 (human)' + 70 AI options; picking an AI plays You-vs-AI with auto-moves and named scores.
+- VERIFIED (iteration_10, 88% backend before fix->fixed, 100% frontend): all 5 mechanics complete with
+  the AI playing; trivia AI reasoned 8/8 correct; no hidden-answer leak; zero preview analytics writes.
+  Self-verified after fix: invalid AI id -> 400, valid id seats & plays.
+
+### Roster browsing — AI Characters admin grid (70 cards)
+AICharacters.jsx: added country filter (ai-filter-country) + language filter (ai-filter-language),
+result count (ai-result-count), and pagination (ai-pagination / ai-page-prev/next/indicator, PAGE_SIZE 12
+-> 6 pages). Search combines with filters. VERIFIED: India->23, +Telugu->5, clearing restores 70.
+
+### Known minor (not blocking)
+- Preview AI drives are admin-only but unbounded LLM spend (no rate limit like /api/ai/chat) — add a
+  per-admin preview cap if abused. Roster filtering/paging is client-side (fine at 70; add server paging if it grows).
+- P3: DialogDescription/aria-describedby on admin dialogs; 'clear all filters' button; batch multi-AI turns.
