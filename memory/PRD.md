@@ -327,3 +327,30 @@ Persistent chat + reload restore, trivia vs Marcus 8/8, 3-player multi-AI trivia
 Fixed after report (self-tested): duplicate ai ids now de-duplicated; PlayChat GameRunner now abandons the
 session on exit/unmount (Leave button + cleanup) so no orphan ACTIVE sessions; RevealView formatted (no raw JSON).
 Known optional nits: language dropdown not narrowed by country; preview dialog still single-AI (multi-AI reachable via Play & Chat).
+
+## 2026-08 — AI Engine v2, Phase 2a: Model Router + AI-chat reliability (DONE & VERIFIED)
+### Audit (Phase 1) — key finding
+This repo is React admin + FastAPI only; there is NO Flutter chat client. So Chat Engine v3 (Part B:
+message ticks/offline/typing/media/real-device Android-iOS) is OUT OF SCOPE here. In-scope: AI Engine v2
+(Part A), evaluation v2 (Part C), admin tooling, and the server-side AI-chat reliability slice of Part B.
+Current AI engine is already modular (understanding/relationship/language_style/memory/planner/guards/
+engine/provider/rate_limit/evaluation) — NOT one giant prompt.
+### Model Router (new ai_engine/router.py)
+Deterministic routing (zero extra LLM cost) from existing understanding+plan signals into 5 tiers:
+FAST_SOCIAL=gpt-5.4-mini, STANDARD_SOCIAL=gpt-5.4, DEEP_REASONING=gpt-5.6-sol, MEMORY_HEAVY=gpt-5.6-sol,
+STRUCTURED_ACTION=gpt-5.4 (all env-overridable AI_MODEL_*, feature-flag AI_ROUTER_ENABLED). engine.respond
+routes attempt-1; a guard-failure repair regenerates on the STRONG reasoner (gpt-5.6-sol). Routing category
++ reason recorded in metrics and exposed in sandbox/Lab. VERIFIED live: greeting→gpt-5.4-mini,
+career-decision→gpt-5.6-sol, memory-callback→MEMORY_HEAVY, banter→gpt-5.4.
+### AI-chat reliability slice (ai_service.chat + /api/ai/chat)
+- Idempotency: optional clientMessageId; a repeat replays the stored reply (provider "cache", NO LLM call).
+- Concurrency: per-(character,user) asyncio lock serialises overlapping sends (no double-generate/interleave).
+- Every fresh reply carries a generationId (observability). VERIFIED live: dup→idempotentReplay same text;
+  concurrent sends both ok with distinct generationIds.
+### REMAINING AI Engine v2 phases (confirmed priority order, next up)
+2b Conversation Understanding v2 (rich structured intent/emotion/reasoning-depth fields);
+2c Selective Memory v2 (episodic + explicit + relationship layers, semantic retrieval, context
+   compression/summaries for 100+ turns, cross-history contradiction detector);
+2d Repetition/consistency v2 (semantic similarity, contradiction repair);
+2e Admin Character Lab v2 + Model Benchmark + centralized Feature Flags + character version surfacing;
+Then evaluation v2 harness (100/250-turn, multilingual, contradiction traps) + long-conversation report.

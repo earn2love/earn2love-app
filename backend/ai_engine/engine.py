@@ -14,6 +14,7 @@ from ai_engine import memory as M
 from ai_engine import planner as P
 from ai_engine import guards as G
 from ai_engine import provider as PROV
+from ai_engine import router as ROUTER
 
 logger = logging.getLogger(__name__)
 
@@ -140,9 +141,10 @@ class CharacterEngine:
         prompt = (f"Recent conversation:\n{transcript}\n\nLatest message from the person: {user_text}"
                   if transcript else f"The person says: {user_text}")
 
-        # 7. generate + guards (regenerate once)
+        # 7. route + generate + guards (regenerate once, escalating to the strong model)
         recent_ai = [t["text"] for t in self.repo.get_turns(character_id, user_id) if t["sender"] == "character"][-5:]
-        result, quality, attempts = await self._generate_guarded(sys, prompt, c, recent_ai, plan, character_id)
+        routing = ROUTER.route(u, plan, mems)
+        result, quality, attempts = await self._generate_guarded(sys, prompt, c, recent_ai, plan, character_id, routing)
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
         text = result["text"]
@@ -157,7 +159,8 @@ class CharacterEngine:
             if new_mem:
                 self.repo.add_memory(character_id, user_id, {**new_mem, "relationshipRelevant": True})
             self.repo.record_metric(character_id, {"latencyMs": result["latencyMs"], "model": result["model"],
-                                                    "attempts": attempts, "quality": quality, "userId": user_id})
+                                                    "attempts": attempts, "quality": quality, "userId": user_id,
+                                                    "routeCategory": routing["category"]})
 
         return {
             "ok": True,
@@ -170,18 +173,22 @@ class CharacterEngine:
             "memoryIdsUsed": [m.get("memoryId") for m in mems],
             "characterFactIdsUsed": [wf.get("factId") for wf in c.get("worldFacts", [])[:3]],
             "plan": plan if sandbox else None,   # planner metadata only exposed in sandbox
+            "routing": {"category": routing["category"], "reason": routing["reason"]} if sandbox else None,
             "quality": quality,
             "usage": {"provider": result["provider"], "model": result["model"],
-                      "latencyMs": result["latencyMs"], "attempts": attempts},
+                      "latencyMs": result["latencyMs"], "attempts": attempts,
+                      "routeCategory": routing["category"]},
         }
 
-    async def _generate_guarded(self, sys, prompt, c, recent_ai, plan, session_id):
+    async def _generate_guarded(self, sys, prompt, c, recent_ai, plan, session_id, routing):
         attempts = 0
         avoid_note = ""
         last_error = None
         for attempt in range(2):
             attempts += 1
-            res = await PROV.generate(sys + avoid_note, prompt, session_id=session_id)
+            # attempt 1 uses the routed model; a repair attempt escalates to the strong reasoner
+            provider, model = (routing["provider"], routing["model"]) if attempt == 0 else ROUTER.repair_model()
+            res = await PROV.generate(sys + avoid_note, prompt, session_id=session_id, provider=provider, model=model)
             if not res["ok"]:
                 last_error = res["error"]
                 break

@@ -6,6 +6,7 @@
 The SAME engine/planner/guards/provider run in both — only storage differs.
 """
 import uuid
+import asyncio
 import logging
 
 from ai_engine.repository import FirestoreCharacterRepository, InMemoryCharacterRepository
@@ -115,13 +116,14 @@ def prod_engine():
     return _prod_engine
 
 
-async def chat(character_id, user_id, message, language=None):
-    """Production, PERSISTENT conversation: memory/relationship/turns/metrics are
-    written to Firestore (sandbox=False). This is the entry point Group Play / the
-    Flutter client uses; the AI Lab stays sandbox-only.
-
-    Guarded by Firestore-backed rate limits + duplicate-spam + a platform circuit
-    breaker. On a trip we return a SOFT cooldown (no LLM call) instead of an error."""
+async def chat(character_id, user_id, message, language=None, client_message_id=None):
+    """Production, PERSISTENT conversation with reliability guards:
+    - rate limiting / abuse / platform circuit breaker (SOFT cooldown, no LLM call);
+    - idempotency: a repeated clientMessageId (double-tap / retry) replays the stored
+      reply instead of generating again;
+    - concurrency: per-(character,user) lock serialises overlapping sends so we never
+      double-generate or interleave, and never attach a stale reply.
+    Persists memory/relationship/turns/metrics to Firestore (sandbox=False)."""
     gate = RL.check_and_consume(prod_repo().db, user_id, message)
     if not gate["allowed"]:
         return {"ok": True, "rateLimited": True, "cooldown": True,
@@ -129,8 +131,36 @@ async def chat(character_id, user_id, message, language=None):
                 "responseText": RL.cooldown_message(gate["reason"]),
                 "characterId": character_id, "relationshipState": None, "memoryIdsUsed": [],
                 "usage": {"provider": "guard", "model": "rate_limit", "latencyMs": 0, "attempts": 0}}
-    return await prod_engine().respond(
-        character_id, user_id, message, sandbox=False, language_override=language or None)
+
+    conv = prod_repo().db.collection("aiCharacterConversations").document(f"{character_id}__{user_id}")
+    if client_message_id:
+        snap = conv.get()
+        d = snap.to_dict() if snap.exists else {}
+        if d.get("lastClientMessageId") == client_message_id and d.get("lastResponseText"):
+            return {"ok": True, "idempotentReplay": True, "generationId": d.get("lastGenerationId"),
+                    "responseText": d["lastResponseText"], "characterId": character_id,
+                    "relationshipState": d.get("lastRelationshipState"), "memoryIdsUsed": [],
+                    "usage": {"provider": "cache", "model": "idempotent", "latencyMs": 0, "attempts": 0}}
+
+    generation_id = uuid.uuid4().hex
+    async with _chat_lock(character_id, user_id):
+        r = await prod_engine().respond(
+            character_id, user_id, message, sandbox=False, language_override=language or None)
+        if r.get("ok"):
+            r["generationId"] = generation_id
+            if client_message_id:
+                conv.set({"lastClientMessageId": client_message_id, "lastResponseText": r["responseText"],
+                          "lastGenerationId": generation_id, "lastRelationshipState": r.get("relationshipState")},
+                         merge=True)
+        return r
+
+
+# Per-(character,user) in-flight locks — serialise concurrent sends (single backend).
+_locks = {}
+
+
+def _chat_lock(character_id, user_id):
+    return _locks.setdefault(f"{character_id}:{user_id}", asyncio.Lock())
 
 
 def chat_history(character_id, user_id, limit=100):
