@@ -65,3 +65,5 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 ai-v2-final-baseline.json
+ai-v2-baseline.txt
+backend/_v37_backup/

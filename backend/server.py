@@ -89,6 +89,7 @@ class AiChatBody(BaseModel):
     message: str
     language: str | None = None
     clientMessageId: str | None = None
+    conversationId: str | None = None
 
 
 def client_ip(request: Request) -> str:
@@ -905,7 +906,14 @@ async def ai_chat(body: AiChatBody, user: dict = Depends(get_current_user)):
     if len(body.message) > 2000:
         raise HTTPException(status_code=400, detail="message too long (max 2000 characters)")
     try:
-        r = await ai_svc.chat(body.characterId, user["uid"], body.message, body.language, body.clientMessageId)
+        r = await ai_svc.chat(
+            body.characterId,
+            user["uid"],
+            body.message,
+            body.language,
+            body.clientMessageId,
+            body.conversationId or "default",
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not r.get("ok"):
@@ -916,11 +924,33 @@ async def ai_chat(body: AiChatBody, user: dict = Depends(get_current_user)):
 
 
 @api.get("/ai/chat/{cid}/history")
-async def ai_chat_history(cid: str, user: dict = Depends(get_current_user)):
-    """Restore a user's persisted conversation + relationship with a character."""
-    turns = await _fs_guarded(lambda: ai_svc.chat_history(cid, user["uid"]), [])
-    rel = await _fs_guarded(lambda: ai_svc.relationship_state(cid, user["uid"]), {"state": "new"})
-    return {"turns": turns, "relationship": rel}
+async def ai_chat_history(
+    cid: str,
+    conversationId: str = "default",
+    user: dict = Depends(get_current_user),
+):
+    """Restore a user's selected persisted conversation + relationship."""
+    conversation_id = str(conversationId or "default").strip() or "default"
+
+    turns = await _fs_guarded(
+        lambda: ai_svc.chat_history(
+            cid,
+            user["uid"],
+            conversation_id=conversation_id,
+        ),
+        [],
+    )
+
+    rel = await _fs_guarded(
+        lambda: ai_svc.relationship_state(cid, user["uid"]),
+        {"state": "new"},
+    )
+
+    return {
+        "turns": turns,
+        "relationship": rel,
+        "conversationId": conversation_id,
+    }
 
 
 # ---- AI Character Lab (sandbox — never touches production) ----

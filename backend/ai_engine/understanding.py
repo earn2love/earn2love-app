@@ -79,6 +79,8 @@ def analyze(user_text, history=None):
     cultural = {"telugu-english": "Telugu-English casual", "hindi-english": "Hindi-English casual",
                 "tamil-english": "Tamil-English casual"}.get(lang_code, "neutral")
     return {
+        "semanticQuery": t,
+        "currentMessage": t,
         "detectedIntent": "question" if asked_q else ("share_feeling" if is_vent else "statement"),
         "primaryIntent": "seek_advice" if needs_advice else ("ask_question" if asked_q else ("vent" if is_vent else ("joke" if is_joke else "chit_chat"))),
         "topics": topics,

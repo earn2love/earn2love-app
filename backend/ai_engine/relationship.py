@@ -24,15 +24,12 @@ def load(repo, cid, uid):
 
 
 def advance(repo, cid, uid, understanding):
-    st = load(repo, cid, uid)
-    st["turnCount"] = st.get("turnCount", 0) + 1
-    st["state"] = state_for(st["turnCount"])
-    # track shared topics (lightweight, non-sensitive)
-    for tp in understanding.get("topics", [])[:2]:
-        if tp not in st["sharedTopics"] and len(tp) >= 4:
-            st["sharedTopics"].append(tp)
-    st["sharedTopics"] = st["sharedTopics"][-25:]
-    repo.set_relationship(cid, uid, st)
+    st = repo.advance_relationship(
+        cid,
+        uid,
+        understanding,
+    )
+    st["state"] = state_for(st.get("turnCount", 0))
     return st
 
 

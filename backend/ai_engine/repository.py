@@ -7,6 +7,7 @@ logic just for the in-memory backend — only storage differs.
 """
 import time
 import uuid
+import hashlib
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from google.cloud import firestore
@@ -14,6 +15,43 @@ from google.cloud import firestore
 
 def _now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def _normalize_conversation_id(value):
+    """
+    Stable conversation namespace.
+
+    Existing callers that do not provide a conversation ID continue to use
+    the historical/default conversation.
+    """
+    value = str(value or "default").strip()
+
+    if not value:
+        value = "default"
+
+    return value[:128]
+
+
+def _conversation_doc_id(cid, uid, conversation_id="default"):
+    """
+    Preserve the existing Firestore parent document for the default
+    conversation while giving additional sessions their own physical parent.
+
+    The conversation ID itself is hashed before it becomes part of a
+    Firestore document ID.
+    """
+    conversation_id = _normalize_conversation_id(conversation_id)
+
+    legacy = f"{cid}__{uid}"
+
+    if conversation_id == "default":
+        return legacy
+
+    digest = hashlib.sha256(
+        conversation_id.encode("utf-8")
+    ).hexdigest()[:24]
+
+    return f"{legacy}__{digest}"
 
 
 class CharacterRepository(ABC):
@@ -36,16 +74,47 @@ class CharacterRepository(ABC):
     def add_memory(self, cid, uid, mem): ...
     @abstractmethod
     def list_memories(self, cid, uid): ...
+    @abstractmethod
+    def save_structured_memory(self, cid, uid, mem): ...
+
+    @abstractmethod
+    def revise_memories(self, cid, uid, memory_ids, action, metadata=None): ...
     # --- relationship ---
     @abstractmethod
     def get_relationship(self, cid, uid): ...
     @abstractmethod
     def set_relationship(self, cid, uid, state): ...
+
+    def advance_relationship(self, cid, uid, understanding):
+        state = self.get_relationship(cid, uid) or {
+            "characterId": cid,
+            "userId": uid,
+            "turnCount": 0,
+            "state": "new",
+            "sharedTopics": [],
+            "recurringJokes": [],
+            "milestones": [],
+        }
+
+        state = dict(state)
+        state["turnCount"] = int(state.get("turnCount", 0)) + 1
+
+        topics = list(state.get("sharedTopics", []))
+
+        for topic in (understanding or {}).get("topics", [])[:2]:
+            if topic not in topics and len(topic) >= 4:
+                topics.append(topic)
+
+        state["sharedTopics"] = topics[-25:]
+
+        self.set_relationship(cid, uid, state)
+        return state
+
     # --- conversations ---
     @abstractmethod
-    def append_turn(self, cid, uid, turn): ...
+    def append_turn(self, cid, uid, turn, conversation_id="default"): ...
     @abstractmethod
-    def get_turns(self, cid, uid, limit=None): ...
+    def get_turns(self, cid, uid, limit=None, conversation_id="default"): ...
     # --- metrics / evaluations ---
     @abstractmethod
     def record_metric(self, cid, metric): ...
@@ -98,18 +167,132 @@ class InMemoryCharacterRepository(CharacterRepository):
 
     def list_memories(self, cid, uid): return list(self.memories.get((cid, uid), []))
 
+    def save_structured_memory(self, cid, uid, mem):
+        """
+        Persist one structured fact.
+
+        Current-state canonical slots supersede their previous active value.
+        Historical/episodic facts remain independently active.
+        """
+        incoming = dict(mem or {})
+        canonical_key = incoming.get("canonicalKey")
+        should_supersede = bool(incoming.get("supersedesExisting"))
+
+        existing = self.memories.setdefault((cid, uid), [])
+
+        if canonical_key:
+            for old in existing:
+                if (
+                    old.get("canonicalKey") == canonical_key
+                    and old.get("status", "active") == "active"
+                ):
+                    same_value = (
+                        str(old.get("value", "")).strip().casefold()
+                        == str(incoming.get("value", "")).strip().casefold()
+                    )
+
+                    if same_value:
+                        return old
+
+                    if should_supersede:
+                        old["status"] = "superseded"
+                        old["supersededAt"] = _now()
+                        old["supersededByValue"] = incoming.get("value")
+
+        incoming.setdefault("status", "active")
+        return self.add_memory(cid, uid, incoming)
+
+    def revise_memories(self, cid, uid, memory_ids, action, metadata=None):
+        ids = set(memory_ids or [])
+        metadata = dict(metadata or {})
+        changed = []
+
+        if not ids:
+            return changed
+
+        for memory in self.memories.get((cid, uid), []):
+            if memory.get("memoryId") not in ids:
+                continue
+
+            if memory.get("status", "active") != "active":
+                continue
+
+            if action == "forget":
+                memory["status"] = "forgotten"
+            elif action == "retract":
+                memory["status"] = "retracted"
+            else:
+                memory["status"] = "corrected"
+
+            memory["revisedAt"] = _now()
+            memory["revisionReason"] = metadata.get("reason")
+            memory["revisionSource"] = metadata.get(
+                "source",
+                "explicit_user",
+            )
+
+            changed.append(memory)
+
+        return changed
     def get_relationship(self, cid, uid): return self.relationships.get((cid, uid))
 
     def set_relationship(self, cid, uid, state):
         self.relationships[(cid, uid)] = state
         return state
 
-    def append_turn(self, cid, uid, turn):
-        self.turns.setdefault((cid, uid), []).append({**turn, "at": time.time()})
+    def append_turn(
+        self,
+        cid,
+        uid,
+        turn,
+        conversation_id="default",
+    ):
+        conversation_id = _normalize_conversation_id(
+            conversation_id
+        )
 
-    def get_turns(self, cid, uid, limit=None):
-        t = self.turns.get((cid, uid), [])
-        return t[-limit:] if limit else list(t)
+        stored = {
+            **turn,
+            "conversationId": conversation_id,
+            "at": time.time(),
+        }
+
+        self.turns.setdefault(
+            (
+                cid,
+                uid,
+                conversation_id,
+            ),
+            [],
+        ).append(stored)
+
+        return stored
+
+    def get_turns(
+        self,
+        cid,
+        uid,
+        limit=None,
+        conversation_id="default",
+    ):
+        conversation_id = _normalize_conversation_id(
+            conversation_id
+        )
+
+        turns = self.turns.get(
+            (
+                cid,
+                uid,
+                conversation_id,
+            ),
+            [],
+        )
+
+        return (
+            turns[-limit:]
+            if limit
+            else list(turns)
+        )
 
     def record_metric(self, cid, metric):
         self.metrics.setdefault(cid, []).append({**metric, "at": _now()})
@@ -195,28 +378,275 @@ class FirestoreCharacterRepository(CharacterRepository):
         q = self.db.collection("aiCharacterMemories").where("characterId", "==", cid).where("userId", "==", uid).limit(500)
         return [d.to_dict() for d in q.stream()]
 
+    def save_structured_memory(self, cid, uid, mem):
+        """
+        Persist a structured fact while preserving historical values.
+
+        Firestore transaction semantics are used so a current-state slot cannot
+        end up with two active values because of concurrent writes.
+        """
+        incoming = dict(mem or {})
+        canonical_key = incoming.get("canonicalKey")
+        should_supersede = bool(incoming.get("supersedesExisting"))
+
+        collection = self.db.collection("aiCharacterMemories")
+        transaction = self.db.transaction()
+
+        @firestore.transactional
+        def _save(transaction):
+            existing_docs = []
+
+            if canonical_key:
+                q = (
+                    collection
+                    .where("characterId", "==", cid)
+                    .where("userId", "==", uid)
+                    .where("canonicalKey", "==", canonical_key)
+                )
+
+                existing_docs = list(q.stream(transaction=transaction))
+
+                for doc in existing_docs:
+                    old = doc.to_dict() or {}
+
+                    if old.get("status", "active") != "active":
+                        continue
+
+                    same_value = (
+                        str(old.get("value", "")).strip().casefold()
+                        == str(incoming.get("value", "")).strip().casefold()
+                    )
+
+                    if same_value:
+                        return old
+
+                    if should_supersede:
+                        transaction.update(
+                            doc.reference,
+                            {
+                                "status": "superseded",
+                                "supersededAt": _now(),
+                                "supersededByValue": incoming.get("value"),
+                            },
+                        )
+
+            memory_id = incoming.get("memoryId") or uuid.uuid4().hex[:10]
+
+            stored = {
+                **incoming,
+                "characterId": cid,
+                "userId": uid,
+                "memoryId": memory_id,
+                "createdAt": _now(),
+                "status": incoming.get("status", "active"),
+            }
+
+            ref = collection.document(memory_id)
+            transaction.set(ref, stored)
+
+            return stored
+
+        return _save(transaction)
+
+    def revise_memories(self, cid, uid, memory_ids, action, metadata=None):
+        ids = list(dict.fromkeys(memory_ids or []))
+        metadata = dict(metadata or {})
+
+        if not ids:
+            return []
+
+        collection = self.db.collection("aiCharacterMemories")
+        changed = []
+
+        status = {
+            "forget": "forgotten",
+            "retract": "retracted",
+        }.get(action, "corrected")
+
+        # Each revision is scoped to the exact memory document and verified
+        # against character/user ownership before mutation.
+        for memory_id in ids:
+            ref = collection.document(memory_id)
+            snap = ref.get()
+
+            if not snap.exists:
+                continue
+
+            current = snap.to_dict() or {}
+
+            if current.get("characterId") != cid:
+                continue
+
+            if current.get("userId") != uid:
+                continue
+
+            if current.get("status", "active") != "active":
+                continue
+
+            update = {
+                "status": status,
+                "revisedAt": _now(),
+                "revisionReason": metadata.get("reason"),
+                "revisionSource": metadata.get(
+                    "source",
+                    "explicit_user",
+                ),
+            }
+
+            ref.update(update)
+
+            changed.append({
+                **current,
+                **update,
+            })
+
+        return changed
     def get_relationship(self, cid, uid):
         d = self.db.collection("aiCharacterRelationshipState").document(f"{cid}__{uid}").get()
         return d.to_dict() if d.exists else None
 
     def set_relationship(self, cid, uid, state):
-        self.db.collection("aiCharacterRelationshipState").document(f"{cid}__{uid}").set(state, merge=True)
+        self.db.collection("aiCharacterRelationshipState").document(
+            f"{cid}__{uid}"
+        ).set(state, merge=True)
         return state
 
-    def append_turn(self, cid, uid, turn):
-        conv = self.db.collection("aiCharacterConversations").document(f"{cid}__{uid}")
-        conv.set({"characterId": cid, "userId": uid, "updatedAt": _now(),
-                  "turnCount": firestore.Increment(1)}, merge=True)
-        conv.collection("turns").add(turn)
+    def advance_relationship(self, cid, uid, understanding):
+        ref = self.db.collection(
+            "aiCharacterRelationshipState"
+        ).document(f"{cid}__{uid}")
 
-    def get_turns(self, cid, uid, limit=None):
-        col = self.db.collection("aiCharacterConversations").document(f"{cid}__{uid}").collection("turns")
+        transaction = self.db.transaction()
+
+        @firestore.transactional
+        def _advance(transaction):
+            snap = ref.get(transaction=transaction)
+
+            state = snap.to_dict() if snap.exists else {
+                "characterId": cid,
+                "userId": uid,
+                "turnCount": 0,
+                "state": "new",
+                "sharedTopics": [],
+                "recurringJokes": [],
+                "milestones": [],
+            }
+
+            state = dict(state)
+
+            turn_count = int(state.get("turnCount", 0)) + 1
+            state["turnCount"] = turn_count
+
+            if turn_count >= 60:
+                state["state"] = "established"
+            elif turn_count >= 20:
+                state["state"] = "comfortable"
+            elif turn_count >= 6:
+                state["state"] = "familiar"
+            else:
+                state["state"] = "new"
+
+            topics = list(state.get("sharedTopics", []))
+
+            for topic in (understanding or {}).get("topics", [])[:2]:
+                if topic not in topics and len(topic) >= 4:
+                    topics.append(topic)
+
+            state["sharedTopics"] = topics[-25:]
+
+            transaction.set(ref, state, merge=True)
+
+            return state
+
+        return _advance(transaction)
+
+    def append_turn(
+        self,
+        cid,
+        uid,
+        turn,
+        conversation_id="default",
+    ):
+        conversation_id = _normalize_conversation_id(
+            conversation_id
+        )
+
+        conversation_ref = (
+            self.db
+            .collection("aiCharacterConversations")
+            .document(
+                _conversation_doc_id(
+                    cid,
+                    uid,
+                    conversation_id,
+                )
+            )
+        )
+
+        conversation_ref.set(
+            {
+                "characterId": cid,
+                "userId": uid,
+                "conversationId": conversation_id,
+                "updatedAt": _now(),
+            },
+            merge=True,
+        )
+
+        stored = {
+            **turn,
+            "characterId": cid,
+            "userId": uid,
+            "conversationId": conversation_id,
+            "at": _now(),
+        }
+
+        conversation_ref.collection(
+            "turns"
+        ).add(stored)
+
+        return stored
+
+    def get_turns(
+        self,
+        cid,
+        uid,
+        limit=None,
+        conversation_id="default",
+    ):
+        conversation_id = _normalize_conversation_id(
+            conversation_id
+        )
+
+        conversation_ref = (
+            self.db
+            .collection("aiCharacterConversations")
+            .document(
+                _conversation_doc_id(
+                    cid,
+                    uid,
+                    conversation_id,
+                )
+            )
+        )
+
+        docs = [
+            doc.to_dict()
+            for doc in conversation_ref
+            .collection("turns")
+            .stream()
+        ]
+
+        docs.sort(
+            key=lambda turn: turn.get(
+                "index",
+                0,
+            )
+        )
+
         if limit:
-            q = col.order_by("index", direction=firestore.Query.DESCENDING).limit(int(limit))
-            docs = [d.to_dict() for d in q.stream()]
-        else:
-            docs = [d.to_dict() for d in col.stream()]
-        docs.sort(key=lambda t: t.get("index", 0))
+            docs = docs[-limit:]
+
         return docs
 
     def record_metric(self, cid, metric):

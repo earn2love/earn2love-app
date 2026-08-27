@@ -139,7 +139,14 @@ def prod_engine():
     return _prod_engine
 
 
-async def chat(character_id, user_id, message, language=None, client_message_id=None):
+async def chat(
+    character_id,
+    user_id,
+    message,
+    language=None,
+    client_message_id=None,
+    conversation_id="default",
+):
     """Production, PERSISTENT conversation with reliability guards:
     - rate limiting / abuse / platform circuit breaker (SOFT cooldown, no LLM call);
     - idempotency: a repeated clientMessageId (double-tap / retry) replays the stored
@@ -162,7 +169,21 @@ async def chat(character_id, user_id, message, language=None, client_message_id=
                 "characterId": character_id, "relationshipState": None, "memoryIdsUsed": [],
                 "usage": {"provider": "guard", "model": "feature_flag", "latencyMs": 0, "attempts": 0}}
 
-    conv = prod_repo().db.collection("aiCharacterConversations").document(f"{character_id}__{user_id}")
+    conversation_id = str(conversation_id or "default").strip() or "default"
+
+    # Use the exact repository conversation document mapping so
+    # idempotency metadata and persisted turns always share one parent.
+    from ai_engine.repository import _conversation_doc_id
+
+    conv = prod_repo().db.collection(
+        "aiCharacterConversations"
+    ).document(
+        _conversation_doc_id(
+            character_id,
+            user_id,
+            conversation_id,
+        )
+    )
     if client_message_id:
         snap = conv.get()
         d = snap.to_dict() if snap.exists else {}
@@ -173,10 +194,16 @@ async def chat(character_id, user_id, message, language=None, client_message_id=
                     "usage": {"provider": "cache", "model": "idempotent", "latencyMs": 0, "attempts": 0}}
 
     generation_id = uuid.uuid4().hex
-    async with _chat_lock(character_id, user_id):
+    async with _chat_lock(character_id, user_id, conversation_id):
         r = await prod_engine().respond(
-            character_id, user_id, message, sandbox=False, language_override=language or None,
-            feature_flags=flags)
+            character_id,
+            user_id,
+            message,
+            sandbox=False,
+            language_override=language or None,
+            feature_flags=flags,
+            conversation_id=conversation_id,
+        )
         if r.get("ok"):
             r["generationId"] = generation_id
             if client_message_id:
@@ -190,12 +217,26 @@ async def chat(character_id, user_id, message, language=None, client_message_id=
 _locks = {}
 
 
-def _chat_lock(character_id, user_id):
-    return _locks.setdefault(f"{character_id}:{user_id}", asyncio.Lock())
+def _chat_lock(character_id, user_id, conversation_id="default"):
+    conversation_id = str(conversation_id or "default").strip() or "default"
+    return _locks.setdefault(
+        f"{character_id}:{user_id}:{conversation_id}",
+        asyncio.Lock(),
+    )
 
 
-def chat_history(character_id, user_id, limit=100):
-    return prod_repo().get_turns(character_id, user_id, limit=limit)
+def chat_history(
+    character_id,
+    user_id,
+    limit=100,
+    conversation_id="default",
+):
+    return prod_repo().get_turns(
+        character_id,
+        user_id,
+        limit=limit,
+        conversation_id=conversation_id,
+    )
 
 
 def relationship_state(character_id, user_id):
