@@ -22,6 +22,7 @@ from ai_engine import planner as P
 from ai_engine import guards as G
 from ai_engine import conversation_intelligence as CI
 from ai_engine import relationship_intelligence as RI
+from ai_engine import personality_engine as PE
 from ai_engine import provider as PROV
 from ai_engine import router as ROUTER
 
@@ -352,6 +353,16 @@ class CharacterEngine:
             u["languageCode"] = language_override
             u["detectedLanguage"] = language_override
 
+        # V6 global personality intelligence.
+        # Personality is derived exclusively from the global character profile.
+        personality_guidance = PE.build_guidance(
+            c
+        )
+
+        personality_fingerprint = (
+            personality_guidance.fingerprint
+        )
+
         # 2. relationship
         rel = (dict(R.load(self.repo, character_id, user_id), state=relationship_override)
                if relationship_override else R.load(self.repo, character_id, user_id))
@@ -425,6 +436,11 @@ class CharacterEngine:
             + relationship_guidance.directive
         )
 
+        sys += (
+            "\n\nV6_GLOBAL_CHARACTER_PERSONALITY:\n"
+            + personality_guidance.directive
+        )
+
         if relationship_milestones:
             sys += (
                 "\nRelevant relationship milestones:\n"
@@ -468,6 +484,7 @@ class CharacterEngine:
             routing,
             conversation_guidance,
             relationship_guidance,
+            personality_fingerprint,
         )
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
@@ -703,6 +720,7 @@ class CharacterEngine:
         routing,
         conversation_guidance=None,
         relationship_guidance=None,
+        personality_fingerprint=None,
     ):
         attempts = 0
         avoid_note = ""
@@ -731,6 +749,15 @@ class CharacterEngine:
                 text
             )
 
+            personality_ok, personality_reason = (
+                PE.output_personality_check(
+                    text,
+                    personality_fingerprint,
+                )
+                if personality_fingerprint is not None
+                else (True, "no_personality")
+            )
+
             quality = {
                 "consistencyPassed": con_ok,
                 "repetitionPassed": rep_ok,
@@ -740,6 +767,13 @@ class CharacterEngine:
                 "conversationQualityReason": conv_reason,
                 "relationshipSafetyPassed": rel_ok,
                 "relationshipSafetyReason": rel_reason,
+                "personalityConsistencyPassed": personality_ok,
+                "personalityConsistencyReason": personality_reason,
+                "personalitySignature": (
+                    personality_fingerprint.identity_signature
+                    if personality_fingerprint is not None
+                    else None
+                ),
                 "fillerCount": G.quality_penalty(text),
             }
 
@@ -749,6 +783,7 @@ class CharacterEngine:
                 and saf_ok
                 and conv_ok
                 and rel_ok
+                and personality_ok
             ):
                 return ({"ok": True, "text": text, **{k: res[k] for k in ("provider", "model", "latencyMs")}},
                         quality, attempts)
@@ -768,6 +803,13 @@ class CharacterEngine:
                     f"relationship safety issue ({rel_reason}) ? "
                     "remove possessiveness, exclusivity pressure, guilt "
                     "or dependency language"
+                )
+
+            if not personality_ok:
+                problems.append(
+                    f"personality consistency issue ({personality_reason}) ? "
+                    "regenerate using the configured global character personality "
+                    "without becoming a generic assistant"
                 )
 
             avoid_note = "\n\nIMPORTANT — regenerate: " + "; ".join(problems) + "."
