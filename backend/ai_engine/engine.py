@@ -21,6 +21,7 @@ from ai_engine import emotional_intelligence as EI
 from ai_engine import planner as P
 from ai_engine import guards as G
 from ai_engine import conversation_intelligence as CI
+from ai_engine import relationship_intelligence as RI
 from ai_engine import provider as PROV
 from ai_engine import router as ROUTER
 
@@ -363,6 +364,21 @@ class CharacterEngine:
             relationship_state=rel.get("state"),
         )
 
+        relationship_state_v5 = RI.normalize_state(
+            rel,
+            character_id,
+            user_id,
+        )
+
+        relationship_guidance = RI.guidance_for(
+            relationship_state_v5
+        )
+
+        relationship_milestones = RI.milestone_context(
+            relationship_state_v5,
+            limit=3,
+        )
+
         # 3. memory (relevant only)
         mems = M.retrieve_temporal(
             self.repo,
@@ -404,6 +420,21 @@ class CharacterEngine:
             + conversation_directive
         )
 
+        sys += (
+            "\n\nV5_RELATIONSHIP_INTELLIGENCE:\n"
+            + relationship_guidance.directive
+        )
+
+        if relationship_milestones:
+            sys += (
+                "\nRelevant relationship milestones:\n"
+                + "\n".join(
+                    f"- {item.get('summary', '')}"
+                    for item in relationship_milestones
+                    if item.get("summary")
+                )
+            )
+
         transcript = "\n".join(f"{'USER' if m['sender']=='user' else c['displayName'].upper()}: {m['text']}"
                                for m in recent[-8:])
         prompt = (f"Recent conversation:\n{transcript}\n\nLatest message from the person: {user_text}"
@@ -436,6 +467,7 @@ class CharacterEngine:
             provider_session_id,
             routing,
             conversation_guidance,
+            relationship_guidance,
         )
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
@@ -466,7 +498,9 @@ class CharacterEngine:
                 },
                 conversation_id=conversation_id,
             )
-            R.advance(self.repo, character_id, user_id, u)
+            R.advance(self.repo, character_id, user_id, u,
+                user_text=user_text,
+            )
             existing_memories = self.repo.list_memories(
                 character_id,
                 user_id,
@@ -668,6 +702,7 @@ class CharacterEngine:
         session_id,
         routing,
         conversation_guidance=None,
+        relationship_guidance=None,
     ):
         attempts = 0
         avoid_note = ""
@@ -692,6 +727,10 @@ class CharacterEngine:
                 recent_ai,
             )
 
+            rel_ok, rel_reason = RI.relationship_response_safety(
+                text
+            )
+
             quality = {
                 "consistencyPassed": con_ok,
                 "repetitionPassed": rep_ok,
@@ -699,10 +738,18 @@ class CharacterEngine:
                 "lengthOk": length_ok,
                 "conversationQualityPassed": conv_ok,
                 "conversationQualityReason": conv_reason,
+                "relationshipSafetyPassed": rel_ok,
+                "relationshipSafetyReason": rel_reason,
                 "fillerCount": G.quality_penalty(text),
             }
 
-            if con_ok and rep_ok and saf_ok and conv_ok:
+            if (
+                con_ok
+                and rep_ok
+                and saf_ok
+                and conv_ok
+                and rel_ok
+            ):
                 return ({"ok": True, "text": text, **{k: res[k] for k in ("provider", "model", "latencyMs")}},
                         quality, attempts)
             # build a targeted avoid-note and regenerate once
@@ -714,6 +761,13 @@ class CharacterEngine:
                 problems.append(
                     f"conversation quality issue ({conv_reason}) ? "
                     "respond more naturally, directly and contextually"
+                )
+
+            if not rel_ok:
+                problems.append(
+                    f"relationship safety issue ({rel_reason}) ? "
+                    "remove possessiveness, exclusivity pressure, guilt "
+                    "or dependency language"
                 )
 
             avoid_note = "\n\nIMPORTANT — regenerate: " + "; ".join(problems) + "."

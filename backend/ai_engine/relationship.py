@@ -23,14 +23,19 @@ def load(repo, cid, uid):
     return st
 
 
-def advance(repo, cid, uid, understanding):
-    st = repo.advance_relationship(
+def advance(
+    repo,
+    cid,
+    uid,
+    understanding,
+    user_text=None,
+):
+    return repo.advance_relationship(
         cid,
         uid,
         understanding,
+        user_text=user_text,
     )
-    st["state"] = state_for(st.get("turnCount", 0))
-    return st
 
 
 STYLE_BY_STATE = {

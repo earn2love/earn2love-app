@@ -9,6 +9,7 @@ import time
 import uuid
 import hashlib
 from abc import ABC, abstractmethod
+from ai_engine import relationship_intelligence as RI
 from datetime import datetime, timezone
 from google.cloud import firestore
 
@@ -85,8 +86,32 @@ class CharacterRepository(ABC):
     @abstractmethod
     def set_relationship(self, cid, uid, state): ...
 
-    def advance_relationship(self, cid, uid, understanding):
-        state = self.get_relationship(cid, uid) or {
+    def advance_relationship(
+        self,
+        cid,
+        uid,
+        understanding,
+        user_text=None,
+    ):
+        state = self.get_relationship(cid, uid)
+
+        if user_text is not None:
+            state = RI.evolve(
+                state,
+                cid,
+                uid,
+                user_text,
+            )
+
+            self.set_relationship(
+                cid,
+                uid,
+                state,
+            )
+
+            return state
+
+        state = state or {
             "characterId": cid,
             "userId": uid,
             "turnCount": 0,
@@ -511,7 +536,13 @@ class FirestoreCharacterRepository(CharacterRepository):
         ).set(state, merge=True)
         return state
 
-    def advance_relationship(self, cid, uid, understanding):
+    def advance_relationship(
+        self,
+        cid,
+        uid,
+        understanding,
+        user_text=None,
+    ):
         ref = self.db.collection(
             "aiCharacterRelationshipState"
         ).document(f"{cid}__{uid}")
@@ -520,45 +551,85 @@ class FirestoreCharacterRepository(CharacterRepository):
 
         @firestore.transactional
         def _advance(transaction):
-            snap = ref.get(transaction=transaction)
+            snap = ref.get(
+                transaction=transaction
+            )
 
-            state = snap.to_dict() if snap.exists else {
-                "characterId": cid,
-                "userId": uid,
-                "turnCount": 0,
-                "state": "new",
-                "sharedTopics": [],
-                "recurringJokes": [],
-                "milestones": [],
-            }
+            existing = (
+                snap.to_dict()
+                if snap.exists
+                else None
+            )
 
-            state = dict(state)
+            if user_text is not None:
 
-            turn_count = int(state.get("turnCount", 0)) + 1
-            state["turnCount"] = turn_count
+                state = RI.evolve(
+                    existing,
+                    cid,
+                    uid,
+                    user_text,
+                )
 
-            if turn_count >= 60:
-                state["state"] = "established"
-            elif turn_count >= 20:
-                state["state"] = "comfortable"
-            elif turn_count >= 6:
-                state["state"] = "familiar"
             else:
-                state["state"] = "new"
 
-            topics = list(state.get("sharedTopics", []))
+                state = existing or {
+                    "characterId": cid,
+                    "userId": uid,
+                    "turnCount": 0,
+                    "state": "new",
+                    "sharedTopics": [],
+                    "recurringJokes": [],
+                    "milestones": [],
+                }
 
-            for topic in (understanding or {}).get("topics", [])[:2]:
-                if topic not in topics and len(topic) >= 4:
-                    topics.append(topic)
+                state = dict(state)
 
-            state["sharedTopics"] = topics[-25:]
+                state["turnCount"] = (
+                    int(
+                        state.get(
+                            "turnCount",
+                            0,
+                        )
+                    )
+                    + 1
+                )
 
-            transaction.set(ref, state, merge=True)
+                topics = list(
+                    state.get(
+                        "sharedTopics",
+                        [],
+                    )
+                )
+
+                for topic in (
+                    understanding
+                    or {}
+                ).get(
+                    "topics",
+                    [],
+                )[:2]:
+
+                    if (
+                        topic not in topics
+                        and len(topic) >= 4
+                    ):
+                        topics.append(
+                            topic
+                        )
+
+                state["sharedTopics"] = topics[-25:]
+
+            transaction.set(
+                ref,
+                state,
+                merge=True,
+            )
 
             return state
 
-        return _advance(transaction)
+        return _advance(
+            transaction
+        )
 
     def append_turn(
         self,
