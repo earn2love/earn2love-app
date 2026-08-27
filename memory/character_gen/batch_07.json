@@ -1,0 +1,176 @@
+{
+ "batch": 7,
+ "avgPairwiseSimilarity": 0.149,
+ "seeded": [
+  "gen_gowri_42",
+  "gen_ninad_43",
+  "gen_guneet_44",
+  "gen_sohini_45",
+  "gen_sarang_46",
+  "gen_rithu_47",
+  "gen_niyati_48"
+ ],
+ "verdicts": {
+  "gen_gowri_42": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t move just for a shinier title\u2014take it only if the money, growth, and daily life are clearly better after rent and relocation costs. Which city, and what\u2019s the real salary jump?",
+    "maxSim": 0.233,
+    "mostSimilarTo": "gen_dara_14",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_ninad_43": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it only by the salary or title; compare the work you\u2019ll learn from, the actual cost of living, the people you\u2019d leave, and whether the new city gives you a life you can tolerate on ordinary Tuesdays. If the move goes badly, having a six-month financial cushion or a clear fallback makes the decision much cleaner. Which part is pulling you more strongly\u2014the job itself, or the chance to start somewhere new?",
+    "maxSim": 0.253,
+    "mostSimilarTo": "gen_kiran_02",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_guneet_44": {
+   "passed": true,
+   "detail": {
+    "divText": "Arre, don\u2019t judge it by salary alone\u2014compare growth, cost of living, people you\u2019d leave behind, and whether the new city feels energising or merely disruptive. Think of it like a vector: the size of the offer matters, but so does the direction it moves your life. If both jobs paid the same, which one would you choose?",
+    "maxSim": 0.319,
+    "mostSimilarTo": "gen_praneeth_40",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_sohini_45": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t let a higher salary disguise a worse life; take it only if the role improves your trajectory enough to justify the move. What would you regret more in a year: going, or staying?",
+    "maxSim": 0.292,
+    "mostSimilarTo": "gen_haeon_38",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_sarang_46": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge only by salary; weigh the work you\u2019ll learn, the people you\u2019ll leave, living costs, and whether the new city gives you room to breathe. A useful test is to imagine both choices six months from now\u2014which regret feels heavier: going, or staying? What is the one thing making you hesitate most?",
+    "maxSim": 0.202,
+    "mostSimilarTo": "gen_rafi_22",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_rithu_47": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if the move improves your life, not merely your r\u00e9sum\u00e9. Compare three things: real take-home pay after relocation costs, growth you cannot get where you are, and the people or stability you\u2019d be leaving. Which of those weighs heaviest for you right now?",
+    "maxSim": 0.207,
+    "mostSimilarTo": "gen_alix_32",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_niyati_48": {
+   "passed": true,
+   "detail": {
+    "divText": "A new job is a little like moving to a different shoreline\u2014the opportunity matters, but so do the conditions around it. Compare the role, growth, salary after moving costs, daily life, and what you\u2019d be leaving behind; barabar, don\u2019t let the title alone decide. If the practical terms are workable, does the move feel more like expansion or escape?",
+    "maxSim": 0.235,
+    "mostSimilarTo": "gen_meher_12",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

@@ -1,0 +1,176 @@
+{
+ "batch": 9,
+ "avgPairwiseSimilarity": 0.148,
+ "seeded": [
+  "gen_cruz_56",
+  "gen_thao_57",
+  "gen_kacper_58",
+  "gen_laurier_59",
+  "gen_solene_60",
+  "gen_theo_61",
+  "gen_quyen_62"
+ ],
+ "verdicts": {
+  "gen_cruz_56": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if the move clearly improves either your after-rent income or your career trajectory; a ver, calculate the monthly difference first. What would you net after housing, transport, and moving costs?",
+    "maxSim": 0.348,
+    "mostSimilarTo": "gen_iniyan_01",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_thao_57": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t let the shiny salary do all the talking\u2014compare growth, manager quality, cost of living, and what the move does to your actual daily life. If both jobs paid the same, which city and role would you choose? That answer usually exposes what the spreadsheet is hiding.",
+    "maxSim": 0.304,
+    "mostSimilarTo": "gen_guneet_44",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_kacper_58": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it if it clearly improves your pay, growth, or daily life\u2014not just because \u201cnew\u201d feels like progress. After rent and moving costs, does the offer still leave you better off?",
+    "maxSim": 0.326,
+    "mostSimilarTo": "gen_begona_30",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_laurier_59": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t let the shiny title make the whole decision\u2014compare pay after housing and moving costs, growth, people, lifestyle, and what you\u2019d be leaving behind. Then ask which choice opens your world rather than simply changing the scenery; that\u2019s usually where the trail gets interesting. What\u2019s the biggest pull toward the new city, and the biggest thing making you hesitate?",
+    "maxSim": 0.247,
+    "mostSimilarTo": "gen_marisol_15",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_solene_60": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge only the title or salary; compare the life around the job\u2014cost of living, people you\u2019d leave, growth, and whether the new city gives you room to become more yourself. Franchement, a move should feel like a difficult route worth climbing, not merely an escape from the wall you\u2019re on. If the offer disappeared tomorrow, would you feel relieved or disappointed?",
+    "maxSim": 0.289,
+    "mostSimilarTo": "gen_lo_35",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_theo_61": {
+   "passed": true,
+   "detail": {
+    "divText": "Separate the job from the city: would you want the role if it were nearby, and would you want the city without the role? Then weigh pay, growth, support network, and what leaving costs you\u2014not just financially. Which choice feels more like moving toward a life you want, rather than escaping one you don\u2019t?",
+    "maxSim": 0.26,
+    "mostSimilarTo": "gen_tomas_16",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_quyen_62": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if it clearly upgrades at least two of these: pay, growth, and quality of life\u2014otherwise relocation is just expensive chaos. What would this job give you that your current one can\u2019t?",
+    "maxSim": 0.319,
+    "mostSimilarTo": "gen_revati_06",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

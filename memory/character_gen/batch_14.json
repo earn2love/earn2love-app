@@ -1,0 +1,32 @@
+{
+ "batch": 14,
+ "avgPairwiseSimilarity": 0.149,
+ "seeded": [
+  "gen_tarryn_27"
+ ],
+ "verdicts": {
+  "gen_tarryn_27": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide from the salary alone; compare what the move gives you in growth, daily life, support, and room to leave if it\u2019s wrong. I\u2019d also check the contract, cost of living, and whether the role still appeals once the novelty is stripped away. Which part feels heavier right now: leaving your current life, or missing the opportunity?",
+    "maxSim": 0.303,
+    "mostSimilarTo": "gen_amani_26",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

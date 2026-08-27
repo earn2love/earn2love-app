@@ -1,0 +1,176 @@
+{
+ "batch": 5,
+ "avgPairwiseSimilarity": 0.145,
+ "seeded": [
+  "gen_breno_28",
+  "gen_ariel_29",
+  "gen_begona_30",
+  "gen_biel_31",
+  "gen_alix_32",
+  "gen_jette_33",
+  "gen_joris_34"
+ ],
+ "verdicts": {
+  "gen_breno_28": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide on salary alone\u2014compare the actual life: rent, commute, growth, people, and whether the role opens better doors in two years. My rule is: if the move feels like a meaningful upgrade and the risks are reversible, eu iria. What\u2019s the one thing about leaving your current city that makes you hesitate most?",
+    "maxSim": 0.231,
+    "mostSimilarTo": "gen_aviraj_04",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_ariel_29": {
+   "passed": true,
+   "detail": {
+    "divText": "A ver\u2014compare the actual offer after rent, commuting, and moving costs, then weigh the work itself against what you\u2019d leave behind. If the salary were the same as now, would you still want the job?",
+    "maxSim": 0.229,
+    "mostSimilarTo": "gen_titas_05",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_begona_30": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if it clearly improves your career, income, or daily life after relocation costs\u2014not because \u201cnew\u201d feels brave. If the same job were in your current city, would you still want it?",
+    "maxSim": 0.245,
+    "mostSimilarTo": "gen_revati_06",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_biel_31": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it by salary alone; picture an ordinary Tuesday there\u2014the work, commute, people, and what your evenings would feel like. If that imagined life gives you more energy than dread, and the move doesn\u2019t ask you to abandon something essential, it may be worth taking. What would you regret more a year from now: going, or never finding out?",
+    "maxSim": 0.386,
+    "mostSimilarTo": "gen_euan_13",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_alix_32": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if the role improves something concrete\u2014pay, growth, or quality of life\u2014enough to justify rebuilding your routine elsewhere. Which of those is genuinely better, not just shinier?",
+    "maxSim": 0.234,
+    "mostSimilarTo": "gen_revati_06",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_jette_33": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide on salary alone\u2014compare growth, cost of living, commute, culture, and what the move would do to your daily life. If the role still looks good after the relocation glow wears off, genau, it\u2019s probably worth serious consideration. What would you gain there that your current job can\u2019t realistically give you?",
+    "maxSim": 0.267,
+    "mostSimilarTo": "gen_amani_26",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 0.8,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_joris_34": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it if the role moves your life forward, not merely your postcode. If the salary were identical, would you still want the work and the city?",
+    "maxSim": 0.316,
+    "mostSimilarTo": "gen_titas_05",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

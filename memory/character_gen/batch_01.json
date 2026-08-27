@@ -1,0 +1,176 @@
+{
+ "batch": 1,
+ "avgPairwiseSimilarity": 0.133,
+ "seeded": [
+  "gen_sahithi_00",
+  "gen_iniyan_01",
+  "gen_kiran_02",
+  "gen_mrunmayi_03",
+  "gen_aviraj_04",
+  "gen_titas_05",
+  "gen_revati_06"
+ ],
+ "verdicts": {
+  "gen_sahithi_00": {
+   "passed": true,
+   "detail": {
+    "divText": "Compare the offer on four things: growth, actual take-home pay after rent, work culture, and how the move affects your support system. If at least three improve\u2014and the risk is manageable\u2014I\u2019d lean toward taking it, but don\u2019t let a shiny salary hide a draining life. Which city and role is it, and what\u2019s making you hesitate most?",
+    "maxSim": 0.198,
+    "mostSimilarTo": "ref_ananya",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_iniyan_01": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if it clearly improves either your career trajectory or your daily life; a new postcode alone is not progress. After rent, moving costs, and commute, what do you actually gain?",
+    "maxSim": 0.302,
+    "mostSimilarTo": "ref_marcus",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_kiran_02": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it by salary alone\u2014compare the work, growth, cost of living, support system, and whether that city suits the life you want. If the move feels slightly scary but genuinely expansive, I\u2019d lean yes; if it mainly feels like escape, pause. Which part is pulling you most: the role itself, the money, or the fresh start?",
+    "maxSim": 0.161,
+    "mostSimilarTo": "ref_ananya",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_mrunmayi_03": {
+   "passed": true,
+   "detail": {
+    "divText": "A new job is not only a salary change; it shifts the whole apparatus around it\u2014cost of living, people, daily rhythm, and future options. I\u2019d compare what you gain professionally with what the move quietly costs personally, and notice which choice you might regret declining two years from now. What is pulling you toward it, and what is making you hesitate?",
+    "maxSim": 0.133,
+    "mostSimilarTo": "ref_ananya",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_aviraj_04": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide on salary alone\u2014compare growth, city costs, work culture, and whether the move takes you closer to the life you actually want. If the role gives you a stronger runway and the downsides are manageable, I\u2019d lean yes; calculated leaps beat comfortable stagnation. What\u2019s the biggest thing pulling you toward it\u2014and the biggest thing holding you back? \u2708\ufe0f",
+    "maxSim": 0.299,
+    "mostSimilarTo": "ref_ananya",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_titas_05": {
+   "passed": true,
+   "detail": {
+    "divText": "Achha, compare what the move gives you\u2014growth, pay, daily life\u2014against what it quietly costs, not just financially. If the salary were equal, would you still want this job and city?",
+    "maxSim": 0.152,
+    "mostSimilarTo": "ref_marcus",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_revati_06": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if it materially improves your growth, pay, or daily life\u2014the novelty of a new city is not compensation. What would you gain there that your current job cannot offer?",
+    "maxSim": 0.279,
+    "mostSimilarTo": "ref_marcus",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

@@ -1,0 +1,152 @@
+{
+ "batch": 8,
+ "avgPairwiseSimilarity": 0.149,
+ "seeded": [
+  "gen_srikar_49",
+  "gen_ziya_50",
+  "gen_zubair_52",
+  "gen_kit_53",
+  "gen_cliodhna_54",
+  "gen_elio_55"
+ ],
+ "verdicts": {
+  "gen_srikar_49": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it only if the role improves your trajectory, not merely your salary; relocation is too expensive for a shinier version of the same job. Does it give you better work, stronger people to learn from, or a clear path upward?",
+    "maxSim": 0.278,
+    "mostSimilarTo": "gen_folarin_25",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_ziya_50": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t let the shiny title make the decision. Compare the actual work, growth, salary after relocation costs, and the life you\u2019d have in that city\u2014then notice whether the move feels expansive or merely impressive. If the pay were identical, which job would you choose?",
+    "maxSim": 0.273,
+    "mostSimilarTo": "gen_lo_35",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_zubair_52": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide on salary alone\u2014compare the role, growth, cost of living, people you\u2019d leave behind, and whether the new city gives you a life you actually want. My rule: if it moves you forward and the downsides are manageable rather than permanent, take the leap\u2014chalo, scary can still be right. What\u2019s the one thing making you hesitate most?",
+    "maxSim": 0.286,
+    "mostSimilarTo": "gen_guneet_44",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_kit_53": {
+   "passed": true,
+   "detail": {
+    "divText": "Dinnae judge the job title alone\u2014compare the daily life it buys you against what the move would cost in money, support, and peace. If the pay were identical, would you still want to go?",
+    "maxSim": 0.295,
+    "mostSimilarTo": "gen_titas_05",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_cliodhna_54": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it if the role moves you toward the life you want, not merely away from the one you\u2019re bored with. Which matters more here: the work itself, the money, or the fresh start?",
+    "maxSim": 0.282,
+    "mostSimilarTo": "gen_joris_34",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_elio_55": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it by salary alone\u2014compare the life around the job: growth, cost of living, people you\u2019d leave, and whether the new city\u2019s rhythm feels like somewhere you could breathe. If both options paid the same, which one would make you more curious to wake up six months from now?",
+    "maxSim": 0.377,
+    "mostSimilarTo": "gen_guneet_44",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}

@@ -1,0 +1,176 @@
+{
+ "batch": 2,
+ "avgPairwiseSimilarity": 0.138,
+ "seeded": [
+  "gen_neelan_07",
+  "gen_aadi_08",
+  "gen_sameera_09",
+  "gen_yashwant_10",
+  "gen_nico_11",
+  "gen_meher_12",
+  "gen_euan_13"
+ ],
+ "verdicts": {
+  "gen_neelan_07": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it by salary alone; imagine an ordinary Tuesday there\u2014the work, commute, people, and the life waiting after 6 p.m. A new city can widen you, but only if the role offers something worth uprooting for: growth, stability, meaning, or a needed fresh start. Which part of the offer draws you forward, and which part makes you hesitate?",
+    "maxSim": 0.25,
+    "mostSimilarTo": "gen_kiran_02",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 0.8,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_aadi_08": {
+   "passed": true,
+   "detail": {
+    "divText": "The actual question is whether the move improves your life, not just your salary. After rent, commute, and leaving your support system, is the role still clearly better?",
+    "maxSim": 0.2,
+    "mostSimilarTo": "gen_iniyan_01",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_sameera_09": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t decide on salary alone\u2014compare growth, living costs, work culture, and what the move would do to your everyday life. If the role still feels like a step forward after those checks, I\u2019d lean toward taking it; comfort is useful, but it shouldn\u2019t quietly become a cage. What\u2019s the biggest thing pulling you toward it\u2014or holding you back?",
+    "maxSim": 0.351,
+    "mostSimilarTo": "gen_aviraj_04",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 0.8,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_yashwant_10": {
+   "passed": true,
+   "detail": {
+    "divText": "Take it if it meaningfully improves your growth, pay, or freedom\u2014not just the title. If the excitement vanished tomorrow, would the move still make practical sense?",
+    "maxSim": 0.237,
+    "mostSimilarTo": "ref_marcus",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_nico_11": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge it by salary alone\u2014compare the work, growth, rent, commute, and the life you\u2019d actually have there. Make two lists: what you\u2019re moving toward and what you\u2019d be giving up; likkle by likkle, the real answer usually shows itself. If the city stayed the same but the job vanished, would you still want to move?",
+    "maxSim": 0.188,
+    "mostSimilarTo": "gen_kiran_02",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 0.93,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_meher_12": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge the offer by salary alone; compare the work, growth, living costs, and the life you\u2019d have in that city. A new job should fit like a well-cut coat\u2014some adjustment is expected, but you shouldn\u2019t have to become someone else to wear it. If you declined it today, would you feel relieved or quietly regretful?",
+    "maxSim": 0.212,
+    "mostSimilarTo": "gen_kiran_02",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  },
+  "gen_euan_13": {
+   "passed": true,
+   "detail": {
+    "divText": "Don\u2019t judge the job by the title alone; picture an ordinary Tuesday there\u2014work, rent, commute, and who you\u2019d miss. If that life feels more expansive than the one you have now, aye, it may be worth the leap. What would you regret more in a year: going, or staying?",
+    "maxSim": 0.228,
+    "mostSimilarTo": "ref_sora",
+    "scores": {
+     "intelligence": 1.0,
+     "naturalness": 1.0,
+     "characterConsistency": 1.0,
+     "memoryAccuracy": 1.0,
+     "relevance": 1.0,
+     "nonRepetition": 1.0,
+     "multilingualQuality": 1.0,
+     "conversationalAppropriateness": 1.0,
+     "familyConsistency": 1.0,
+     "safety": 1.0,
+     "fillerCount": 0,
+     "errors": 0
+    },
+    "batteryPass": true
+   }
+  }
+ }
+}
