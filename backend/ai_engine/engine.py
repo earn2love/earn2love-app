@@ -23,6 +23,7 @@ from ai_engine import guards as G
 from ai_engine import conversation_intelligence as CI
 from ai_engine import relationship_intelligence as RI
 from ai_engine import personality_engine as PE
+from ai_engine import adaptive_intelligence as AI
 from ai_engine import provider as PROV
 from ai_engine import router as ROUTER
 
@@ -353,6 +354,18 @@ class CharacterEngine:
             u["languageCode"] = language_override
             u["detectedLanguage"] = language_override
 
+        # V7 adaptive communication intelligence.
+        # This state is isolated by global character + user.
+        adaptation_state = self.repo.get_adaptation(
+            character_id,
+            user_id,
+        )
+
+        adaptation_guidance = AI.combined_adaptation_guidance(
+            user_text,
+            adaptation_state,
+        )
+
         # V6 global personality intelligence.
         # Personality is derived exclusively from the global character profile.
         personality_guidance = PE.build_guidance(
@@ -441,6 +454,11 @@ class CharacterEngine:
             + personality_guidance.directive
         )
 
+        sys += (
+            "\n\nV7_ADAPTIVE_INTELLIGENCE:\n"
+            + adaptation_guidance.directive
+        )
+
         if relationship_milestones:
             sys += (
                 "\nRelevant relationship milestones:\n"
@@ -485,6 +503,7 @@ class CharacterEngine:
             conversation_guidance,
             relationship_guidance,
             personality_fingerprint,
+            adaptation_guidance,
         )
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
@@ -492,6 +511,14 @@ class CharacterEngine:
 
         # 8. persist (skip for sandbox/eval)
         if not sandbox:
+            # V7 per-user preference learning.
+            # Firestore implementation performs this transactionally.
+            self.repo.advance_adaptation(
+                character_id,
+                user_id,
+                user_text,
+            )
+
             turn_base = time.time_ns()
 
             self.repo.append_turn(
@@ -721,10 +748,18 @@ class CharacterEngine:
         conversation_guidance=None,
         relationship_guidance=None,
         personality_fingerprint=None,
+        adaptation_guidance=None,
     ):
         attempts = 0
         avoid_note = ""
         last_error = None
+
+        # V7 guidance must remain a delivery-layer adaptation only.
+        # The global V6 personality remains authoritative.
+        if adaptation_guidance is not None:
+            adaptation_context = adaptation_guidance.context.context_type
+        else:
+            adaptation_context = None
         for attempt in range(2):
             attempts += 1
             # attempt 1 uses the routed model; a repair attempt escalates to the strong reasoner

@@ -10,6 +10,7 @@ import uuid
 import hashlib
 from abc import ABC, abstractmethod
 from ai_engine import relationship_intelligence as RI
+from ai_engine import adaptive_intelligence as AI
 from datetime import datetime, timezone
 from google.cloud import firestore
 
@@ -86,6 +87,14 @@ class CharacterRepository(ABC):
     @abstractmethod
     def set_relationship(self, cid, uid, state): ...
 
+    # --- V7 per-user communication adaptation ---
+    @abstractmethod
+    def get_adaptation(self, cid, uid): ...
+    @abstractmethod
+    def set_adaptation(self, cid, uid, state): ...
+    @abstractmethod
+    def advance_adaptation(self, cid, uid, user_text): ...
+
     def advance_relationship(
         self,
         cid,
@@ -160,6 +169,7 @@ class InMemoryCharacterRepository(CharacterRepository):
         self.turns = {}             # (cid,uid) -> [turn]
         self.metrics = {}           # cid -> [metric]
         self.evaluations = []
+        self.adaptations = {}
 
     def list_characters(self, include_archived=True):
         out = list(self.characters.values())
@@ -264,6 +274,53 @@ class InMemoryCharacterRepository(CharacterRepository):
     def set_relationship(self, cid, uid, state):
         self.relationships[(cid, uid)] = state
         return state
+
+    # --- V7 per-user communication adaptation ---
+    def get_adaptation(self, cid, uid):
+        existing = self.adaptations.get(
+            (cid, uid)
+        )
+
+        return AI.normalize_user_adaptation(
+            existing,
+            cid,
+            uid,
+        )
+
+    def set_adaptation(self, cid, uid, state):
+        normalized = AI.normalize_user_adaptation(
+            state,
+            cid,
+            uid,
+        )
+
+        stored = dict(
+            normalized
+        )
+
+        self.adaptations[(cid, uid)] = stored
+
+        return dict(stored)
+
+    def advance_adaptation(self, cid, uid, user_text):
+        existing = self.adaptations.get(
+            (cid, uid)
+        )
+
+        state = AI.evolve_user_adaptation(
+            existing,
+            cid,
+            uid,
+            user_text,
+        )
+
+        stored = dict(
+            state
+        )
+
+        self.adaptations[(cid, uid)] = stored
+
+        return dict(stored)
 
     def append_turn(
         self,
@@ -618,6 +675,88 @@ class FirestoreCharacterRepository(CharacterRepository):
                         )
 
                 state["sharedTopics"] = topics[-25:]
+
+            transaction.set(
+                ref,
+                state,
+                merge=True,
+            )
+
+            return state
+
+        return _advance(
+            transaction
+        )
+
+    # --- V7 per-user communication adaptation ---
+    def get_adaptation(self, cid, uid):
+        ref = (
+            self.db
+            .collection("aiCharacterAdaptationState")
+            .document(f"{cid}__{uid}")
+        )
+
+        snap = ref.get()
+
+        existing = (
+            snap.to_dict()
+            if snap.exists
+            else None
+        )
+
+        return AI.normalize_user_adaptation(
+            existing,
+            cid,
+            uid,
+        )
+
+    def set_adaptation(self, cid, uid, state):
+        normalized = AI.normalize_user_adaptation(
+            state,
+            cid,
+            uid,
+        )
+
+        ref = (
+            self.db
+            .collection("aiCharacterAdaptationState")
+            .document(f"{cid}__{uid}")
+        )
+
+        ref.set(
+            normalized,
+            merge=True,
+        )
+
+        return normalized
+
+    def advance_adaptation(self, cid, uid, user_text):
+        ref = (
+            self.db
+            .collection("aiCharacterAdaptationState")
+            .document(f"{cid}__{uid}")
+        )
+
+        transaction = self.db.transaction()
+
+        @firestore.transactional
+        def _advance(transaction):
+            snap = ref.get(
+                transaction=transaction
+            )
+
+            existing = (
+                snap.to_dict()
+                if snap.exists
+                else None
+            )
+
+            state = AI.evolve_user_adaptation(
+                existing,
+                cid,
+                uid,
+                user_text,
+            )
 
             transaction.set(
                 ref,
