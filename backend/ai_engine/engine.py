@@ -20,6 +20,7 @@ from ai_engine import preference_engine as PREF
 from ai_engine import emotional_intelligence as EI
 from ai_engine import planner as P
 from ai_engine import guards as G
+from ai_engine import conversation_intelligence as CI
 from ai_engine import provider as PROV
 from ai_engine import router as ROUTER
 
@@ -354,6 +355,14 @@ class CharacterEngine:
         rel = (dict(R.load(self.repo, character_id, user_id), state=relationship_override)
                if relationship_override else R.load(self.repo, character_id, user_id))
 
+        # V4 conversation intelligence.
+        # Stateless and scoped to this isolated user conversation.
+        conversation_guidance = CI.analyze(
+            user_text,
+            history,
+            relationship_state=rel.get("state"),
+        )
+
         # 3. memory (relevant only)
         mems = M.retrieve_temporal(
             self.repo,
@@ -381,6 +390,20 @@ class CharacterEngine:
             summary,
             emotional_guidance=emotional["guidance"],
         )
+        conversation_directive = CI.build_generation_directive(
+            conversation_guidance,
+            character=c,
+            relationship=rel,
+            language=lang,
+            history=history,
+            user_text=user_text,
+        )
+
+        sys += (
+            "\n\nV4_CONVERSATION_INTELLIGENCE:\n"
+            + conversation_directive
+        )
+
         transcript = "\n".join(f"{'USER' if m['sender']=='user' else c['displayName'].upper()}: {m['text']}"
                                for m in recent[-8:])
         prompt = (f"Recent conversation:\n{transcript}\n\nLatest message from the person: {user_text}"
@@ -412,6 +435,7 @@ class CharacterEngine:
             plan,
             provider_session_id,
             routing,
+            conversation_guidance,
         )
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
@@ -634,7 +658,17 @@ class CharacterEngine:
                       "routeCategory": routing["category"]},
         }
 
-    async def _generate_guarded(self, sys, prompt, c, recent_ai, plan, session_id, routing):
+    async def _generate_guarded(
+        self,
+        sys,
+        prompt,
+        c,
+        recent_ai,
+        plan,
+        session_id,
+        routing,
+        conversation_guidance=None,
+    ):
         attempts = 0
         avoid_note = ""
         last_error = None
@@ -651,9 +685,24 @@ class CharacterEngine:
             con_ok, con_reason = G.consistency_check(text, c, recent_ai)
             saf_ok, saf_reason, _ = G.safety_check(text)
             length_ok = _length_ok(text, plan["targetLength"])
-            quality = {"consistencyPassed": con_ok, "repetitionPassed": rep_ok,
-                       "safetyPassed": saf_ok, "lengthOk": length_ok, "fillerCount": G.quality_penalty(text)}
-            if con_ok and rep_ok and saf_ok:
+
+            conv_ok, conv_reason = CI.response_quality_check(
+                text,
+                conversation_guidance,
+                recent_ai,
+            )
+
+            quality = {
+                "consistencyPassed": con_ok,
+                "repetitionPassed": rep_ok,
+                "safetyPassed": saf_ok,
+                "lengthOk": length_ok,
+                "conversationQualityPassed": conv_ok,
+                "conversationQualityReason": conv_reason,
+                "fillerCount": G.quality_penalty(text),
+            }
+
+            if con_ok and rep_ok and saf_ok and conv_ok:
                 return ({"ok": True, "text": text, **{k: res[k] for k in ("provider", "model", "latencyMs")}},
                         quality, attempts)
             # build a targeted avoid-note and regenerate once
@@ -661,6 +710,12 @@ class CharacterEngine:
             if not rep_ok: problems.append(f"you were repetitive ({rep_reason}: '{off}') — use a fresh opening/phrasing")
             if not con_ok: problems.append(f"you broke character consistency ({con_reason}) — stay true to your defined facts")
             if not saf_ok: problems.append(f"unsafe/human-deception content ({saf_reason}) — never claim to be human or request sensitive info")
+            if not conv_ok:
+                problems.append(
+                    f"conversation quality issue ({conv_reason}) ? "
+                    "respond more naturally, directly and contextually"
+                )
+
             avoid_note = "\n\nIMPORTANT — regenerate: " + "; ".join(problems) + "."
         # if second attempt still fails guards, return the (best-effort) text but flag quality
         if last_error:
