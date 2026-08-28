@@ -78,6 +78,17 @@ class CharacterRepository(ABC):
     def add_memory(self, cid, uid, mem): ...
     @abstractmethod
     def list_memories(self, cid, uid): ...
+
+
+    def reinforce_memory(
+        self,
+        cid,
+        uid,
+        memory_id,
+        confirmation_strength=1.0,
+    ):
+        ...
+
     @abstractmethod
     def save_structured_memory(self, cid, uid, mem): ...
 
@@ -231,6 +242,60 @@ class InMemoryCharacterRepository(CharacterRepository):
         return mem
 
     def list_memories(self, cid, uid): return list(self.memories.get((cid, uid), []))
+
+
+    def reinforce_memory(
+        self,
+        cid,
+        uid,
+        memory_id,
+        confirmation_strength=1.0,
+    ):
+        """
+        Reinforce one active memory in the exact character/user scope.
+
+        V11 lifecycle intelligence calculates reinforcement values;
+        repository owns persistence only.
+        """
+        if not memory_id:
+            return None
+
+        from ai_engine import memory_lifecycle_intelligence as ML11
+
+        for memory in self.memories.get(
+            (cid, uid),
+            [],
+        ):
+            if memory.get(
+                "memoryId"
+            ) != memory_id:
+                continue
+
+            if memory.get(
+                "status",
+                "active",
+            ) != "active":
+                return None
+
+            update = ML11.reinforcement_update(
+                memory,
+                confirmation_strength=confirmation_strength,
+            )
+
+            persisted = (
+                ML11.reinforcement_persistence_dict(
+                    update
+                )
+            )
+
+            memory.update(
+                persisted
+            )
+
+            return memory
+
+        return None
+
 
     def save_structured_memory(self, cid, uid, mem):
         """
@@ -644,6 +709,93 @@ class FirestoreCharacterRepository(CharacterRepository):
     def list_memories(self, cid, uid):
         q = self.db.collection("aiCharacterMemories").where("characterId", "==", cid).where("userId", "==", uid).limit(500)
         return [d.to_dict() for d in q.stream()]
+
+
+    def reinforce_memory(
+        self,
+        cid,
+        uid,
+        memory_id,
+        confirmation_strength=1.0,
+    ):
+        """
+        Transactionally reinforce one active memory.
+
+        The document must belong to the exact character/user scope.
+        No new collection or replacement memory is created.
+        """
+        if not memory_id:
+            return None
+
+        from ai_engine import memory_lifecycle_intelligence as ML11
+
+        collection = self.db.collection(
+            "aiCharacterMemories"
+        )
+
+        ref = collection.document(
+            memory_id
+        )
+
+        transaction = self.db.transaction()
+
+        @firestore.transactional
+        def _reinforce(
+            transaction,
+        ):
+            snap = ref.get(
+                transaction=transaction
+            )
+
+            if not snap.exists:
+                return None
+
+            current = (
+                snap.to_dict()
+                or {}
+            )
+
+            if current.get(
+                "characterId"
+            ) != cid:
+                return None
+
+            if current.get(
+                "userId"
+            ) != uid:
+                return None
+
+            if current.get(
+                "status",
+                "active",
+            ) != "active":
+                return None
+
+            update = ML11.reinforcement_update(
+                current,
+                confirmation_strength=confirmation_strength,
+            )
+
+            persisted = (
+                ML11.reinforcement_persistence_dict(
+                    update
+                )
+            )
+
+            transaction.update(
+                ref,
+                persisted,
+            )
+
+            return {
+                **current,
+                **persisted,
+            }
+
+        return _reinforce(
+            transaction
+        )
+
 
     def save_structured_memory(self, cid, uid, mem):
         """

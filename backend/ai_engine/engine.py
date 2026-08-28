@@ -37,6 +37,10 @@ from ai_engine import orchestration_intelligence as OI10
 from ai_engine import routing_intelligence as RT10
 from ai_engine import context_intelligence as CX10
 from ai_engine import reliability_intelligence as RL10
+from ai_engine import memory_retrieval_intelligence as MR11
+from ai_engine import conversation_continuity_intelligence as CC11
+from ai_engine import preference_learning_intelligence as PL11
+from ai_engine import memory_integrity_intelligence as MI11
 from ai_engine import provider as PROV
 from ai_engine import router as ROUTER
 
@@ -305,6 +309,11 @@ def _quality_score(q):
     return round(max(0.0, base - penalty), 2)
 
 
+V11_ENGINE_MARKER = (
+    "V11_LONG_TERM_MEMORY_CONTINUITY_INTELLIGENCE"
+)
+
+
 class CharacterEngine:
     def __init__(self, repo):
         self.repo = repo
@@ -339,6 +348,99 @@ class CharacterEngine:
             )]
         recent = history[-12:]
         u = U.analyze(user_text, recent)
+
+        # V11.3 conversational continuity intelligence.
+        #
+        # Continuity is derived ephemerally from the existing
+        # conversation-scoped turn history. V11 does not create
+        # or persist a second thread-state store.
+        v11_continuity_threads = []
+
+        if history:
+            continuity_text = " ".join(
+                str(
+                    item.get(
+                        "text",
+                        "",
+                    )
+                ).strip()
+                for item in history[-12:]
+                if str(
+                    item.get(
+                        "text",
+                        "",
+                    )
+                ).strip()
+            )
+
+            continuity_topic = " ".join(
+                str(topic)
+                for topic in u.get(
+                    "topics",
+                    [],
+                )[:3]
+                if str(topic).strip()
+            )
+
+            if not continuity_topic:
+                continuity_topic = continuity_text[:160]
+
+            v11_continuity_thread = (
+                CC11.build_thread_candidate(
+                    thread_id=conversation_id,
+                    topic=continuity_topic,
+                    summary=continuity_text[:800],
+                    turn_count=len(history),
+                    last_turn_index=len(history),
+                    status="active",
+                )
+            )
+
+            v11_continuity_threads.append(
+                {
+                    "threadId":
+                        v11_continuity_thread.thread_id,
+
+                    "topic":
+                        v11_continuity_thread.topic,
+
+                    "summary":
+                        v11_continuity_thread.summary,
+
+                    "status":
+                        v11_continuity_thread.status,
+
+                    "unresolved":
+                        v11_continuity_thread.unresolved,
+
+                    "commitment":
+                        v11_continuity_thread.commitment,
+
+                    "turnCount":
+                        v11_continuity_thread.turn_count,
+
+                    "lastTurnIndex":
+                        v11_continuity_thread.last_turn_index,
+                }
+            )
+
+        v11_continuity = CC11.analyze_continuity(
+            user_text,
+            v11_continuity_threads,
+            active_thread_id=(
+                conversation_id
+                if v11_continuity_threads
+                else ""
+            ),
+            current_topic=" ".join(
+                str(topic)
+                for topic in u.get(
+                    "topics",
+                    [],
+                )[:3]
+                if str(topic).strip()
+            ),
+        )
 
         # V3.5 conversational emotional intelligence.
         # This is calculated before generation so the response can adapt
@@ -447,6 +549,18 @@ class CharacterEngine:
             user_id,
         )
 
+        # V3 memory candidates must exist before V10 orchestration.
+        #
+        # This is the same V3 memory source used by V11 later in the
+        # pipeline. Retrieval is read-only and scoped by character+user.
+        mems = M.retrieve_temporal(
+            self.repo,
+            character_id,
+            user_id,
+            u,
+            k=4,
+        )
+
         # V10 adaptive orchestration intelligence.
         #
         # V10 is a pure decision layer. It reads existing structured
@@ -454,7 +568,7 @@ class CharacterEngine:
         # V8 goals, or V9 plan state.
         orchestration_guidance = OI10.build_orchestration_guidance(
             user_text,
-            intent=goal_guidance.analysis,
+            intent=goal_guidance.intent,
             reasoning=reasoning_guidance.analysis,
             plan_state=plan_state,
             execution=execution_guidance.analysis,
@@ -524,20 +638,95 @@ class CharacterEngine:
             limit=3,
         )
 
-        # 3. memory (relevant only)
-        mems = M.retrieve_temporal(
-            self.repo,
-            character_id,
-            user_id,
-            u,
-            k=4,
+        # 3. memory relevance refinement.
+        #
+        # Raw V3 memory candidates were loaded earlier because V10
+        # orchestration/routing/context sizing also needs their count.
+        # V11 now refines those same V3 candidates; no second source.
+        #
+        # V11.1 + V11.2 long-term memory intelligence.
+        #
+        # V11 retrieval evaluates lifecycle strength, decay eligibility,
+        # query relevance and historical safety without mutating memory.
+        # It extends the V3 memory candidates rather than replacing V3.
+        v11_memory_source = mems
+
+        if MR11.is_historical_recall(
+            user_text
+        ):
+            v11_memory_source = self.repo.list_memories(
+                character_id,
+                user_id,
+            )
+
+        v11_memory_retrieval = MR11.select_memories(
+            v11_memory_source,
+            user_text,
+            topics=u.get(
+                "topics",
+                [],
+            ),
+            relationship_relevant=bool(
+                relationship_milestones
+            ),
+            limit=4,
+            allow_lifecycle_fallback=False,
         )
 
-        # V10 context budget selects only the context materially useful
-        # for this turn. Original history/memory collections remain untouched.
+        v11_mems = list(
+            v11_memory_retrieval.selected
+        )
+
+        # V10 remains the final context-budget authority.
+        #
+        # Explicit V11 historical/revision recall requires at least one
+        # authorized memory slot; otherwise a V10 mode whose ordinary
+        # budget is zero would make explicit recall unreachable.
+        #
+        # Preserve every other V10 context-selection field unchanged.
+        v11_explicit_history = MR11.is_historical_recall(
+            user_text
+        )
+
+        v11_context_selection = context_selection
+
+        if (
+            v11_explicit_history
+            and v11_mems
+            and context_selection.memory_limit < 1
+        ):
+            v11_context_selection = CX10.ContextSelection(
+                recent_turn_limit=(
+                    context_selection.recent_turn_limit
+                ),
+                memory_limit=1,
+                include_summary=(
+                    context_selection.include_summary
+                ),
+                include_goal=(
+                    context_selection.include_goal
+                ),
+                include_plan=(
+                    context_selection.include_plan
+                ),
+                include_relationship=(
+                    context_selection.include_relationship
+                ),
+                include_adaptation=(
+                    context_selection.include_adaptation
+                ),
+                include_verification=(
+                    context_selection.include_verification
+                ),
+                reason=(
+                    context_selection.reason
+                    + "; explicit V11 historical recall"
+                ),
+            )
+
         selected_mems = CX10.select_memories(
-            mems,
-            context_selection,
+            v11_mems,
+            v11_context_selection,
         )
 
         selected_history = CX10.select_recent_turns(
@@ -574,13 +763,29 @@ class CharacterEngine:
         sys = build_system_prompt(
             c,
             plan,
-            mems,
+            selected_mems,
             rel,
             lang,
             u,
             summary,
             emotional_guidance=emotional["guidance"],
         )
+        v11_continuity_safe = CC11.safe_continuity_copy(
+            v11_continuity
+        )
+
+        sys += (
+            "\n\nV11_CONVERSATION_CONTINUITY:\n"
+            f"- Mode: {v11_continuity_safe.get('mode', 'new')}\n"
+            f"- Topic: {v11_continuity_safe.get('topic', '')}\n"
+            f"- Explicit resume: "
+            f"{v11_continuity_safe.get('explicit_resume', False)}\n"
+            f"- Explicit return: "
+            f"{v11_continuity_safe.get('explicit_return', False)}\n"
+            "Use this only to preserve conversational continuity. "
+            "Do not mention internal thread IDs or analysis metadata."
+        )
+
         conversation_directive = CI.build_generation_directive(
             conversation_guidance,
             character=c,
@@ -798,6 +1003,80 @@ class CharacterEngine:
                 user_id,
             )
 
+            # ------------------------------------------------
+            # V11.4 + V11.5 EXPLICIT PREFERENCE INTELLIGENCE
+            # ------------------------------------------------
+            #
+            # Candidate extraction is pure.
+            # Scope is attached here by the engine rather than trusted
+            # from candidate data.
+            # Persistence remains inside the existing non-sandbox gate.
+            v11_preference_signal = PL11.analyze_preference(
+                user_text
+            )
+
+            v11_preference_handled = False
+
+            if (
+                v11_preference_signal.detected
+                and v11_preference_signal.explicit
+                and v11_preference_signal.owner == "memory"
+                and v11_preference_signal.should_persist
+            ):
+                v11_preference_candidate = (
+                    PL11.build_memory_candidate(
+                        v11_preference_signal
+                    )
+                )
+
+                if v11_preference_candidate:
+                    v11_scoped_candidate = {
+                        **v11_preference_candidate,
+                        "characterId": character_id,
+                        "userId": user_id,
+                        "status": "active",
+                        "relationshipRelevant": True,
+                    }
+
+                    v11_integrity = MI11.assess_integrity(
+                        existing_memories,
+                        v11_scoped_candidate,
+                        user_id=user_id,
+                        character_id=character_id,
+                    )
+
+                    if (
+                        v11_integrity.allowed
+                        and v11_integrity.action
+                        == "reinforce"
+                        and v11_integrity.reinforcement_memory_id
+                    ):
+                        reinforced = self.repo.reinforce_memory(
+                            character_id,
+                            user_id,
+                            v11_integrity.reinforcement_memory_id,
+                        )
+
+                        v11_preference_handled = (
+                            reinforced is not None
+                        )
+
+                    elif (
+                        v11_integrity.allowed
+                        and v11_integrity.action
+                        == "accept"
+                    ):
+                        self.repo.add_memory(
+                            character_id,
+                            user_id,
+                            {
+                                **v11_preference_candidate,
+                                "relationshipRelevant": True,
+                            },
+                        )
+
+                        v11_preference_handled = True
+
             structured_facts = M.extract_structured(
                 user_text,
                 u,
@@ -889,12 +1168,19 @@ class CharacterEngine:
             # V3.4 PREFERENCE EVOLUTION
             # ------------------------------------------------
 
-            preference_plan = PREF.plan_preference_updates(
-                user_text,
-                self.repo.list_memories(
-                    character_id,
-                    user_id,
-                ),
+            preference_plan = (
+                PREF.plan_preference_updates(
+                    user_text,
+                    self.repo.list_memories(
+                        character_id,
+                        user_id,
+                    ),
+                )
+                if not v11_preference_handled
+                else {
+                    "targets": [],
+                    "preferences": [],
+                }
             )
 
             preference_target_ids = [
@@ -959,9 +1245,9 @@ class CharacterEngine:
             "responseLanguage": lang["responseLanguage"],
             "conversationMode": u["conversationalMode"],
             "relationshipState": rel.get("state"),
-            "memoryIdsUsed": [m.get("memoryId") for m in mems],
+            "memoryIdsUsed": [m.get("memoryId") for m in selected_mems],
             "memoryLayersUsed": [{"memoryId": m.get("memoryId"), "layer": m.get("_layer"),
-                                  "score": m.get("_score"), "text": (m.get("text") or "")[:90]} for m in mems],
+                                  "score": m.get("_score"), "text": (m.get("text") or "")[:90]} for m in selected_mems],
             "characterFactIdsUsed": [wf.get("factId") for wf in c.get("worldFacts", [])[:3]],
             "plan": plan if sandbox else None,   # planner metadata only exposed in sandbox
             "routing": {"category": routing["category"], "reason": routing["reason"]} if sandbox else None,
