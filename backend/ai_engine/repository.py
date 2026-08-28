@@ -11,6 +11,7 @@ import hashlib
 from abc import ABC, abstractmethod
 from ai_engine import relationship_intelligence as RI
 from ai_engine import adaptive_intelligence as AI
+from ai_engine import goal_intelligence as GI
 from datetime import datetime, timezone
 from google.cloud import firestore
 
@@ -94,6 +95,17 @@ class CharacterRepository(ABC):
     def set_adaptation(self, cid, uid, state): ...
     @abstractmethod
     def advance_adaptation(self, cid, uid, user_text): ...
+
+    # --- V8 per-user goal / intent state ---
+    @abstractmethod
+    def get_goal_state(self, cid, uid): ...
+
+    @abstractmethod
+    def set_goal_state(self, cid, uid, state): ...
+
+    @abstractmethod
+    def advance_goal_state(self, cid, uid, user_text): ...
+
 
     def advance_relationship(
         self,
@@ -321,6 +333,90 @@ class InMemoryCharacterRepository(CharacterRepository):
         self.adaptations[(cid, uid)] = stored
 
         return dict(stored)
+
+    # --- V8 per-user goal / intent state ---
+
+    def get_goal_state(
+        self,
+        cid,
+        uid,
+    ):
+        store = getattr(
+            self,
+            "goal_states",
+            None,
+        )
+
+        existing = (
+            store.get((cid, uid))
+            if store is not None
+            else None
+        )
+
+        return GI.normalize_goal_state(
+            existing,
+            cid,
+            uid,
+        )
+
+    def set_goal_state(
+        self,
+        cid,
+        uid,
+        state,
+    ):
+        if not hasattr(
+            self,
+            "goal_states",
+        ):
+            self.goal_states = {}
+
+        normalized = GI.normalize_goal_state(
+            state,
+            cid,
+            uid,
+        )
+
+        # normalize again to keep stored state independent
+        # from the object returned to the caller.
+        self.goal_states[
+            (cid, uid)
+        ] = GI.normalize_goal_state(
+            normalized,
+            cid,
+            uid,
+        )
+
+        return GI.normalize_goal_state(
+            normalized,
+            cid,
+            uid,
+        )
+
+    def advance_goal_state(
+        self,
+        cid,
+        uid,
+        user_text,
+    ):
+        current = self.get_goal_state(
+            cid,
+            uid,
+        )
+
+        state = GI.evolve_goal_state(
+            current,
+            cid,
+            uid,
+            user_text,
+        )
+
+        return self.set_goal_state(
+            cid,
+            uid,
+            state,
+        )
+
 
     def append_turn(
         self,
@@ -769,6 +865,106 @@ class FirestoreCharacterRepository(CharacterRepository):
         return _advance(
             transaction
         )
+
+    # --- V8 per-user goal / intent state ---
+
+    def get_goal_state(
+        self,
+        cid,
+        uid,
+    ):
+        ref = (
+            self.db
+            .collection("aiCharacterGoalState")
+            .document(f"{cid}__{uid}")
+        )
+
+        snap = ref.get()
+
+        existing = (
+            snap.to_dict()
+            if snap.exists
+            else None
+        )
+
+        return GI.normalize_goal_state(
+            existing,
+            cid,
+            uid,
+        )
+
+    def set_goal_state(
+        self,
+        cid,
+        uid,
+        state,
+    ):
+        normalized = GI.normalize_goal_state(
+            state,
+            cid,
+            uid,
+        )
+
+        ref = (
+            self.db
+            .collection("aiCharacterGoalState")
+            .document(f"{cid}__{uid}")
+        )
+
+        ref.set(
+            normalized,
+            merge=True,
+        )
+
+        return normalized
+
+    def advance_goal_state(
+        self,
+        cid,
+        uid,
+        user_text,
+    ):
+        ref = (
+            self.db
+            .collection("aiCharacterGoalState")
+            .document(f"{cid}__{uid}")
+        )
+
+        transaction = self.db.transaction()
+
+        @firestore.transactional
+        def _advance_goal(
+            transaction,
+        ):
+            snap = ref.get(
+                transaction=transaction
+            )
+
+            existing = (
+                snap.to_dict()
+                if snap.exists
+                else None
+            )
+
+            state = GI.evolve_goal_state(
+                existing,
+                cid,
+                uid,
+                user_text,
+            )
+
+            transaction.set(
+                ref,
+                state,
+                merge=True,
+            )
+
+            return state
+
+        return _advance_goal(
+            transaction
+        )
+
 
     def append_turn(
         self,

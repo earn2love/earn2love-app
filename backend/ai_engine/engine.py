@@ -4,11 +4,14 @@ Wires the full pipeline, builds the prompt from structured pieces (never one gia
 static blob), calls the provider, enforces style + guards (regenerate once on
 failure), persists turns/memories/metrics, and returns the structured contract.
 """
-import re
+import re
+
 import time
-import logging
+import logging
+
 import time
-import hashlib
+import hashlib
+
 import time
 
 from ai_engine import understanding as U
@@ -24,6 +27,8 @@ from ai_engine import conversation_intelligence as CI
 from ai_engine import relationship_intelligence as RI
 from ai_engine import personality_engine as PE
 from ai_engine import adaptive_intelligence as AI
+from ai_engine import goal_intelligence as GI
+from ai_engine import proactive_intelligence as PI
 from ai_engine import provider as PROV
 from ai_engine import router as ROUTER
 
@@ -366,6 +371,41 @@ class CharacterEngine:
             adaptation_state,
         )
 
+        # V8 goal / intent / proactive / decision intelligence.
+        # Persistent state is isolated by character + user.
+        # Reading state here does not persist learning.
+        goal_state = self.repo.get_goal_state(
+            character_id,
+            user_id,
+        )
+
+        goal_guidance = GI.build_goal_guidance(
+            user_text,
+            goal_state,
+        )
+
+        # Use goal age as a bounded anti-annoyance signal.
+        # Explicit requests for next steps continue to override it.
+        proactive_suppression_turns = min(
+            int(
+                goal_state.get(
+                    "goalTurnCount",
+                    0,
+                )
+                or 0
+            ),
+            2,
+        )
+
+        proactive_guidance = PI.build_intelligence_guidance(
+            user_text,
+            has_active_goal=GI.has_active_goal(
+                goal_state
+            ),
+            prior_proactive_turns=proactive_suppression_turns,
+        )
+
+
         # V6 global personality intelligence.
         # Personality is derived exclusively from the global character profile.
         personality_guidance = PE.build_guidance(
@@ -459,6 +499,14 @@ class CharacterEngine:
             + adaptation_guidance.directive
         )
 
+        sys += (
+            "\n\nV8_GOAL_INTENT_PROACTIVE_DECISION_INTELLIGENCE:\n"
+            + goal_guidance.directive
+            + "\n"
+            + proactive_guidance.directive
+        )
+
+
         if relationship_milestones:
             sys += (
                 "\nRelevant relationship milestones:\n"
@@ -511,6 +559,15 @@ class CharacterEngine:
 
         # 8. persist (skip for sandbox/eval)
         if not sandbox:
+
+            # V8 per-user goal / intent persistence.
+            # Firestore repository advances this transactionally.
+            self.repo.advance_goal_state(
+                character_id,
+                user_id,
+                user_text,
+            )
+
             # V7 per-user preference learning.
             # Firestore implementation performs this transactionally.
             self.repo.advance_adaptation(
