@@ -42,6 +42,9 @@ from ai_engine import conversation_continuity_intelligence as CC11
 from ai_engine import preference_learning_intelligence as PL11
 from ai_engine import memory_integrity_intelligence as MI11
 from ai_engine import provider as PROV
+from ai_engine import freshness_intelligence as FI12
+from ai_engine import live_knowledge_intelligence as LK12
+from ai_engine import live_knowledge_provider as LKP12
 from ai_engine import router as ROUTER
 
 logger = logging.getLogger(__name__)
@@ -879,6 +882,53 @@ class CharacterEngine:
             else recent
         )
 
+        # V12 live knowledge / freshness intelligence.
+        #
+        # Stateless public-knowledge layer:
+        # - current/historical facts may use external retrieval;
+        # - public live facts are never written into V11 user memory;
+        # - router.py remains normal model/provider authority;
+        # - provider.py remains normal conversational LLM boundary;
+        # - if current evidence is unavailable, stale model knowledge
+        #   must not be presented as verified current information.
+        freshness_decision = FI12.assess_freshness(
+            user_text
+        )
+
+        live_search_result = None
+        live_knowledge_packet = None
+        live_knowledge_context = ""
+
+        if freshness_decision.requires_live_retrieval:
+            live_search_result = await LKP12.search_live(
+                user_text
+            )
+
+            live_knowledge_packet = LK12.build_live_knowledge_packet(
+                user_text,
+                (
+                    list(live_search_result.results)
+                    if live_search_result is not None
+                    and live_search_result.ok
+                    else []
+                ),
+                requires_live_retrieval=True,
+            )
+
+            live_knowledge_context = LK12.build_grounding_context(
+                live_knowledge_packet
+            )
+
+            sys += (
+                "\n\nV12_LIVE_KNOWLEDGE_INTELLIGENCE:\n"
+                + live_knowledge_context
+            )
+
+        else:
+            # Keep the classification available for structured metadata
+            # without invoking any external retrieval.
+            live_knowledge_packet = None
+
         transcript = "\n".join(
             f"{'USER' if m['sender']=='user' else c['displayName'].upper()}: {m['text']}"
             for m in transcript_source[
@@ -1239,6 +1289,55 @@ class CharacterEngine:
         return {
             "ok": True,
             "responseText": text,
+            "freshness": freshness_decision.to_dict(),
+            "liveKnowledge": (
+                {
+                    "used": True,
+                    "status": live_knowledge_packet.status,
+                    "canAnswer": live_knowledge_packet.can_answer,
+                    "confidence": live_knowledge_packet.confidence,
+                    "retrievedAt": live_knowledge_packet.retrieved_at,
+                    "provider": (
+                        live_search_result.provider
+                        if live_search_result is not None
+                        else None
+                    ),
+                    "retrievalModel": (
+                        live_search_result.model
+                        if live_search_result is not None
+                        else None
+                    ),
+                    "retrievalError": (
+                        live_search_result.error
+                        if live_search_result is not None
+                        else None
+                    ),
+                    "sources": [
+                        {
+                            "title": item.title,
+                            "url": item.url,
+                            "domain": item.source_domain,
+                            "authoritative": item.authoritative,
+                        }
+                        for item in (
+                            live_knowledge_packet.evidence[:5]
+                        )
+                    ],
+                }
+                if freshness_decision.requires_live_retrieval
+                and live_knowledge_packet is not None
+                else {
+                    "used": False,
+                    "status": None,
+                    "canAnswer": True,
+                    "confidence": None,
+                    "retrievedAt": None,
+                    "provider": None,
+                    "retrievalModel": None,
+                    "retrievalError": None,
+                    "sources": [],
+                }
+            ),
             "characterId": character_id,
             "characterVersion": c.get("version", 1),
             "detectedLanguage": u["detectedLanguage"],

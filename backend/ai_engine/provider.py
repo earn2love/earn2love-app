@@ -185,3 +185,187 @@ async def generate(
             usage={},
             error=f"provider_error:{type(exc).__name__}",
         )
+
+
+# ============================================================
+# V12 LIVE KNOWLEDGE PROVIDER BOUNDARY
+# ============================================================
+
+async def search_web(
+    query,
+    *,
+    model=None,
+    user_country=None,
+    user_city=None,
+    user_region=None,
+    user_timezone=None,
+    timeout_seconds=None,
+    max_output_tokens=None,
+):
+    """
+    Perform OpenAI Responses API web search.
+
+    IMPORTANT:
+    provider.py remains the only AI-engine module that directly
+    communicates with external LLM providers.
+
+    This function performs no persistence.
+    """
+
+    query = " ".join(
+        str(query or "").strip().split()
+    )
+
+    resolved_model = (
+        model
+        or os.environ.get(
+            "AI_LIVE_KNOWLEDGE_MODEL",
+            "gpt-5.6-luna",
+        )
+    )
+
+    timeout = float(
+        timeout_seconds
+        if timeout_seconds is not None
+        else os.environ.get(
+            "AI_LIVE_KNOWLEDGE_TIMEOUT",
+            "25",
+        )
+    )
+
+    max_tokens = int(
+        max_output_tokens
+        if max_output_tokens is not None
+        else os.environ.get(
+            "AI_LIVE_KNOWLEDGE_MAX_OUTPUT_TOKENS",
+            "700",
+        )
+    )
+
+    if not query:
+        return ProviderResult(
+            ok=False,
+            response=None,
+            provider="openai-web-search",
+            model=resolved_model,
+            error="empty_query",
+        )
+
+    api_key = os.environ.get(
+        "OPENAI_API_KEY",
+        "",
+    ).strip()
+
+    if not api_key:
+        return ProviderResult(
+            ok=False,
+            response=None,
+            provider="openai-web-search",
+            model=resolved_model,
+            error="missing_openai_api_key",
+        )
+
+    try:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=api_key
+        )
+
+        web_tool = {
+            "type": "web_search_preview",
+            "search_context_size": "medium",
+        }
+
+        location = {}
+
+        if user_country:
+            location["country"] = str(
+                user_country
+            ).upper()
+
+        if user_city:
+            location["city"] = str(
+                user_city
+            ).strip()
+
+        if user_region:
+            location["region"] = str(
+                user_region
+            ).strip()
+
+        if user_timezone:
+            location["timezone"] = str(
+                user_timezone
+            ).strip()
+
+        if location:
+            location["type"] = "approximate"
+            web_tool["user_location"] = location
+
+        instructions = (
+            "You are a live public-information retrieval component. "
+            "Use web search for the supplied query. "
+            "Return only a concise factual synthesis supported by the "
+            "web sources you actually inspected. "
+            "Prioritize official government, institutional, primary, "
+            "or otherwise authoritative sources when available. "
+            "For a current office-holder, current law, current event, "
+            "price, result, weather, company leader or other changing "
+            "fact, verify the present or requested date context. "
+            "Do not rely on model memory when web evidence differs. "
+            "Do not discuss internal reasoning."
+        )
+
+        response = await asyncio.wait_for(
+            client.responses.create(
+                model=resolved_model,
+                instructions=instructions,
+                input=query,
+                tools=[
+                    web_tool
+                ],
+                tool_choice="required",
+                include=[
+                    "web_search_call.action.sources"
+                ],
+                max_output_tokens=max_tokens,
+                store=False,
+            ),
+            timeout=timeout,
+        )
+
+        return ProviderResult(
+            ok=True,
+            response=response,
+            provider="openai-web-search",
+            model=resolved_model,
+            error=None,
+        )
+
+    except asyncio.TimeoutError:
+        return ProviderResult(
+            ok=False,
+            response=None,
+            provider="openai-web-search",
+            model=resolved_model,
+            error="live_search_timeout",
+        )
+
+    except Exception as exc:
+        logger.warning(
+            "Live knowledge provider error: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+
+        return ProviderResult(
+            ok=False,
+            response=None,
+            provider="openai-web-search",
+            model=resolved_model,
+            error=(
+                "live_search_error:"
+                + type(exc).__name__
+            ),
+        )
