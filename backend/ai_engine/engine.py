@@ -45,6 +45,7 @@ from ai_engine import provider as PROV
 from ai_engine import freshness_intelligence as FI12
 from ai_engine import live_knowledge_intelligence as LK12
 from ai_engine import live_knowledge_provider as LKP12
+from ai_engine import engagement_intelligence as EI12
 from ai_engine import router as ROUTER
 
 logger = logging.getLogger(__name__)
@@ -803,6 +804,26 @@ class CharacterEngine:
             + conversation_directive
         )
 
+        # V12 conversation engagement intelligence.
+        #
+        # Stateless generation policy only:
+        # - V4 remains the hard question-count authority;
+        # - V11-selected memories are the only callback candidates;
+        # - V6 global personality is never mutated;
+        # - no persistence or provider call occurs in this layer.
+        engagement_guidance = EI12.build_engagement_guidance(
+            user_text,
+            conversation_guidance,
+            selected_memories=selected_mems,
+            relationship=rel,
+            history=history,
+        )
+
+        sys += (
+            "\n\nV12_CONVERSATION_ENGAGEMENT_INTELLIGENCE:\n"
+            + engagement_guidance.directive
+        )
+
         sys += (
             "\n\nV5_RELATIONSHIP_INTELLIGENCE:\n"
             + relationship_guidance.directive
@@ -993,6 +1014,35 @@ class CharacterEngine:
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
         text = result["text"]
+
+        # ------------------------------------------------
+        # V12 DETERMINISTIC LIVE-KNOWLEDGE FAIL-CLOSED GUARD
+        # ------------------------------------------------
+        #
+        # Prompt grounding alone is not a sufficient production
+        # guarantee for freshness-required facts. If live retrieval
+        # could not establish an answerable evidence packet, never
+        # allow possibly stale model knowledge to reach the user or
+        # conversation history.
+        #
+        # This guard intentionally runs AFTER normal guarded generation
+        # and BEFORE the existing persistence lifecycle so V3-V11 turn,
+        # relationship, goal, plan, adaptation, memory, and metrics
+        # semantics remain unchanged.
+        #
+        # Public live facts remain ephemeral and are not converted into
+        # durable user memory by this guard.
+        live_knowledge_fail_closed = bool(
+            freshness_decision.requires_live_retrieval
+            and live_knowledge_packet is not None
+            and not live_knowledge_packet.can_answer
+        )
+
+        if live_knowledge_fail_closed:
+            text = (
+                "I can't verify the current information right now, "
+                "so I don't want to guess."
+            )
 
         # 8. persist (skip for sandbox/eval)
         if not sandbox:

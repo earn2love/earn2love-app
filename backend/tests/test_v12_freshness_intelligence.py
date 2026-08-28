@@ -1,4 +1,4 @@
-﻿from ai_engine import freshness_intelligence as F
+from ai_engine import freshness_intelligence as F
 
 
 def test_version():
@@ -168,3 +168,78 @@ def test_guidance_stable():
 
     assert g["decision"]["requires_live_retrieval"] is False
     assert "normal Earn2Love intelligence stack" in g["directive"]
+
+# ============================================================================
+# V12 freshness lexical-boundary hardening
+# ============================================================================
+
+def test_present_marker_does_not_match_presentation():
+    result = F.assess_freshness(
+        "Help me improve my presentation skills"
+    )
+
+    assert result.requires_live_retrieval is False
+    assert result.classification != F.LIVE_REQUIRED
+
+
+def test_present_marker_does_not_match_presentational():
+    result = F.assess_freshness(
+        "Explain presentational communication techniques"
+    )
+
+    assert result.requires_live_retrieval is False
+    assert result.classification != F.LIVE_REQUIRED
+
+
+def test_now_marker_does_not_match_known():
+    result = F.assess_freshness(
+        "Explain the known causes of gravity"
+    )
+
+    assert result.requires_live_retrieval is False
+    assert result.classification != F.LIVE_REQUIRED
+
+
+def test_live_marker_does_not_match_deliver():
+    result = F.assess_freshness(
+        "How can I deliver a better presentation?"
+    )
+
+    assert result.requires_live_retrieval is False
+    assert result.classification != F.LIVE_REQUIRED
+
+
+def test_present_as_standalone_current_marker_still_requires_live():
+    result = F.assess_freshness(
+        "Who is the present Chief Minister of Tamil Nadu?"
+    )
+
+    assert result.requires_live_retrieval is True
+    assert result.classification == F.LIVE_REQUIRED
+
+
+def test_current_role_without_explicit_current_word_still_requires_live():
+    result = F.assess_freshness(
+        "Who is CM of Tamil Nadu?"
+    )
+
+    assert result.requires_live_retrieval is True
+    assert result.classification == F.LIVE_REQUIRED
+
+
+def test_today_marker_with_punctuation_still_requires_live():
+    result = F.assess_freshness(
+        "Weather in London today?"
+    )
+
+    assert result.requires_live_retrieval is True
+    assert result.classification == F.LIVE_REQUIRED
+
+
+def test_latest_marker_still_requires_live():
+    result = F.assess_freshness(
+        "What is the latest news about OpenAI?"
+    )
+
+    assert result.requires_live_retrieval is True
+    assert result.classification == F.LIVE_REQUIRED

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Earn2Love AI Engine V12.1
 Freshness Intelligence
 
@@ -58,13 +58,53 @@ def _norm(value: Any) -> str:
 
 def _contains_phrase(
     text: str,
-    phrases: tuple[str, ...],
+    phrases,
 ) -> list[str]:
-    return [
-        phrase
-        for phrase in phrases
-        if phrase in text
-    ]
+    """
+    Return matched lexical freshness signals.
+
+    Preserve the original V12 contract: callers receive a list of
+    matched phrases that can be appended to and concatenated.
+
+    Match markers as complete lexical phrases so substrings do not
+    produce false positives, for example:
+      present -> presentation
+      now     -> known
+      live    -> deliver
+    """
+    value = str(
+        text
+        or ""
+    ).casefold()
+
+    matches: list[str] = []
+
+    for phrase in phrases:
+        marker = str(
+            phrase
+            or ""
+        ).strip().casefold()
+
+        if not marker:
+            continue
+
+        pattern = (
+            r"(?<!\w)"
+            + re.escape(
+                marker
+            )
+            + r"(?!\w)"
+        )
+
+        if re.search(
+            pattern,
+            value,
+        ):
+            matches.append(
+                marker
+            )
+
+    return matches
 
 
 CURRENT_MARKERS = (
