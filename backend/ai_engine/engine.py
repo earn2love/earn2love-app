@@ -33,6 +33,10 @@ from ai_engine import reasoning_intelligence as RI9
 from ai_engine import plan_intelligence as PL9
 from ai_engine import execution_intelligence as EX9
 from ai_engine import verification_intelligence as VE9
+from ai_engine import orchestration_intelligence as OI10
+from ai_engine import routing_intelligence as RT10
+from ai_engine import context_intelligence as CX10
+from ai_engine import reliability_intelligence as RL10
 from ai_engine import provider as PROV
 from ai_engine import router as ROUTER
 
@@ -443,6 +447,45 @@ class CharacterEngine:
             user_id,
         )
 
+        # V10 adaptive orchestration intelligence.
+        #
+        # V10 is a pure decision layer. It reads existing structured
+        # intelligence but never mutates V6 personality, V7 adaptation,
+        # V8 goals, or V9 plan state.
+        orchestration_guidance = OI10.build_orchestration_guidance(
+            user_text,
+            intent=goal_guidance.analysis,
+            reasoning=reasoning_guidance.analysis,
+            plan_state=plan_state,
+            execution=execution_guidance.analysis,
+            verification=verification_guidance.analysis,
+            memories=mems,
+        )
+
+        v10_routing = RT10.choose_route(
+            orchestration_guidance.decision,
+            user_text=user_text,
+            memory_count=len(mems or []),
+            active_goal=GI.has_active_goal(
+                goal_state
+            ),
+            active_plan=PL9.has_active_plan(
+                plan_state
+            ),
+        )
+
+        context_selection = CX10.select_context(
+            orchestration_guidance.decision,
+            history_count=len(history or []),
+            memory_count=len(mems or []),
+            has_active_goal=GI.has_active_goal(
+                goal_state
+            ),
+            has_active_plan=PL9.has_active_plan(
+                plan_state
+            ),
+        )
+
 
         # V6 global personality intelligence.
         # Personality is derived exclusively from the global character profile.
@@ -490,14 +533,44 @@ class CharacterEngine:
             k=4,
         )
 
-        # 4. language style + 5. plan
+        # V10 context budget selects only the context materially useful
+        # for this turn. Original history/memory collections remain untouched.
+        selected_mems = CX10.select_memories(
+            mems,
+            context_selection,
+        )
+
+        selected_history = CX10.select_recent_turns(
+            history,
+            context_selection,
+        )
+
+        # 4. language style + 5. legacy response-style plan
         lang = L.resolve(u, c)
         if language_override:
             lang = L.resolve({"languageCode": language_override, "topics": u["topics"]}, c)
-        plan = P.plan(u, c, rel, mems, lang)
+        plan = P.plan(
+            u,
+            c,
+            rel,
+            selected_mems,
+            lang,
+        )
 
-        # 6. build prompt + transcript (compress older history for 100+ turn continuity)
-        summary = M.compress_history(history) if adv_memory else ""
+        # 6. build prompt + transcript.
+        #
+        # Summarization remains the existing memory-layer responsibility,
+        # while V10 decides when a long-history summary is worth including.
+        summary = (
+            CX10.bound_summary(
+                M.compress_history(history)
+            )
+            if (
+                adv_memory
+                and context_selection.include_summary
+            )
+            else ""
+        )
         sys = build_system_prompt(
             c,
             plan,
@@ -555,6 +628,35 @@ class CharacterEngine:
             + verification_guidance.directive
         )
 
+        sys += (
+            "\n\nV10_ADAPTIVE_ORCHESTRATION_INTELLIGENCE:\n"
+            + orchestration_guidance.directive
+            + "\n"
+            + CX10.build_context_guidance(
+                orchestration_guidance.decision,
+                history_count=len(history or []),
+                memory_count=len(mems or []),
+                has_active_goal=GI.has_active_goal(
+                    goal_state
+                ),
+                has_active_plan=PL9.has_active_plan(
+                    plan_state
+                ),
+            )
+            + "\n"
+            + RT10.build_routing_guidance(
+                orchestration_guidance.decision,
+                user_text=user_text,
+                memory_count=len(mems or []),
+                active_goal=GI.has_active_goal(
+                    goal_state
+                ),
+                active_plan=PL9.has_active_plan(
+                    plan_state
+                ),
+            )
+        )
+
 
         if relationship_milestones:
             sys += (
@@ -566,18 +668,48 @@ class CharacterEngine:
                 )
             )
 
-        transcript = "\n".join(f"{'USER' if m['sender']=='user' else c['displayName'].upper()}: {m['text']}"
-                               for m in recent[-8:])
+        transcript_source = (
+            selected_history
+            if selected_history
+            else recent
+        )
+
+        transcript = "\n".join(
+            f"{'USER' if m['sender']=='user' else c['displayName'].upper()}: {m['text']}"
+            for m in transcript_source[
+                -context_selection.recent_turn_limit:
+            ]
+        )
         prompt = (f"Recent conversation:\n{transcript}\n\nLatest message from the person: {user_text}"
                   if transcript else f"The person says: {user_text}")
 
         # 7. route + generate + guards (regenerate once, escalating to the strong model)
         recent_ai = [t["text"] for t in history if t["sender"] == "character"][-8:]
+        # Existing router.py remains authoritative for actual provider/model
+        # configuration. V10 supplies only the orchestration-aware category.
         routing = ROUTER.route(
             u,
             plan,
-            mems,
+            selected_mems,
+            category_override=(
+                v10_routing.category
+                if (
+                    router_enabled is not False
+                )
+                else None
+            ),
             enabled_override=router_enabled,
+        )
+
+        # Keep V10's deterministic explanation for observability.
+        routing["v10Reason"] = (
+            v10_routing.reason
+        )
+        routing["v10Confidence"] = (
+            v10_routing.confidence
+        )
+        routing["v10Mode"] = (
+            orchestration_guidance.decision.mode
         )
 
         # V3.6 ? never use the global character ID as the provider
@@ -601,6 +733,7 @@ class CharacterEngine:
             relationship_guidance,
             personality_fingerprint,
             adaptation_guidance,
+            orchestration_guidance,
         )
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
@@ -846,9 +979,28 @@ class CharacterEngine:
             ),
             "quality": quality,
             "qualityScore": _quality_score(quality),
-            "usage": {"provider": result["provider"], "model": result["model"],
-                      "latencyMs": result["latencyMs"], "attempts": attempts,
-                      "routeCategory": routing["category"]},
+            "usage": {
+                "provider": result["provider"],
+                "model": result["model"],
+                "latencyMs": result["latencyMs"],
+                "attempts": attempts,
+                "routeCategory": routing["category"],
+                "v10Mode": routing.get(
+                    "v10Mode"
+                ),
+                "v10RouteReason": routing.get(
+                    "v10Reason"
+                ),
+                "v10RouteConfidence": routing.get(
+                    "v10Confidence"
+                ),
+                "v10ContextRecentTurns": (
+                    context_selection.recent_turn_limit
+                ),
+                "v10ContextMemoryItems": (
+                    context_selection.memory_limit
+                ),
+            },
         }
 
     async def _generate_guarded(
@@ -864,6 +1016,7 @@ class CharacterEngine:
         relationship_guidance=None,
         personality_fingerprint=None,
         adaptation_guidance=None,
+        orchestration_guidance=None,
     ):
         attempts = 0
         avoid_note = ""
@@ -882,6 +1035,27 @@ class CharacterEngine:
             res = await PROV.generate(sys + avoid_note, prompt, session_id=session_id, provider=provider, model=model)
             if not res["ok"]:
                 last_error = res["error"]
+
+                reliability = RL10.decide_reliability(
+                    provider_ok=False,
+                    provider_error=last_error,
+                    attempt=attempts,
+                    verification_required=(
+                        bool(
+                            orchestration_guidance
+                            and orchestration_guidance.decision.requires_verification
+                        )
+                    ),
+                )
+
+                # First provider failure may use the existing strong repair
+                # route. A repeated provider failure exits safely.
+                if (
+                    reliability.action == RL10.ESCALATE
+                    and attempt == 0
+                ):
+                    continue
+
                 break
             text = re.sub(r"^\s*(\w+):\s*", "", res["text"]).strip()  # strip accidental "Name:" prefix
             rep_ok, rep_reason, off = G.repetition_check(text, recent_ai)
@@ -926,6 +1100,25 @@ class CharacterEngine:
                 ),
                 "fillerCount": G.quality_penalty(text),
             }
+
+            reliability = RL10.decide_reliability(
+                provider_ok=True,
+                quality=quality,
+                attempt=attempts,
+                verification_required=(
+                    bool(
+                        orchestration_guidance
+                        and orchestration_guidance.decision.requires_verification
+                    )
+                ),
+            )
+
+            quality["v10ReliabilityAction"] = (
+                reliability.action
+            )
+            quality["v10ReliabilityConfidence"] = (
+                reliability.confidence
+            )
 
             if (
                 con_ok
