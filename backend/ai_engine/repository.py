@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 from ai_engine import relationship_intelligence as RI
 from ai_engine import adaptive_intelligence as AI
 from ai_engine import goal_intelligence as GI
+from ai_engine import plan_intelligence as PL9
 from datetime import datetime, timezone
 from google.cloud import firestore
 
@@ -106,6 +107,22 @@ class CharacterRepository(ABC):
     @abstractmethod
     def advance_goal_state(self, cid, uid, user_text): ...
 
+    # --- V9 per-user reasoning / execution plan state ---
+    @abstractmethod
+    def get_plan_state(self, cid, uid): ...
+
+    @abstractmethod
+    def set_plan_state(self, cid, uid, state): ...
+
+    @abstractmethod
+    def advance_plan_state(
+        self,
+        cid,
+        uid,
+        user_text,
+        goal_state=None,
+    ): ...
+
 
     def advance_relationship(
         self,
@@ -182,6 +199,7 @@ class InMemoryCharacterRepository(CharacterRepository):
         self.metrics = {}           # cid -> [metric]
         self.evaluations = []
         self.adaptations = {}
+        self.plan_states = {}
 
     def list_characters(self, include_archived=True):
         out = list(self.characters.values())
@@ -412,6 +430,77 @@ class InMemoryCharacterRepository(CharacterRepository):
         )
 
         return self.set_goal_state(
+            cid,
+            uid,
+            state,
+        )
+
+    # --- V9 per-user reasoning / execution plan state ---
+
+    def get_plan_state(
+        self,
+        cid,
+        uid,
+    ):
+        existing = self.plan_states.get(
+            (cid, uid)
+        )
+
+        return PL9.normalize_plan_state(
+            existing,
+            cid,
+            uid,
+        )
+
+    def set_plan_state(
+        self,
+        cid,
+        uid,
+        state,
+    ):
+        normalized = PL9.normalize_plan_state(
+            state,
+            cid,
+            uid,
+        )
+
+        # Store an independent normalized copy so callers
+        # cannot mutate repository state by reference.
+        self.plan_states[
+            (cid, uid)
+        ] = PL9.normalize_plan_state(
+            normalized,
+            cid,
+            uid,
+        )
+
+        return PL9.normalize_plan_state(
+            normalized,
+            cid,
+            uid,
+        )
+
+    def advance_plan_state(
+        self,
+        cid,
+        uid,
+        user_text,
+        goal_state=None,
+    ):
+        current = self.get_plan_state(
+            cid,
+            uid,
+        )
+
+        state = PL9.evolve_plan_state(
+            current,
+            cid,
+            uid,
+            user_text,
+            goal_state,
+        )
+
+        return self.set_plan_state(
             cid,
             uid,
             state,
@@ -962,6 +1051,107 @@ class FirestoreCharacterRepository(CharacterRepository):
             return state
 
         return _advance_goal(
+            transaction
+        )
+
+    # --- V9 per-user reasoning / execution plan state ---
+
+    def get_plan_state(
+        self,
+        cid,
+        uid,
+    ):
+        ref = (
+            self.db
+            .collection("aiCharacterPlanState")
+            .document(f"{cid}__{uid}")
+        )
+
+        snap = ref.get()
+
+        existing = (
+            snap.to_dict()
+            if snap.exists
+            else None
+        )
+
+        return PL9.normalize_plan_state(
+            existing,
+            cid,
+            uid,
+        )
+
+    def set_plan_state(
+        self,
+        cid,
+        uid,
+        state,
+    ):
+        normalized = PL9.normalize_plan_state(
+            state,
+            cid,
+            uid,
+        )
+
+        ref = (
+            self.db
+            .collection("aiCharacterPlanState")
+            .document(f"{cid}__{uid}")
+        )
+
+        ref.set(
+            normalized,
+            merge=True,
+        )
+
+        return normalized
+
+    def advance_plan_state(
+        self,
+        cid,
+        uid,
+        user_text,
+        goal_state=None,
+    ):
+        ref = (
+            self.db
+            .collection("aiCharacterPlanState")
+            .document(f"{cid}__{uid}")
+        )
+
+        transaction = self.db.transaction()
+
+        @firestore.transactional
+        def _advance_plan(
+            transaction,
+        ):
+            snap = ref.get(
+                transaction=transaction
+            )
+
+            existing = (
+                snap.to_dict()
+                if snap.exists
+                else None
+            )
+
+            state = PL9.evolve_plan_state(
+                existing,
+                cid,
+                uid,
+                user_text,
+                goal_state,
+            )
+
+            transaction.set(
+                ref,
+                state,
+                merge=True,
+            )
+
+            return state
+
+        return _advance_plan(
             transaction
         )
 

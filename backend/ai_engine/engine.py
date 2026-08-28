@@ -1,4 +1,4 @@
-﻿"""Character response engine — the orchestrator.
+"""Character response engine — the orchestrator.
 
 Wires the full pipeline, builds the prompt from structured pieces (never one giant
 static blob), calls the provider, enforces style + guards (regenerate once on
@@ -29,6 +29,10 @@ from ai_engine import personality_engine as PE
 from ai_engine import adaptive_intelligence as AI
 from ai_engine import goal_intelligence as GI
 from ai_engine import proactive_intelligence as PI
+from ai_engine import reasoning_intelligence as RI9
+from ai_engine import plan_intelligence as PL9
+from ai_engine import execution_intelligence as EX9
+from ai_engine import verification_intelligence as VE9
 from ai_engine import provider as PROV
 from ai_engine import router as ROUTER
 
@@ -405,6 +409,40 @@ class CharacterEngine:
             prior_proactive_turns=proactive_suppression_turns,
         )
 
+        # V9 structured reasoning / plan execution intelligence.
+        # Persistent plan state is isolated by character + user.
+        # Reading and guidance construction never mutate state.
+        plan_state = self.repo.get_plan_state(
+            character_id,
+            user_id,
+        )
+
+        reasoning_guidance = RI9.build_reasoning_guidance(
+            user_text,
+        )
+
+        plan_guidance = PL9.build_plan_guidance(
+            user_text,
+            plan_state,
+            character_id,
+            user_id,
+            goal_state,
+        )
+
+        execution_guidance = EX9.build_execution_guidance(
+            user_text,
+            plan_state,
+            character_id,
+            user_id,
+        )
+
+        verification_guidance = VE9.build_verification_guidance(
+            user_text,
+            plan_state,
+            character_id,
+            user_id,
+        )
+
 
         # V6 global personality intelligence.
         # Personality is derived exclusively from the global character profile.
@@ -506,6 +544,17 @@ class CharacterEngine:
             + proactive_guidance.directive
         )
 
+        sys += (
+            "\n\nV9_REASONING_PLANNING_EXECUTION_VERIFICATION_INTELLIGENCE:\n"
+            + reasoning_guidance.directive
+            + "\n"
+            + plan_guidance.directive
+            + "\n"
+            + execution_guidance.directive
+            + "\n"
+            + verification_guidance.directive
+        )
+
 
         if relationship_milestones:
             sys += (
@@ -562,10 +611,19 @@ class CharacterEngine:
 
             # V8 per-user goal / intent persistence.
             # Firestore repository advances this transactionally.
-            self.repo.advance_goal_state(
+            updated_goal_state = self.repo.advance_goal_state(
                 character_id,
                 user_id,
                 user_text,
+            )
+
+            # V9 per-user reasoning / execution plan persistence.
+            # Firestore repository advances this transactionally.
+            self.repo.advance_plan_state(
+                character_id,
+                user_id,
+                user_text,
+                updated_goal_state,
             )
 
             # V7 per-user preference learning.
