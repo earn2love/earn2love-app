@@ -5,6 +5,7 @@
   reference characters + optional fixtures). Sandbox NEVER writes production data.
 The SAME engine/planner/guards/provider run in both — only storage differs.
 """
+import os
 import uuid
 import asyncio
 import logging
@@ -12,6 +13,9 @@ import logging
 from ai_engine.repository import FirestoreCharacterRepository, InMemoryCharacterRepository
 from ai_engine.registry import REFERENCE_CHARACTERS, seed_reference
 from ai_engine.engine import CharacterEngine
+from ai_engine import multimodal_intelligence as MM13
+from ai_engine import provider as PROV
+import ai_media_service as ai_media
 from ai_engine import evaluation as EVAL
 from ai_engine import rate_limit as RL
 from ai_engine import feature_flags as FF
@@ -129,6 +133,283 @@ def _live_flags():
 
 
 # ---------------- Production chat (persistent — Firestore) ----------------
+
+# ---------------- V13 multimodal preparation ----------------
+
+_REFERENCED_IMAGE_UNAVAILABLE_ERRORS = frozenset(
+    {
+        "image_not_found",
+        "image_expired",
+        "image_scope_mismatch",
+    }
+)
+
+
+def _is_referenced_image_unavailable_error(
+    error,
+):
+    return (
+        str(
+            error
+            or ""
+        ).strip()
+        in _REFERENCED_IMAGE_UNAVAILABLE_ERRORS
+    )
+
+
+def _referenced_image_unavailable_result(
+    character_id,
+):
+    """
+    Fail closed when an explicitly referenced historical image can no
+    longer be safely resolved in the exact conversation scope.
+    """
+    return {
+        "ok": False,
+        "error":
+            "referenced_image_unavailable",
+        "needsImageReupload":
+            True,
+        "responseText":
+            (
+                "I can?t access that earlier image anymore. "
+                "Please upload it again so I can look at it safely."
+            ),
+        "characterId":
+            character_id,
+        "relationshipState":
+            None,
+        "memoryIdsUsed":
+            [],
+        "usage": {
+            "provider": "guard",
+            "model":
+                "referenced_image_unavailable",
+            "latencyMs": 0,
+            "attempts": 0,
+        },
+    }
+
+async def _resolve_continuity_image_ids(
+    character_id,
+    user_id,
+    conversation_id,
+    message,
+):
+    """
+    Recover opaque image IDs only from this authenticated
+    character + user + conversation history.
+
+    Historical visual summaries are never reused.
+    """
+    if not MM13.is_image_followup_reference(
+        message
+    ):
+        return []
+
+    turns = prod_repo().get_turns(
+        character_id,
+        user_id,
+        limit=
+            MM13.MAX_CONTINUITY_LOOKBACK_TURNS,
+        conversation_id=
+            conversation_id,
+    )
+
+    return MM13.extract_turn_image_ids(
+        turns
+    )
+
+
+async def _prepare_multimodal_context(
+    character_id,
+    user_id,
+    conversation_id,
+    message,
+    image_ids,
+):
+    """
+    Resolve only authenticated, conversation-scoped temporary images
+    and produce an ephemeral visual observation.
+
+    Nothing in this helper writes V11 memory, adaptation, goals,
+    relationship state, plans, or Firestore conversation state.
+    """
+    if not image_ids:
+        return None
+
+    if not isinstance(
+        image_ids,
+        (
+            list,
+            tuple,
+        ),
+    ):
+        raise ValueError(
+            "image_ids_must_be_list"
+        )
+
+    cleaned = []
+    seen_image_ids = set()
+
+    for value in image_ids:
+        # Image IDs are opaque references. Never lowercase,
+        # casefold, rewrite, or otherwise transform them.
+        image_id = str(
+            value
+            or ""
+        ).strip()
+
+        if not image_id:
+            raise ValueError(
+                "image_id_required"
+            )
+
+        if image_id in seen_image_ids:
+            raise ValueError(
+                "duplicate_image_id"
+            )
+
+        seen_image_ids.add(
+            image_id
+        )
+
+        cleaned.append(
+            image_id
+        )
+
+    if len(
+        cleaned
+    ) > MM13.MAX_IMAGES_PER_TURN:
+        raise ValueError(
+            "too_many_images"
+        )
+
+    resolved = []
+
+    for image_id in cleaned:
+        reference = (
+            await ai_media.resolve_image_reference(
+                image_id,
+                user_id=user_id,
+                character_id=character_id,
+                conversation_id=
+                    conversation_id,
+                detail="auto",
+            )
+        )
+
+        resolved.append(
+            reference
+        )
+
+    context = MM13.build_turn_context(
+        character_id,
+        user_id,
+        conversation_id,
+        message,
+        resolved,
+    )
+
+    if not context.ok:
+        raise ValueError(
+            context.error
+            or "invalid_multimodal_input"
+        )
+
+    provider_name = os.environ.get(
+        "AI_MULTIMODAL_PROVIDER",
+        "openai",
+    ).strip().casefold()
+
+    model_name = os.environ.get(
+        "AI_MULTIMODAL_MODEL",
+        os.environ.get(
+            "AI_ENGINE_MODEL",
+            "gpt-5.6-sol",
+        ),
+    ).strip()
+
+    vision_prompt = (
+        str(
+            message
+            or ""
+        ).strip()
+        or (
+            "Describe only the relevant visible content "
+            "in the attached image or images."
+        )
+    )
+
+    vision_system = (
+        "You are the V13 visual-understanding capability for Earn2Love. "
+        "Inspect only the supplied authenticated image inputs. "
+        "Return a concise factual visual observation that the conversation "
+        "model can use to answer the user's message. "
+        "Do not invent details that are not visible. "
+        "If something is unclear, state that it is unclear. "
+        "Do not reveal hidden reasoning. "
+        "Do not mention storage URLs, authentication, provider internals, "
+        "or implementation details."
+    )
+
+    result = await PROV.analyze_images(
+        vision_system,
+        vision_prompt,
+        context.provider_images(),
+        provider=provider_name,
+        model=model_name,
+    )
+
+    if not result.get(
+        "ok"
+    ):
+        raise RuntimeError(
+            "multimodal_provider_failed:"
+            + str(
+                result.get(
+                    "error",
+                    "unknown",
+                )
+            )
+        )
+
+    summary = (
+        MM13.normalize_visual_summary(
+            result.get(
+                "text",
+                "",
+            )
+        )
+    )
+
+    return {
+        "visualSummary": summary,
+        "imageCount":
+            context.image_count,
+        "scopeToken":
+            context.scope_token,
+        "imageIds": [
+            image.image_id
+            for image in context.images
+        ],
+        "usage": {
+            "provider":
+                result.get(
+                    "provider"
+                ),
+            "model":
+                result.get(
+                    "model"
+                ),
+            "latencyMs":
+                result.get(
+                    "latencyMs"
+                ),
+        },
+    }
+
+
 _prod_engine = None
 
 
@@ -146,6 +427,7 @@ async def chat(
     language=None,
     client_message_id=None,
     conversation_id="default",
+    image_ids=None,
 ):
     """Production, PERSISTENT conversation with reliability guards:
     - rate limiting / abuse / platform circuit breaker (SOFT cooldown, no LLM call);
@@ -195,6 +477,106 @@ async def chat(
 
     generation_id = uuid.uuid4().hex
     async with _chat_lock(character_id, user_id, conversation_id):
+        # V13.3 authenticated multimodal preparation.
+        #
+        # Runs after idempotency replay and inside the exact
+        # character/user/conversation lock.
+        multimodal_context = None
+
+        # V13.4 recover image IDs only from this exact conversation.
+        effective_image_ids = list(
+            image_ids
+            or []
+        )
+
+        continuity_reused = False
+
+        # Historical visual continuity is activated only by an
+        # explicit image reference and only when the client did not
+        # supply new image IDs for this turn.
+        continuity_requested = bool(
+            not effective_image_ids
+            and MM13.is_image_followup_reference(
+                message
+            )
+        )
+
+        if continuity_requested:
+            effective_image_ids = (
+                await _resolve_continuity_image_ids(
+                    character_id,
+                    user_id,
+                    conversation_id,
+                    message,
+                )
+            )
+
+            # Never answer an explicitly visual follow-up without the
+            # actual historical image. Falling through to text-only
+            # generation could invent visual facts.
+            if not effective_image_ids:
+                return (
+                    _referenced_image_unavailable_result(
+                        character_id
+                    )
+                )
+
+            continuity_reused = True
+
+        if effective_image_ids:
+            try:
+                multimodal_context = (
+                    await _prepare_multimodal_context(
+                        character_id,
+                        user_id,
+                        conversation_id,
+                        message,
+                        effective_image_ids,
+                    )
+                )
+
+            except ValueError as exc:
+                # Historical continuity references that disappeared,
+                # expired, or no longer resolve in this exact scope
+                # collapse into one safe client contract.
+                if (
+                    continuity_reused
+                    and
+                    _is_referenced_image_unavailable_error(
+                        exc
+                    )
+                ):
+                    return (
+                        _referenced_image_unavailable_result(
+                            character_id
+                        )
+                    )
+
+                # New image uploads retain their precise validation
+                # errors; only historical continuity is normalized.
+                return {
+                    "ok": False,
+                    "error": str(
+                        exc
+                    ),
+                    "characterId":
+                        character_id,
+                }
+
+            except RuntimeError as exc:
+                logger.warning(
+                    "V13 multimodal preparation failed: %s",
+                    exc,
+                )
+
+                return {
+                    "ok": False,
+                    "error":
+                        "multimodal_unavailable",
+                    "characterId":
+                        character_id,
+                }
+
         r = await prod_engine().respond(
             character_id,
             user_id,
@@ -203,9 +585,29 @@ async def chat(
             language_override=language or None,
             feature_flags=flags,
             conversation_id=conversation_id,
+            multimodal_context=multimodal_context,
         )
         if r.get("ok"):
             r["generationId"] = generation_id
+
+            if multimodal_context:
+                r["multimodal"] = {
+                    "version": 13,
+                    "imageCount":
+                        multimodal_context.get(
+                            "imageCount",
+                            0,
+                        ),
+                    "imageIds": list(
+                        multimodal_context.get(
+                            "imageIds",
+                            [],
+                        )
+                    ),
+                    "ephemeral": True,
+                    "continuityReused":
+                        continuity_reused,
+                }
             if client_message_id:
                 conv.set({"lastClientMessageId": client_message_id, "lastResponseText": r["responseText"],
                           "lastGenerationId": generation_id, "lastRelationshipState": r.get("relationshipState")},

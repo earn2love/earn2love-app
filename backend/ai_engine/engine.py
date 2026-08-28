@@ -46,6 +46,7 @@ from ai_engine import freshness_intelligence as FI12
 from ai_engine import live_knowledge_intelligence as LK12
 from ai_engine import live_knowledge_provider as LKP12
 from ai_engine import engagement_intelligence as EI12
+from ai_engine import multimodal_intelligence as MM13
 from ai_engine import router as ROUTER
 
 logger = logging.getLogger(__name__)
@@ -324,7 +325,8 @@ class CharacterEngine:
 
     async def respond(self, character_id, user_id, user_text, *, sandbox=False,
                       language_override=None, relationship_override=None, history_fixture=None,
-                      feature_flags=None, conversation_id="default"):
+                      feature_flags=None, conversation_id="default",
+                      multimodal_context=None):
         c = self.repo.get_character(character_id)
         if not c:
             return {"ok": False, "error": "character_not_found"}
@@ -750,6 +752,56 @@ class CharacterEngine:
             lang,
         )
 
+        # V13.3 ephemeral multimodal grounding.
+        #
+        # The actual image has already been authenticated, scoped, resolved,
+        # and analyzed outside CharacterEngine. Only a bounded observation is
+        # supplied here. It is system context only and is not passed through
+        # V3/V11 memory extraction, V7 adaptation learning, V8 goals, or V9
+        # plan persistence.
+        v13_multimodal_context = ""
+
+        if multimodal_context:
+            if not isinstance(
+                multimodal_context,
+                dict,
+            ):
+                return {
+                    "ok": False,
+                    "error": "invalid_multimodal_context",
+                    "characterId": character_id,
+                }
+
+            try:
+                v13_multimodal_context = (
+                    MM13.build_grounded_visual_context(
+                        multimodal_context.get(
+                            "visualSummary",
+                            "",
+                        ),
+                        image_count=
+                            multimodal_context.get(
+                                "imageCount",
+                                0,
+                            ),
+                        scope_token=
+                            multimodal_context.get(
+                                "scopeToken",
+                                "",
+                            ),
+                    )
+                )
+
+            except ValueError as exc:
+                return {
+                    "ok": False,
+                    "error": str(
+                        exc
+                    ),
+                    "characterId": character_id,
+                }
+
+
         # 6. build prompt + transcript.
         #
         # Summarization remains the existing memory-layer responsibility,
@@ -774,6 +826,17 @@ class CharacterEngine:
             summary,
             emotional_guidance=emotional["guidance"],
         )
+
+        # V13.3 visual grounding must be appended AFTER the base
+        # system prompt is constructed. Appending it before this point
+        # would be overwritten by build_system_prompt().
+        if v13_multimodal_context:
+            sys += (
+                "\n\n"
+                "V13_MULTIMODAL_INTELLIGENCE:\n"
+                + v13_multimodal_context
+            )
+
         v11_continuity_safe = CC11.safe_continuity_copy(
             v11_continuity
         )
@@ -1074,14 +1137,25 @@ class CharacterEngine:
 
             turn_base = time.time_ns()
 
+            # V13.4 persist opaque image references on the user turn only.
+            user_turn = {
+                "sender": "user",
+                "text": user_text,
+                "index": turn_base,
+            }
+
+            if multimodal_context:
+                user_turn["imageIds"] = list(
+                    multimodal_context.get(
+                        "imageIds",
+                        [],
+                    )
+                )
+
             self.repo.append_turn(
                 character_id,
                 user_id,
-                {
-                    "sender": "user",
-                    "text": user_text,
-                    "index": turn_base,
-                },
+                user_turn,
                 conversation_id=conversation_id,
             )
 
@@ -1596,4 +1670,3 @@ class CharacterEngine:
             return {"ok": False, "error": last_error}, {}, attempts
         return ({"ok": True, "text": text, **{k: res[k] for k in ("provider", "model", "latencyMs")}},
                 quality, attempts)
-

@@ -53,6 +53,23 @@ def get_auth():
     return fb_auth
 
 
+def get_bucket():
+    """
+    Return the server-side Firebase Storage bucket.
+
+    The bucket is never exposed directly to clients.
+    """
+    if _app is None:
+        init_firebase()
+
+    if _bucket is None:
+        raise RuntimeError(
+            "firebase_storage_unavailable"
+        )
+
+    return _bucket
+
+
 def verify_id_token(token: str) -> dict:
     return fb_auth.verify_id_token(token)
 

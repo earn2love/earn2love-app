@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, Body
+from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, Body, UploadFile, File, Form
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -21,6 +21,8 @@ import hr_service as hr
 import notifications_service as notif
 import games_service as games
 import ai_service as ai_svc
+import ai_media_service as ai_media
+from ai_engine import rate_limit as AI_RATE_LIMIT
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -90,6 +92,7 @@ class AiChatBody(BaseModel):
     language: str | None = None
     clientMessageId: str | None = None
     conversationId: str | None = None
+    imageIds: list[str] | None = None
 
 
 def client_ip(request: Request) -> str:
@@ -771,6 +774,183 @@ async def play_rematch(sid: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail=str(e))
 
 
+# ---- V13 authenticated temporary image media ----
+def _validate_ai_media_character(
+    character_id,
+):
+    """
+    Validate the target against the same production AI-character
+    authority used by chat.
+
+    No subscription/tier policy is invented here. This gate only
+    prevents uploads for missing, disabled, or archived characters.
+    """
+    character_id = str(
+        character_id
+        or ""
+    ).strip()
+
+    if not character_id:
+        raise ValueError(
+            "character_not_found"
+        )
+
+    character = ai_service.get_character(
+        character_id
+    )
+
+    if not character:
+        raise ValueError(
+            "character_not_found"
+        )
+
+    if (
+        character.get(
+            "enabled"
+        )
+        is False
+    ):
+        raise ValueError(
+            "character_unavailable"
+        )
+
+    if bool(
+        character.get(
+            "archived"
+        )
+    ):
+        raise ValueError(
+            "character_unavailable"
+        )
+
+    return character
+
+
+@api.post("/ai/media/upload")
+async def ai_media_upload(
+    characterId: str = Form(...),
+    conversationId: str = Form("default"),
+    image: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """
+    Upload one private temporary image for AI understanding.
+
+    UID always comes from the verified Firebase ID token.
+    The client cannot choose the Storage object path.
+    """
+    try:
+        _validate_ai_media_character(
+            characterId
+        )
+
+        media_gate = (
+            AI_RATE_LIMIT
+            .check_and_consume_media_upload(
+                ai_service.prod_repo().db,
+                user["uid"],
+            )
+        )
+
+        if not media_gate.get(
+            "allowed"
+        ):
+            reason = media_gate.get(
+                "reason"
+            )
+
+            if reason == "guard_unavailable":
+                raise HTTPException(
+                    status_code=503,
+                    detail=
+                        "image_upload_guard_unavailable",
+                )
+
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code":
+                        "image_upload_rate_limited",
+                    "reason":
+                        reason,
+                    "retryAfterSeconds":
+                        int(
+                            media_gate.get(
+                                "retryAfter",
+                                0,
+                            )
+                            or 0
+                        ),
+                },
+            )
+
+        return await ai_media.upload_image(
+            image,
+            user_id=user["uid"],
+            character_id=characterId,
+            conversation_id=
+                conversationId,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exc
+            ),
+        )
+
+    except RuntimeError as exc:
+        logger.warning(
+            "AI media storage unavailable: %s",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="image_storage_unavailable",
+        )
+
+
+@api.delete("/ai/media/{image_id}")
+async def ai_media_delete(
+    image_id: str,
+    characterId: str,
+    conversationId: str = "default",
+    user: dict = Depends(get_current_user),
+):
+    """
+    Delete only the authenticated user's own scoped temporary image.
+    """
+    try:
+        return await ai_media.delete_image(
+            image_id,
+            user_id=user["uid"],
+            character_id=characterId,
+            conversation_id=
+                conversationId,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(
+                exc
+            ),
+        )
+
+    except RuntimeError as exc:
+        logger.warning(
+            "AI media delete unavailable: %s",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="image_storage_unavailable",
+        )
+
+
 # ---------------- Advanced AI Character Engine ----------------
 import asyncio as _asyncio
 
@@ -913,6 +1093,7 @@ async def ai_chat(body: AiChatBody, user: dict = Depends(get_current_user)):
             body.language,
             body.clientMessageId,
             body.conversationId or "default",
+            body.imageIds,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

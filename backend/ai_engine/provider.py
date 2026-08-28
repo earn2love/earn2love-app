@@ -369,3 +369,385 @@ async def search_web(
                 + type(exc).__name__
             ),
         )
+
+
+# ============================================================
+# V13 MULTIMODAL VISION PROVIDER BOUNDARY
+# ============================================================
+
+def _v13_response_output_text(response):
+    text = str(
+        getattr(
+            response,
+            "output_text",
+            "",
+        )
+        or ""
+    ).strip()
+
+    if text:
+        return text
+
+    parts = []
+
+    for item in (
+        getattr(
+            response,
+            "output",
+            None
+        )
+        or []
+    ):
+        for content in (
+            getattr(
+                item,
+                "content",
+                None
+            )
+            or []
+        ):
+            value = getattr(
+                content,
+                "text",
+                None,
+            )
+
+            if value:
+                parts.append(
+                    str(
+                        value
+                    ).strip()
+                )
+
+    return "\n".join(
+        part
+        for part in parts
+        if part
+    ).strip()
+
+
+async def analyze_images(
+    system_message,
+    user_prompt,
+    image_inputs,
+    *,
+    provider,
+    model,
+    timeout_seconds=None,
+    max_output_tokens=None,
+):
+    """
+    V13 external multimodal vision boundary.
+
+    Image inputs must already be normalized by
+    multimodal_intelligence.py.
+
+    This function:
+    - performs no persistence;
+    - uses store=False;
+    - does not create provider conversation state;
+    - does not fetch image bytes inside the Earn2Love backend;
+    - keeps direct external vision communication inside provider.py.
+    """
+
+    provider_name = str(
+        provider
+        or ""
+    ).strip().casefold()
+
+    model_name = str(
+        model
+        or ""
+    ).strip()
+
+    started = time.time()
+
+    if provider_name != "openai":
+        return ProviderResult(
+            ok=False,
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=0,
+            usage={},
+            error="unsupported_multimodal_provider",
+        )
+
+    if not model_name:
+        return ProviderResult(
+            ok=False,
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=0,
+            usage={},
+            error="multimodal_model_required",
+        )
+
+    if not isinstance(
+        image_inputs,
+        (
+            list,
+            tuple,
+        ),
+    ) or not image_inputs:
+        return ProviderResult(
+            ok=False,
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=0,
+            usage={},
+            error="multimodal_image_required",
+        )
+
+    content = [
+        {
+            "type": "input_text",
+            "text": str(
+                user_prompt
+                or ""
+            ),
+        }
+    ]
+
+    for raw in image_inputs:
+        if not isinstance(
+            raw,
+            dict,
+        ):
+            return ProviderResult(
+                ok=False,
+                text="",
+                provider=provider_name,
+                model=model_name,
+                latencyMs=0,
+                usage={},
+                error="invalid_multimodal_image_input",
+            )
+
+        detail = str(
+            raw.get(
+                "detail",
+                "auto",
+            )
+            or "auto"
+        ).strip().casefold()
+
+        if detail not in {
+            "auto",
+            "low",
+            "high",
+        }:
+            return ProviderResult(
+                ok=False,
+                text="",
+                provider=provider_name,
+                model=model_name,
+                latencyMs=0,
+                usage={},
+                error="invalid_multimodal_image_detail",
+            )
+
+        image_url = str(
+            raw.get(
+                "image_url",
+                "",
+            )
+            or ""
+        ).strip()
+
+        file_id = str(
+            raw.get(
+                "file_id",
+                "",
+            )
+            or ""
+        ).strip()
+
+        if bool(
+            image_url
+        ) == bool(
+            file_id
+        ):
+            return ProviderResult(
+                ok=False,
+                text="",
+                provider=provider_name,
+                model=model_name,
+                latencyMs=0,
+                usage={},
+                error="invalid_multimodal_image_source",
+            )
+
+        item = {
+            "type": "input_image",
+            "detail": detail,
+        }
+
+        if image_url:
+            item["image_url"] = image_url
+        else:
+            item["file_id"] = file_id
+
+        content.append(
+            item
+        )
+
+    api_key = os.environ.get(
+        "OPENAI_API_KEY",
+        "",
+    ).strip()
+
+    if not api_key:
+        return ProviderResult(
+            ok=False,
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=int(
+                (
+                    time.time()
+                    - started
+                )
+                * 1000
+            ),
+            usage={},
+            error="missing_openai_api_key",
+        )
+
+    timeout = float(
+        timeout_seconds
+        if timeout_seconds is not None
+        else os.environ.get(
+            "AI_MULTIMODAL_TIMEOUT",
+            "40",
+        )
+    )
+
+    max_tokens = int(
+        max_output_tokens
+        if max_output_tokens is not None
+        else os.environ.get(
+            "AI_MULTIMODAL_MAX_OUTPUT_TOKENS",
+            "1200",
+        )
+    )
+
+    try:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=api_key
+        )
+
+        response = await asyncio.wait_for(
+            client.responses.create(
+                model=model_name,
+                instructions=str(
+                    system_message
+                    or ""
+                ),
+                input=[
+                    {
+                        "role": "user",
+                        "content": content,
+                    }
+                ],
+                max_output_tokens=max_tokens,
+                store=False,
+            ),
+            timeout=timeout,
+        )
+
+        usage = {}
+
+        raw_usage = getattr(
+            response,
+            "usage",
+            None,
+        )
+
+        if raw_usage:
+            try:
+                if hasattr(
+                    raw_usage,
+                    "model_dump",
+                ):
+                    usage = (
+                        raw_usage.model_dump()
+                    )
+
+                elif isinstance(
+                    raw_usage,
+                    dict,
+                ):
+                    usage = raw_usage
+
+            except Exception:
+                usage = {}
+
+        return ProviderResult(
+            ok=True,
+            text=_v13_response_output_text(
+                response
+            ),
+            provider=provider_name,
+            model=model_name,
+            latencyMs=int(
+                (
+                    time.time()
+                    - started
+                )
+                * 1000
+            ),
+            usage=usage,
+            error=None,
+        )
+
+    except asyncio.TimeoutError:
+        return ProviderResult(
+            ok=False,
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=int(
+                (
+                    time.time()
+                    - started
+                )
+                * 1000
+            ),
+            usage={},
+            error="multimodal_provider_timeout",
+        )
+
+    except Exception as exc:
+        logger.warning(
+            "Multimodal provider error: %s: %s",
+            type(
+                exc
+            ).__name__,
+            exc,
+        )
+
+        return ProviderResult(
+            ok=False,
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=int(
+                (
+                    time.time()
+                    - started
+                )
+                * 1000
+            ),
+            usage={},
+            error=(
+                "multimodal_provider_error:"
+                + type(
+                    exc
+                ).__name__
+            ),
+        )
