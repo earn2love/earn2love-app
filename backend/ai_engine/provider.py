@@ -986,3 +986,432 @@ async def edit_image(
             else None
         ),
     }
+
+
+# ============================================================
+# V16.2 PROVIDER STREAMING BOUNDARY
+# ============================================================
+
+V16_2_PROVIDER_STREAMING = True
+
+
+def _v16_stream_content_text(content):
+    """
+    Normalize text from one provider delta without exposing
+    provider-specific chunk objects outside provider.py.
+    """
+
+    if content is None:
+        return ""
+
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, (list, tuple)):
+        parts = []
+
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+
+            if isinstance(item, dict):
+                text = item.get("text")
+
+                if isinstance(text, str):
+                    parts.append(text)
+
+                continue
+
+            text = getattr(
+                item,
+                "text",
+                None,
+            )
+
+            if isinstance(text, str):
+                parts.append(text)
+
+        return "".join(parts)
+
+    return str(content)
+
+
+def _v16_stream_delta_text(chunk):
+    if chunk is None:
+        return ""
+
+    choices = (
+        chunk.get("choices")
+        if isinstance(chunk, dict)
+        else getattr(chunk, "choices", None)
+    )
+
+    if not choices:
+        return ""
+
+    choice = choices[0]
+
+    delta = (
+        choice.get("delta")
+        if isinstance(choice, dict)
+        else getattr(choice, "delta", None)
+    )
+
+    if delta is None:
+        return ""
+
+    content = (
+        delta.get("content")
+        if isinstance(delta, dict)
+        else getattr(delta, "content", None)
+    )
+
+    return _v16_stream_content_text(
+        content
+    )
+
+
+def _v16_stream_finish_reason(chunk):
+    if chunk is None:
+        return None
+
+    choices = (
+        chunk.get("choices")
+        if isinstance(chunk, dict)
+        else getattr(chunk, "choices", None)
+    )
+
+    if not choices:
+        return None
+
+    choice = choices[0]
+
+    value = (
+        choice.get("finish_reason")
+        if isinstance(choice, dict)
+        else getattr(
+            choice,
+            "finish_reason",
+            None,
+        )
+    )
+
+    if value is None:
+        return None
+
+    return str(value)
+
+
+def _v16_stream_usage(chunk):
+    if chunk is None:
+        return {}
+
+    usage = (
+        chunk.get("usage")
+        if isinstance(chunk, dict)
+        else getattr(chunk, "usage", None)
+    )
+
+    if usage is None:
+        return {}
+
+    try:
+        if hasattr(usage, "model_dump"):
+            result = usage.model_dump()
+
+            return (
+                result
+                if isinstance(result, dict)
+                else {}
+            )
+
+        if isinstance(usage, dict):
+            return dict(usage)
+
+        return {
+            "prompt_tokens": getattr(
+                usage,
+                "prompt_tokens",
+                None,
+            ),
+            "completion_tokens": getattr(
+                usage,
+                "completion_tokens",
+                None,
+            ),
+            "total_tokens": getattr(
+                usage,
+                "total_tokens",
+                None,
+            ),
+        }
+
+    except Exception:
+        return {}
+
+
+async def generate_stream(
+    system_message,
+    user_prompt,
+    *,
+    session_id,
+    provider,
+    model,
+    timeout_seconds=None,
+):
+    """
+    V16.2 normalized streaming generation provider boundary.
+
+    IMPORTANT:
+    - provider/model must be supplied by the existing router/engine;
+    - this function performs no persistence;
+    - this function does not alter memory, relationship, goals,
+      adaptation or personality;
+    - provider-specific stream objects never leave provider.py;
+    - cancellation propagates to the caller.
+
+    Yields normalized ProviderResult events:
+
+        {
+            ok,
+            event,
+            text,
+            provider,
+            model,
+            latencyMs,
+            usage,
+            finishReason,
+            error
+        }
+    """
+
+    provider_name = str(
+        provider or ""
+    ).strip().casefold()
+
+    model_name = str(
+        model or ""
+    ).strip()
+
+    if not provider_name:
+        yield ProviderResult(
+            ok=False,
+            event="error",
+            text="",
+            provider="",
+            model=model_name,
+            latencyMs=0,
+            usage={},
+            finishReason=None,
+            error="stream_provider_required",
+        )
+        return
+
+    if not model_name:
+        yield ProviderResult(
+            ok=False,
+            event="error",
+            text="",
+            provider=provider_name,
+            model="",
+            latencyMs=0,
+            usage={},
+            finishReason=None,
+            error="stream_model_required",
+        )
+        return
+
+    timeout = float(
+        timeout_seconds
+        if timeout_seconds is not None
+        else TIMEOUT_SECONDS
+    )
+
+    if timeout <= 0:
+        yield ProviderResult(
+            ok=False,
+            event="error",
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=0,
+            usage={},
+            finishReason=None,
+            error="stream_timeout_invalid",
+        )
+        return
+
+    started = time.time()
+    stream = None
+    usage = {}
+    finish_reason = None
+
+    try:
+        from litellm import acompletion
+
+        resolved_model = _resolve_model(
+            provider_name,
+            model_name,
+        )
+
+        stream = await asyncio.wait_for(
+            acompletion(
+                model=resolved_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": str(
+                            system_message or ""
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": str(
+                            user_prompt or ""
+                        ),
+                    },
+                ],
+                stream=True,
+            ),
+            timeout=timeout,
+        )
+
+        iterator = stream.__aiter__()
+
+        while True:
+            try:
+                chunk = await asyncio.wait_for(
+                    iterator.__anext__(),
+                    timeout=timeout,
+                )
+
+            except StopAsyncIteration:
+                break
+
+            chunk_usage = _v16_stream_usage(
+                chunk
+            )
+
+            if chunk_usage:
+                usage = chunk_usage
+
+            chunk_finish = (
+                _v16_stream_finish_reason(
+                    chunk
+                )
+            )
+
+            if chunk_finish:
+                finish_reason = chunk_finish
+
+            text = _v16_stream_delta_text(
+                chunk
+            )
+
+            if not text:
+                continue
+
+            yield ProviderResult(
+                ok=True,
+                event="delta",
+                text=text,
+                provider=provider_name,
+                model=model_name,
+                latencyMs=int(
+                    (
+                        time.time()
+                        - started
+                    )
+                    * 1000
+                ),
+                usage={},
+                finishReason=None,
+                error=None,
+            )
+
+        yield ProviderResult(
+            ok=True,
+            event="completed",
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=int(
+                (
+                    time.time()
+                    - started
+                )
+                * 1000
+            ),
+            usage=usage,
+            finishReason=finish_reason,
+            error=None,
+        )
+
+    except asyncio.CancelledError:
+        raise
+
+    except asyncio.TimeoutError:
+        yield ProviderResult(
+            ok=False,
+            event="error",
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=int(
+                (
+                    time.time()
+                    - started
+                )
+                * 1000
+            ),
+            usage={},
+            finishReason=None,
+            error="stream_provider_timeout",
+        )
+
+    except Exception as exc:
+        logger.warning(
+            "Streaming LLM provider error: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+
+        yield ProviderResult(
+            ok=False,
+            event="error",
+            text="",
+            provider=provider_name,
+            model=model_name,
+            latencyMs=int(
+                (
+                    time.time()
+                    - started
+                )
+                * 1000
+            ),
+            usage={},
+            finishReason=None,
+            error=(
+                "stream_provider_error:"
+                + type(exc).__name__
+            ),
+        )
+
+    finally:
+        if stream is not None:
+            close = getattr(
+                stream,
+                "aclose",
+                None,
+            )
+
+            if callable(close):
+                try:
+                    result = close()
+
+                    if asyncio.iscoroutine(result):
+                        await result
+
+                except Exception:
+                    pass

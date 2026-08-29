@@ -11,6 +11,10 @@ load_dotenv(ROOT_DIR / ".env")
 from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, Body, UploadFile, File, Form
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import json as _v16_json
+import uuid as _v16_uuid
+from starlette.responses import StreamingResponse as V16StreamingResponse
+from ai_engine import verified_final_delivery as VFD16
 
 import firebase_service as fb
 import firestore_repo as repo
@@ -1103,6 +1107,125 @@ async def ai_chat(body: AiChatBody, user: dict = Depends(get_current_user)):
         code = {"character_not_found": 404, "character_disabled": 403}.get(err, 502)
         raise HTTPException(status_code=code, detail=err)
     return r
+
+
+# ============================================================
+# V16.2C5B VERIFIED FINAL RESPONSE SSE TRANSPORT
+# ============================================================
+
+def _v16_sse_frame(event):
+    """Encode one verified delivery event as an SSE frame."""
+    if not isinstance(event, dict):
+        raise ValueError("sse_event_invalid")
+
+    event_type = str(
+        event.get("type")
+        or "message"
+    ).strip() or "message"
+
+    payload = _v16_json.dumps(
+        event,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+    return (
+        f"event: {event_type}\n"
+        f"data: {payload}\n\n"
+    )
+
+
+@api.post("/ai/chat/stream")
+async def ai_chat_stream(
+    body: AiChatBody,
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Authenticated verified-response SSE delivery.
+
+    The existing production chat lifecycle remains authoritative.
+    Provider deltas are buffered internally; only the final response
+    accepted by CharacterEngine is converted into SSE delivery chunks.
+    """
+    if not (body.message or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="message is required",
+        )
+
+    if len(body.message) > 2000:
+        raise HTTPException(
+            status_code=400,
+            detail="message too long (max 2000 characters)",
+        )
+
+    try:
+        result = await ai_svc.chat(
+            body.characterId,
+            user["uid"],
+            body.message,
+            body.language,
+            body.clientMessageId,
+            body.conversationId or "default",
+            body.imageIds,
+            _verified_buffered_generation=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    if not result.get("ok"):
+        error = result.get(
+            "error",
+            "engine_error",
+        )
+
+        status_code = {
+            "character_not_found": 404,
+            "character_disabled": 403,
+        }.get(error, 502)
+
+        raise HTTPException(
+            status_code=status_code,
+            detail=error,
+        )
+
+    request_id = _v16_uuid.uuid4().hex
+
+    plan = VFD16.prepare_verified_delivery(
+        result,
+        character_id=body.characterId,
+        user_id=user["uid"],
+        conversation_id=(
+            body.conversationId
+            or "default"
+        ),
+        request_id=request_id,
+        sequence=0,
+        sandbox=False,
+    )
+
+    async def verified_event_stream():
+        for event in plan.events:
+            if await request.is_disconnected():
+                VFD16.cancel_verified_delivery(
+                    plan.state,
+                    reason="client_disconnected",
+                )
+                return
+
+            yield _v16_sse_frame(event)
+
+    return V16StreamingResponse(
+        verified_event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @api.get("/ai/chat/{cid}/history")

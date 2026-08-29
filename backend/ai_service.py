@@ -13,6 +13,7 @@ import logging
 from ai_engine.repository import FirestoreCharacterRepository, InMemoryCharacterRepository
 from ai_engine.registry import REFERENCE_CHARACTERS, seed_reference
 from ai_engine.engine import CharacterEngine
+from ai_engine import verified_streaming_orchestration as VSO16
 from ai_engine import multimodal_intelligence as MM13
 from ai_engine import provider as PROV
 import ai_media_service as ai_media
@@ -428,6 +429,8 @@ async def chat(
     client_message_id=None,
     conversation_id="default",
     image_ids=None,
+    *,
+    _verified_buffered_generation=False,
 ):
     """Production, PERSISTENT conversation with reliability guards:
     - rate limiting / abuse / platform circuit breaker (SOFT cooldown, no LLM call);
@@ -577,16 +580,29 @@ async def chat(
                         character_id,
                 }
 
-        r = await prod_engine().respond(
-            character_id,
-            user_id,
-            message,
-            sandbox=False,
-            language_override=language or None,
-            feature_flags=flags,
-            conversation_id=conversation_id,
-            multimodal_context=multimodal_context,
-        )
+        if _verified_buffered_generation:
+            r = await VSO16.respond_with_buffered_stream(
+                prod_engine(),
+                character_id,
+                user_id,
+                message,
+                sandbox=False,
+                language_override=language or None,
+                feature_flags=flags,
+                conversation_id=conversation_id,
+                multimodal_context=multimodal_context,
+            )
+        else:
+            r = await prod_engine().respond(
+                character_id,
+                user_id,
+                message,
+                sandbox=False,
+                language_override=language or None,
+                feature_flags=flags,
+                conversation_id=conversation_id,
+                multimodal_context=multimodal_context,
+            )
         if r.get("ok"):
             r["generationId"] = generation_id
 

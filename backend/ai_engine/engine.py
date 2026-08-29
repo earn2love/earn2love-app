@@ -327,7 +327,7 @@ class CharacterEngine:
     async def respond(self, character_id, user_id, user_text, *, sandbox=False,
                       language_override=None, relationship_override=None, history_fixture=None,
                       feature_flags=None, conversation_id="default",
-                      multimodal_context=None):
+                      multimodal_context=None, _generation_callable=None):
         c = self.repo.get_character(character_id)
         if not c:
             return {"ok": False, "error": "character_not_found"}
@@ -1092,20 +1092,43 @@ class CharacterEngine:
             conversation_id,
         )
 
-        result, quality, attempts = await self._generate_guarded(
-            sys,
-            prompt,
-            c,
-            recent_ai,
-            plan,
-            provider_session_id,
-            routing,
-            conversation_guidance,
-            relationship_guidance,
-            personality_fingerprint,
-            adaptation_guidance,
-            orchestration_guidance,
-        )
+        if _generation_callable is None:
+            # Preserve the exact pre-V16 invocation contract.
+            # Existing integrations and test doubles that replace
+            # _generate_guarded() must continue receiving only the
+            # historical arguments.
+            result, quality, attempts = await self._generate_guarded(
+                sys,
+                prompt,
+                c,
+                recent_ai,
+                plan,
+                provider_session_id,
+                routing,
+                conversation_guidance,
+                relationship_guidance,
+                personality_fingerprint,
+                adaptation_guidance,
+                orchestration_guidance,
+            )
+        else:
+            # V16 private generation seam. The injected provider remains
+            # subject to the same routing, guards, repair and finalization.
+            result, quality, attempts = await self._generate_guarded(
+                sys,
+                prompt,
+                c,
+                recent_ai,
+                plan,
+                provider_session_id,
+                routing,
+                conversation_guidance,
+                relationship_guidance,
+                personality_fingerprint,
+                adaptation_guidance,
+                orchestration_guidance,
+                generation_callable=_generation_callable,
+            )
         if not result["ok"]:
             return {"ok": False, "error": result["error"], "characterId": character_id}
         text = result["text"]
@@ -1593,6 +1616,7 @@ class CharacterEngine:
         personality_fingerprint=None,
         adaptation_guidance=None,
         orchestration_guidance=None,
+        generation_callable=None,
     ):
         attempts = 0
         avoid_note = ""
@@ -1608,7 +1632,26 @@ class CharacterEngine:
             attempts += 1
             # attempt 1 uses the routed model; a repair attempt escalates to the strong reasoner
             provider, model = (routing["provider"], routing["model"]) if attempt == 0 else ROUTER.repair_model()
-            res = await PROV.generate(sys + avoid_note, prompt, session_id=session_id, provider=provider, model=model)
+            if generation_callable is None:
+                # Existing provider boundary remains authoritative for all
+                # normal production generation.
+                res = await PROV.generate(
+                    sys + avoid_note,
+                    prompt,
+                    session_id=session_id,
+                    provider=provider,
+                    model=model,
+                )
+            else:
+                # V16 injected generation remains inside the exact same
+                # guard / repair loop and receives router-selected values.
+                res = await generation_callable(
+                    sys + avoid_note,
+                    prompt,
+                    session_id=session_id,
+                    provider=provider,
+                    model=model,
+                )
             if not res["ok"]:
                 last_error = res["error"]
 
