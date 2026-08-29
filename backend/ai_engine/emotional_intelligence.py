@@ -1,4 +1,4 @@
-﻿"""
+"""
 Earn2Love AI Engine V3.5
 Emotional Intelligence Core
 
@@ -489,3 +489,668 @@ def format_emotional_guidance(
     )
 
     return "; ".join(parts)
+# ============================================================
+# V15.1 EMOTIONAL STATE INTELLIGENCE 2.0
+# ============================================================
+#
+# This extends the existing V3.5 conversational emotional
+# intelligence. It does NOT replace the original API.
+#
+# Architecture:
+# - pure deterministic reasoning
+# - no provider calls
+# - no Firestore writes
+# - no global mutable user state
+# - no mental-health diagnosis
+# - no relationship-stage mutation
+# - no personality mutation
+# - ordinary transient mood remains ephemeral
+#
+# Persistent relationship evolution remains owned by V5.
+# Long-term memory persistence remains owned by the existing
+# memory / engine integration.
+# ============================================================
+
+from dataclasses import dataclass, asdict
+
+
+V15_1_EMOTIONAL_STATE_INTELLIGENCE = True
+
+
+@dataclass(frozen=True)
+class EmotionalStateV15:
+    primary_emotion: str
+    confidence: float
+    intensity: float
+
+    valence: float
+    arousal: float
+    emotional_load: float
+
+    trajectory: str
+
+    response_mode: str
+    response_temperature: str
+
+    acknowledgement_level: str
+    question_pressure: str
+    advice_pressure: str
+    humor_level: str
+
+    social_orientation: str
+
+    meaningful_event: bool
+    relationship_relevant: bool
+
+    preserve_personality: bool
+    transient_only: bool
+
+    directive: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+# Valence describes conversational emotional direction only.
+# It is not a psychological or clinical measurement.
+_V15_VALENCE = {
+    "neutral": 0.0,
+    "joy": 0.90,
+    "amusement": 0.75,
+    "affection": 0.85,
+    "sadness": -0.75,
+    "anger": -0.80,
+    "anxiety": -0.70,
+    "stress": -0.65,
+    "loneliness": -0.80,
+    "disappointment": -0.65,
+    "embarrassment": -0.40,
+}
+
+
+# Baseline conversational activation level.
+_V15_AROUSAL = {
+    "neutral": 0.10,
+    "joy": 0.72,
+    "amusement": 0.68,
+    "affection": 0.48,
+    "sadness": 0.30,
+    "anger": 0.82,
+    "anxiety": 0.84,
+    "stress": 0.78,
+    "loneliness": 0.28,
+    "disappointment": 0.36,
+    "embarrassment": 0.50,
+}
+
+
+_V15_SOCIAL_ORIENTATION = {
+    "neutral": "neutral",
+    "joy": "sharing",
+    "amusement": "sharing",
+    "affection": "connection",
+    "sadness": "support_seeking_possible",
+    "anger": "expression",
+    "anxiety": "reassurance_possible",
+    "stress": "load_reduction",
+    "loneliness": "connection",
+    "disappointment": "support_seeking_possible",
+    "embarrassment": "reassurance_possible",
+}
+
+
+def _v15_clamp(
+    value: Any,
+    minimum: float = 0.0,
+    maximum: float = 1.0,
+) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = minimum
+
+    return max(
+        minimum,
+        min(
+            maximum,
+            number,
+        ),
+    )
+
+
+def emotional_dimensions(
+    emotion: str,
+    intensity: float,
+    confidence: float,
+) -> Dict[str, float]:
+    """
+    Convert an already-detected conversational emotion into compact
+    response-control dimensions.
+
+    These are dialogue-control signals, not clinical measurements.
+    """
+
+    normalized_emotion = (
+        str(emotion or "neutral")
+        .strip()
+        .casefold()
+    )
+
+    intensity_value = _v15_clamp(
+        intensity
+    )
+
+    confidence_value = _v15_clamp(
+        confidence
+    )
+
+    base_valence = float(
+        _V15_VALENCE.get(
+            normalized_emotion,
+            0.0,
+        )
+    )
+
+    base_arousal = float(
+        _V15_AROUSAL.get(
+            normalized_emotion,
+            0.30,
+        )
+    )
+
+    # Preserve sign while allowing low-intensity signals to remain
+    # appropriately weak.
+    valence = (
+        base_valence
+        * max(
+            0.20,
+            intensity_value,
+        )
+    )
+
+    arousal = (
+        base_arousal
+        * (
+            0.45
+            + (
+                0.55
+                * intensity_value
+            )
+        )
+    )
+
+    emotional_load = (
+        intensity_value
+        * confidence_value
+    )
+
+    return {
+        "valence": round(
+            max(
+                -1.0,
+                min(
+                    1.0,
+                    valence,
+                ),
+            ),
+            3,
+        ),
+        "arousal": round(
+            _v15_clamp(
+                arousal
+            ),
+            3,
+        ),
+        "emotionalLoad": round(
+            _v15_clamp(
+                emotional_load
+            ),
+            3,
+        ),
+    }
+
+
+def emotional_response_mode(
+    emotion: str,
+    intensity: float,
+) -> str:
+    """
+    Select a conversational stance without assuming that the user
+    wants counselling, advice or intervention.
+    """
+
+    emotion = (
+        str(emotion or "neutral")
+        .strip()
+        .casefold()
+    )
+
+    intensity = _v15_clamp(
+        intensity
+    )
+
+    if emotion == "neutral":
+        return "natural"
+
+    if emotion in {
+        "joy",
+        "amusement",
+    }:
+        return "share_positive_energy"
+
+    if emotion == "affection":
+        return "warm_reciprocity"
+
+    if emotion in {
+        "sadness",
+        "loneliness",
+        "disappointment",
+    }:
+        return (
+            "gentle_support"
+            if intensity >= 0.55
+            else "light_acknowledgement"
+        )
+
+    if emotion in {
+        "anger",
+        "stress",
+    }:
+        return (
+            "deescalate_and_listen"
+            if intensity >= 0.55
+            else "calm_acknowledgement"
+        )
+
+    if emotion == "anxiety":
+        return (
+            "calm_reassurance"
+            if intensity >= 0.55
+            else "steady_acknowledgement"
+        )
+
+    if emotion == "embarrassment":
+        return "reduce_social_pressure"
+
+    return "natural"
+
+
+def emotional_temperature(
+    emotion: str,
+) -> str:
+
+    emotion = (
+        str(emotion or "neutral")
+        .strip()
+        .casefold()
+    )
+
+    if emotion in {
+        "sadness",
+        "loneliness",
+        "disappointment",
+    }:
+        return "gentle"
+
+    if emotion in {
+        "anger",
+        "anxiety",
+        "stress",
+    }:
+        return "calm"
+
+    if emotion in {
+        "joy",
+        "amusement",
+    }:
+        return "bright"
+
+    if emotion == "affection":
+        return "warm"
+
+    if emotion == "embarrassment":
+        return "reassuring"
+
+    return "balanced"
+
+
+def emotional_acknowledgement_level(
+    emotion: str,
+    intensity: float,
+    confidence: float,
+) -> str:
+
+    if (
+        str(emotion or "neutral")
+        .strip()
+        .casefold()
+        == "neutral"
+    ):
+        return "none"
+
+    intensity = _v15_clamp(
+        intensity
+    )
+
+    confidence = _v15_clamp(
+        confidence
+    )
+
+    evidence = (
+        intensity
+        * confidence
+    )
+
+    if evidence >= 0.65:
+        return "clear"
+
+    if evidence >= 0.32:
+        return "light"
+
+    return "subtle"
+
+
+def relationship_relevant_emotion(
+    emotion: str,
+    *,
+    meaningful_event: bool,
+    intensity: float,
+) -> bool:
+    """
+    Mark whether emotion may matter to relationship-aware response
+    composition.
+
+    This does NOT mutate V5 relationship state.
+    """
+
+    emotion = (
+        str(emotion or "neutral")
+        .strip()
+        .casefold()
+    )
+
+    if meaningful_event:
+        return True
+
+    if emotion in {
+        "affection",
+        "loneliness",
+    }:
+        return (
+            _v15_clamp(
+                intensity
+            )
+            >= 0.55
+        )
+
+    return False
+
+
+def _v15_directive(
+    *,
+    emotion: str,
+    intensity: float,
+    trajectory_value: str,
+    response_mode: str,
+    temperature: str,
+    acknowledgement: str,
+    strategy: Dict[str, Any],
+) -> str:
+
+    if emotion == "neutral":
+        return (
+            "No strong emotional signal is present. "
+            "Respond naturally and do not manufacture emotion. "
+            "Preserve the configured character personality."
+        )
+
+    parts = [
+        f"Current conversational emotion: {emotion}.",
+        f"Intensity: {intensity:.2f}.",
+        f"Trajectory: {trajectory_value}.",
+        f"Response mode: {response_mode}.",
+        f"Response temperature: {temperature}.",
+        f"Emotional acknowledgement: {acknowledgement}.",
+        (
+            "Question pressure: "
+            + str(
+                strategy.get(
+                    "questionPressure",
+                    "normal",
+                )
+            )
+            + "."
+        ),
+        (
+            "Advice pressure: "
+            + str(
+                strategy.get(
+                    "advicePressure",
+                    "normal",
+                )
+            )
+            + "."
+        ),
+        (
+            "Humor: "
+            + str(
+                strategy.get(
+                    "humor",
+                    "normal",
+                )
+            )
+            + "."
+        ),
+        (
+            "Do not diagnose, exaggerate the emotion, manufacture a crisis, "
+            "or assume the person wants counselling."
+        ),
+        (
+            "Do not use possessive, guilt-based, exclusive or dependency-"
+            "creating language."
+        ),
+        (
+            "Preserve the configured global character personality; emotion "
+            "changes response delivery, not character identity."
+        ),
+    ]
+
+    return " ".join(
+        parts
+    )
+
+
+def analyze_emotional_state_v15(
+    text: str,
+    *,
+    previous_text: Optional[str] = None,
+) -> EmotionalStateV15:
+    """
+    Rich V15.1 emotional-state analysis.
+
+    Uses the existing V3.5 emotion detector as the source of truth so
+    V15.1 extends rather than replaces the established behavior.
+    """
+
+    current = analyze_emotion(
+        text
+    )
+
+    previous = (
+        analyze_emotion(
+            previous_text
+        )
+        if previous_text
+        else None
+    )
+
+    trajectory_value = trajectory(
+        current,
+        previous,
+    )
+
+    emotion = str(
+        current.get(
+            "primaryEmotion",
+            "neutral",
+        )
+    )
+
+    confidence = _v15_clamp(
+        current.get(
+            "confidence",
+            0.0,
+        )
+    )
+
+    intensity = _v15_clamp(
+        current.get(
+            "intensity",
+            0.0,
+        )
+    )
+
+    dimensions = emotional_dimensions(
+        emotion,
+        intensity,
+        confidence,
+    )
+
+    strategy = dict(
+        current.get(
+            "strategy",
+            {},
+        )
+        or {}
+    )
+
+    mode = emotional_response_mode(
+        emotion,
+        intensity,
+    )
+
+    temperature = emotional_temperature(
+        emotion
+    )
+
+    acknowledgement = (
+        emotional_acknowledgement_level(
+            emotion,
+            intensity,
+            confidence,
+        )
+    )
+
+    meaningful_event = bool(
+        current.get(
+            "meaningfulEvent",
+            False,
+        )
+    )
+
+    relationship_relevant = (
+        relationship_relevant_emotion(
+            emotion,
+            meaningful_event=meaningful_event,
+            intensity=intensity,
+        )
+    )
+
+    transient_only = (
+        not meaningful_event
+    )
+
+    directive = _v15_directive(
+        emotion=emotion,
+        intensity=intensity,
+        trajectory_value=trajectory_value,
+        response_mode=mode,
+        temperature=temperature,
+        acknowledgement=acknowledgement,
+        strategy=strategy,
+    )
+
+    return EmotionalStateV15(
+        primary_emotion=emotion,
+        confidence=round(
+            confidence,
+            3,
+        ),
+        intensity=round(
+            intensity,
+            3,
+        ),
+
+        valence=dimensions[
+            "valence"
+        ],
+        arousal=dimensions[
+            "arousal"
+        ],
+        emotional_load=dimensions[
+            "emotionalLoad"
+        ],
+
+        trajectory=trajectory_value,
+
+        response_mode=mode,
+        response_temperature=temperature,
+
+        acknowledgement_level=acknowledgement,
+        question_pressure=str(
+            strategy.get(
+                "questionPressure",
+                "normal",
+            )
+        ),
+        advice_pressure=str(
+            strategy.get(
+                "advicePressure",
+                "normal",
+            )
+        ),
+        humor_level=str(
+            strategy.get(
+                "humor",
+                "normal",
+            )
+        ),
+
+        social_orientation=(
+            _V15_SOCIAL_ORIENTATION.get(
+                emotion,
+                "neutral",
+            )
+        ),
+
+        meaningful_event=meaningful_event,
+        relationship_relevant=relationship_relevant,
+
+        preserve_personality=True,
+        transient_only=transient_only,
+
+        directive=directive,
+    )
+
+
+def emotional_state_policy_v15() -> Dict[str, Any]:
+    return {
+        "version": "V15.1",
+        "extends": "V3.5 emotional intelligence",
+        "persistentMoodState": False,
+        "relationshipMutation": False,
+        "personalityMutation": False,
+        "providerCalls": False,
+        "firestoreWrites": False,
+        "clinicalDiagnosis": False,
+        "ordinaryMoodEphemeral": True,
+        "meaningfulEventPersistenceAuthority": (
+            "existing memory/engine layer"
+        ),
+        "relationshipPersistenceAuthority": (
+            "V5 relationship intelligence"
+        ),
+        "globalPersonalityAuthority": (
+            "V6 personality intelligence"
+        ),
+    }

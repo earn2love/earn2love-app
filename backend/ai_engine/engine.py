@@ -25,6 +25,7 @@ from ai_engine import planner as P
 from ai_engine import guards as G
 from ai_engine import conversation_intelligence as CI
 from ai_engine import relationship_intelligence as RI
+from ai_engine import relationship_emotional_intelligence as RE15
 from ai_engine import personality_engine as PE
 from ai_engine import adaptive_intelligence as AI
 from ai_engine import goal_intelligence as GI
@@ -456,6 +457,13 @@ class CharacterEngine:
             history,
         )
 
+        # V15.1 Emotional State Intelligence 2.0.
+        # Pure response-control state; transient mood is not persisted.
+        v15_emotional_state = EI.analyze_emotional_state_v15(
+            user_text,
+            previous_text=_last_user_text(history),
+        )
+
         # Expose only compact emotional signals to downstream components.
         # Existing V2/V3 understanding fields remain unchanged.
         u["primaryEmotionV35"] = emotional["current"].get(
@@ -637,6 +645,17 @@ class CharacterEngine:
 
         relationship_guidance = RI.guidance_for(
             relationship_state_v5
+        )
+
+        # V15.2 Emotional + Relationship Integration.
+        # Response guidance only. V5 remains the sole
+        # persistent relationship-evolution authority.
+        v15_relationship_emotional = (
+            RE15.build_relationship_emotional_guidance(
+                user_text,
+                v15_emotional_state,
+                relationship_state_v5,
+            )
         )
 
         relationship_milestones = RI.milestone_context(
@@ -890,6 +909,19 @@ class CharacterEngine:
         sys += (
             "\n\nV5_RELATIONSHIP_INTELLIGENCE:\n"
             + relationship_guidance.directive
+        )
+
+        # V15.1 + V15.2 response-delivery intelligence.
+        # V5 remains relationship-state authority.
+        # V6 remains immutable global personality authority.
+        sys += (
+            "\n\nV15_EMOTIONAL_RELATIONSHIP_INTELLIGENCE:\n"
+            +
+            v15_emotional_state.directive
+            +
+            "\n"
+            +
+            v15_relationship_emotional.directive
         )
 
         sys += (
@@ -1482,6 +1514,41 @@ class CharacterEngine:
                     "meaningfulEvent": emotional["current"].get("meaningfulEvent"),
                     "trajectory": emotional.get("trajectory"),
                     "strategy": emotional["current"].get("strategy"),
+                    "v15": {
+                        "primaryEmotion": (
+                            v15_emotional_state.primary_emotion
+                        ),
+                        "intensity": (
+                            v15_emotional_state.intensity
+                        ),
+                        "valence": (
+                            v15_emotional_state.valence
+                        ),
+                        "arousal": (
+                            v15_emotional_state.arousal
+                        ),
+                        "emotionalLoad": (
+                            v15_emotional_state.emotional_load
+                        ),
+                        "trajectory": (
+                            v15_emotional_state.trajectory
+                        ),
+                        "responseMode": (
+                            v15_emotional_state.response_mode
+                        ),
+                        "responseTemperature": (
+                            v15_emotional_state.response_temperature
+                        ),
+                        "relationshipRelevant": (
+                            v15_emotional_state.relationship_relevant
+                        ),
+                        "repairNeeded": (
+                            v15_relationship_emotional.repair_needed
+                        ),
+                        "repairMode": (
+                            v15_relationship_emotional.repair_mode
+                        ),
+                    },
                 }
                 if sandbox
                 else None

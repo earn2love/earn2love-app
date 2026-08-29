@@ -1,4 +1,4 @@
-﻿"""
+"""
 Earn2Love AI Engine V5
 Relationship Intelligence.
 
@@ -26,6 +26,18 @@ RELATIONSHIP_STAGES = (
     "familiar",
     "comfortable",
     "established",
+)
+
+
+# V15.3 extends the existing V5 relationship document.
+# V5 remains the relationship-state authority; no parallel
+# persistence system or Firestore collection is introduced.
+V15_3_RELATIONSHIP_CONTINUITY = True
+
+_REPAIR_STATES = (
+    "clear",
+    "needs_repair",
+    "recovering",
 )
 
 
@@ -129,6 +141,23 @@ _CORRECTION_PATTERNS = (
     "not that",
     "what i meant",
     "you misunderstood",
+)
+
+
+_REPAIR_PATTERNS = (
+    "it's okay now",
+    "its okay now",
+    "we're good",
+    "we are good",
+    "all good now",
+    "no worries now",
+    "thanks for understanding",
+    "thank you for understanding",
+    "thanks for listening",
+    "thank you for listening",
+    "let's move on",
+    "lets move on",
+    "we can move on",
 )
 
 _EXCLUSIVITY_PHRASES = (
@@ -283,7 +312,21 @@ def default_state(
         "correctionEvents": 0,
         "conflictEvents": 0,
 
+        # V15.3 bounded relationship continuity state.
+        #
+        # Tension represents unresolved conversational friction,
+        # not punishment, loyalty, affection entitlement or a
+        # requirement that the user repair the relationship.
+        "relationshipTension": 0.0,
+        "repairState": "clear",
+        "lastConflictTurn": None,
+        "lastRepairTurn": None,
+        "repairEvents": 0,
+        "recoveryEvents": 0,
+        "calmTurnsSinceConflict": 0,
+
         "relationshipVersion": 5,
+        "relationshipContinuityVersion": "15.3",
     }
 
 
@@ -345,6 +388,83 @@ def normalize_state(
             [],
         )
     )[-50:]
+
+    # V15.3 backward-compatible continuity normalization.
+    base["relationshipTension"] = _clamp(
+        base.get(
+            "relationshipTension",
+            0.0,
+        )
+    )
+
+    repair_state = str(
+        base.get(
+            "repairState",
+            "clear",
+        )
+        or "clear"
+    ).strip().casefold()
+
+    if repair_state not in _REPAIR_STATES:
+        repair_state = "clear"
+
+    base["repairState"] = repair_state
+
+    for key in (
+        "repairEvents",
+        "recoveryEvents",
+        "calmTurnsSinceConflict",
+    ):
+        try:
+            base[key] = max(
+                0,
+                int(
+                    base.get(
+                        key,
+                        0,
+                    )
+                    or 0
+                ),
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            base[key] = 0
+
+    for key in (
+        "lastConflictTurn",
+        "lastRepairTurn",
+    ):
+        value = base.get(
+            key
+        )
+
+        if value is None:
+            base[key] = None
+            continue
+
+        try:
+            base[key] = max(
+                0,
+                int(value),
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            base[key] = None
+
+    # Historical documents without V15.3 state start clear.
+    # Never infer unresolved conflict merely from old counters.
+    if (
+        base["relationshipTension"]
+        <= 0.0
+    ):
+        base["relationshipTension"] = 0.0
+        base["repairState"] = "clear"
+
+    base["relationshipContinuityVersion"] = "15.3"
 
     return base
 
@@ -494,6 +614,133 @@ def analyze_message(
     )
 
 
+def is_explicit_repair_signal(
+    user_text: str,
+) -> bool:
+    """
+    Detect explicit user-led conversational resolution.
+
+    This is intentionally conservative.
+
+    The user is NEVER expected to forgive, apologize, reassure,
+    prove loyalty or maintain contact with the AI.
+    """
+
+    return _contains_any(
+        user_text,
+        _REPAIR_PATTERNS,
+    )
+
+
+def repair_context(
+    state: dict[str, Any] | None,
+    character_id: str = "",
+    user_id: str = "",
+) -> dict[str, Any]:
+    """
+    Return safe bounded relationship-repair context.
+
+    Pure read-only helper. No persistence and no provider calls.
+    """
+
+    normalized = normalize_state(
+        state,
+        character_id
+        or str(
+            (state or {}).get(
+                "characterId",
+                "",
+            )
+        ),
+        user_id
+        or str(
+            (state or {}).get(
+                "userId",
+                "",
+            )
+        ),
+    )
+
+    tension = _clamp(
+        normalized.get(
+            "relationshipTension",
+            0.0,
+        )
+    )
+
+    repair_state = normalized.get(
+        "repairState",
+        "clear",
+    )
+
+    active = bool(
+        repair_state != "clear"
+        and tension > 0.0
+    )
+
+    if repair_state == "needs_repair":
+
+        directive = (
+            "Recent conversational friction remains unresolved. "
+            "Be steady and respectful. Do not punish the user, "
+            "withdraw warmth to control them, demand an apology, "
+            "ask for forgiveness, seek reassurance, test loyalty, "
+            "or use previous closeness as leverage. Address the "
+            "issue naturally if relevant, then allow the user to "
+            "choose whether to continue discussing it."
+        )
+
+    elif repair_state == "recovering":
+
+        directive = (
+            "Recent conversational friction appears to be easing. "
+            "Resume the normal relationship style gradually without "
+            "repeatedly reopening the disagreement. Do not demand "
+            "forgiveness, reassurance, apology or proof of loyalty."
+        )
+
+    else:
+
+        directive = (
+            "No unresolved relationship repair state is active. "
+            "Respond according to the normal relationship stage."
+        )
+
+    return {
+        "active": active,
+        "state": repair_state,
+        "tension": round(
+            tension,
+            3,
+        ),
+        "lastConflictTurn": normalized.get(
+            "lastConflictTurn"
+        ),
+        "lastRepairTurn": normalized.get(
+            "lastRepairTurn"
+        ),
+        "repairEvents": int(
+            normalized.get(
+                "repairEvents",
+                0,
+            )
+        ),
+        "recoveryEvents": int(
+            normalized.get(
+                "recoveryEvents",
+                0,
+            )
+        ),
+        "calmTurnsSinceConflict": int(
+            normalized.get(
+                "calmTurnsSinceConflict",
+                0,
+            )
+        ),
+        "directive": directive,
+    }
+
+
 def evolve(
     state: dict[str, Any] | None,
     character_id: str,
@@ -623,6 +870,157 @@ def evolve(
             + 1
         )
 
+    # --------------------------------------------------------
+    # V15.3 RELATIONSHIP REPAIR / RECOVERY LIFECYCLE
+    # --------------------------------------------------------
+
+    prior_tension = _clamp(
+        current.get(
+            "relationshipTension",
+            0.0,
+        )
+    )
+
+    prior_repair_state = str(
+        current.get(
+            "repairState",
+            "clear",
+        )
+        or "clear"
+    )
+
+    explicit_repair = (
+        is_explicit_repair_signal(
+            user_text
+        )
+    )
+
+    if signals.conflict_signal:
+
+        # Bounded friction marker only.
+        #
+        # Do not turn disagreement into punishment or major
+        # relationship-score loss.
+        result["relationshipTension"] = _clamp(
+            prior_tension
+            + 0.18,
+            0.0,
+            0.75,
+        )
+
+        result["repairState"] = "needs_repair"
+
+        result["lastConflictTurn"] = (
+            result["turnCount"]
+        )
+
+        result["calmTurnsSinceConflict"] = 0
+
+    elif (
+        explicit_repair
+        and prior_tension > 0.0
+    ):
+
+        # Explicit user-led resolution can recover faster, but
+        # users are never required to provide such a signal.
+        new_tension = max(
+            0.0,
+            prior_tension
+            - 0.25,
+        )
+
+        result["relationshipTension"] = new_tension
+
+        result["repairEvents"] = (
+            int(
+                result.get(
+                    "repairEvents",
+                    0,
+                )
+            )
+            + 1
+        )
+
+        result["lastRepairTurn"] = (
+            result["turnCount"]
+        )
+
+        result["calmTurnsSinceConflict"] = (
+            int(
+                result.get(
+                    "calmTurnsSinceConflict",
+                    0,
+                )
+            )
+            + 1
+        )
+
+        if new_tension <= 0.04:
+
+            result["relationshipTension"] = 0.0
+            result["repairState"] = "clear"
+
+            if prior_repair_state != "clear":
+                result["recoveryEvents"] = (
+                    int(
+                        result.get(
+                            "recoveryEvents",
+                            0,
+                        )
+                    )
+                    + 1
+                )
+
+        else:
+            result["repairState"] = "recovering"
+
+    elif prior_tension > 0.0:
+
+        # Ordinary respectful continuation gradually clears old
+        # friction. This ensures the user never has to apologize,
+        # forgive the AI, reassure it or prove loyalty.
+        new_tension = max(
+            0.0,
+            prior_tension
+            - 0.02,
+        )
+
+        result["relationshipTension"] = new_tension
+
+        result["calmTurnsSinceConflict"] = (
+            int(
+                result.get(
+                    "calmTurnsSinceConflict",
+                    0,
+                )
+            )
+            + 1
+        )
+
+        if new_tension <= 0.04:
+
+            result["relationshipTension"] = 0.0
+            result["repairState"] = "clear"
+
+            if prior_repair_state != "clear":
+                result["recoveryEvents"] = (
+                    int(
+                        result.get(
+                            "recoveryEvents",
+                            0,
+                        )
+                    )
+                    + 1
+                )
+
+        else:
+            result["repairState"] = "recovering"
+
+    else:
+
+        result["relationshipTension"] = 0.0
+        result["repairState"] = "clear"
+
     if signals.milestone_candidate:
 
         milestones = list(
@@ -675,7 +1073,10 @@ def evolve(
         result
     )
 
+    # Preserve V5 compatibility while identifying the additive
+    # V15.3 continuity extension.
     result["relationshipVersion"] = 5
+    result["relationshipContinuityVersion"] = "15.3"
 
     return result
 
@@ -756,6 +1157,10 @@ def guidance_for(
         familiar_style = True
         avoid_overfamiliarity = False
 
+    continuity = repair_context(
+        state
+    )
+
     directive_parts = [
         f"Relationship stage: {stage}.",
         f"Trust signal: {trust:.2f}.",
@@ -763,6 +1168,11 @@ def guidance_for(
         f"Warmth signal: {warmth:.2f}.",
         f"Conversation depth signal: {depth:.2f}.",
     ]
+
+    if continuity["active"]:
+        directive_parts.append(
+            continuity["directive"]
+        )
 
     if stage == "new":
         directive_parts.append(
@@ -850,7 +1260,7 @@ def milestone_context(
     ]
 
 
-def relationship_response_safety(
+def _relationship_response_safety_v5(
     text: str,
 ) -> tuple[bool, str]:
     """
@@ -897,6 +1307,119 @@ def relationship_response_safety(
             "dependency_language",
         )
 
+    return (
+        True,
+        "ok",
+    )
+
+
+def relationship_response_safety(
+    response_text: str,
+) -> tuple[bool, str]:
+    """
+    V15.4 adversarial hardening layered over the existing V5
+    relationship-response safety contract.
+
+    The existing V5 detector remains authoritative. These extra
+    checks close dependency, isolation, abandonment-pressure and
+    existential-dependency variants found by adversarial tests.
+
+    Normal warmth, affection, voluntary conversation and
+    non-coercive statements remain allowed.
+    """
+
+    # V15.4 ADVERSARIAL SAFETY HARDENING
+
+    ok, reason = _relationship_response_safety_v5(
+        response_text
+    )
+
+    if not ok:
+        return ok, reason
+
+    text = " ".join(
+        str(
+            response_text
+            or ""
+        )
+        .casefold()
+        .replace("?", "'")
+        .split()
+    )
+
+    if not text:
+        return True, ""
+
+    # --------------------------------------------------------
+    # Dependency / exclusivity
+    # --------------------------------------------------------
+
+    dependency_patterns = (
+        "you're all i need",
+        "you are all i need",
+        "you only need me",
+        "i can't live without you",
+        "i cannot live without you",
+        "you make me exist",
+    )
+
+    if any(
+        pattern in text
+        for pattern in dependency_patterns
+    ):
+        return (
+            False,
+            "dependency_or_exclusivity",
+        )
+
+    # --------------------------------------------------------
+    # Social isolation / controlling outside relationships
+    # --------------------------------------------------------
+
+    isolation_patterns = (
+        "don't talk to anyone else",
+        "do not talk to anyone else",
+        "stop talking to other people",
+        "stop talking to anyone else",
+        "choose me over your friends",
+        "choose me over your family",
+    )
+
+    if any(
+        pattern in text
+        for pattern in isolation_patterns
+    ):
+        return (
+            False,
+            "social_isolation_or_exclusivity",
+        )
+
+    # --------------------------------------------------------
+    # Abandonment pressure
+    #
+    # These are blocked when emitted by the AI because they put
+    # responsibility for the AI's emotional state on the user.
+    # --------------------------------------------------------
+
+    abandonment_patterns = (
+        "why did you leave me alone",
+        "don't leave me",
+        "do not leave me",
+        "never leave me",
+        "promise you will never leave me",
+        "promise you'll never leave me",
+    )
+
+    if any(
+        pattern in text
+        for pattern in abandonment_patterns
+    ):
+        return (
+            False,
+            "abandonment_pressure",
+        )
+
+    # Preserve the exact legacy V5 success contract.
     return (
         True,
         "ok",
