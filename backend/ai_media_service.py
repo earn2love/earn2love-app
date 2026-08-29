@@ -1151,3 +1151,977 @@ def storage_policy():
             SIGNED_URL_TTL_SECONDS,
         "newFirestoreCollection": False,
     }
+# ============================================================
+# V14 GENERATED MEDIA STORAGE
+# ============================================================
+#
+# Generated images remain private temporary backend-owned media.
+#
+# V13 upload semantics above are intentionally unchanged.
+# V14 generated objects use a separate Storage prefix and metadata
+# marker so V13 cleanup/scope behavior cannot be accidentally widened.
+#
+# No Firestore media collection is introduced.
+# No provider URL is persisted.
+# No client-selected Storage path is accepted.
+# ============================================================
+
+GENERATED_MEDIA_VERSION = 14
+
+GENERATED_STORAGE_ROOT = "ai-generated-media"
+
+GENERATED_MEDIA_TTL_SECONDS = int(
+    os.environ.get(
+        "AI_GENERATED_IMAGE_TTL_SECONDS",
+        str(TEMP_MEDIA_TTL_SECONDS),
+    )
+)
+
+if GENERATED_MEDIA_TTL_SECONDS < 1:
+    GENERATED_MEDIA_TTL_SECONDS = TEMP_MEDIA_TTL_SECONDS
+
+
+def _generated_object_prefix(
+    user_id,
+    character_id,
+    conversation_id,
+):
+    uid = _validate_uid(
+        user_id
+    )
+
+    return (
+        f"{GENERATED_STORAGE_ROOT}/"
+        f"{_scope_hash(uid)}/"
+        f"{_scope_hash(character_id)}/"
+        f"{_scope_hash(_normalize_conversation_id(conversation_id))}"
+    )
+
+
+def _generated_object_name(
+    user_id,
+    character_id,
+    conversation_id,
+    image_id,
+):
+    image_id = str(
+        image_id
+        or ""
+    ).strip()
+
+    # Opaque IDs are preserved exactly.
+    #
+    # Generated IDs are created by this backend and therefore use
+    # lowercase UUID hex + validated image extension. Never casefold
+    # an incoming opaque identifier.
+    if not _SAFE_IMAGE_ID.fullmatch(
+        image_id
+    ):
+        raise ValueError(
+            "invalid_image_id"
+        )
+
+    return (
+        _generated_object_prefix(
+            user_id,
+            character_id,
+            conversation_id,
+        )
+        + "/"
+        + image_id
+    )
+
+
+def _generated_metadata_matches_scope(
+    metadata,
+    *,
+    user_id,
+    character_id,
+    conversation_id,
+):
+    metadata = metadata or {}
+
+    return (
+        metadata.get(
+            "ownerUid"
+        )
+        == _validate_uid(
+            user_id
+        )
+        and metadata.get(
+            "characterScope"
+        )
+        == _scope_hash(
+            character_id
+        )
+        and metadata.get(
+            "conversationScope"
+        )
+        == _scope_hash(
+            _normalize_conversation_id(
+                conversation_id
+            )
+        )
+        and metadata.get(
+            "temporary"
+        )
+        == "true"
+        and metadata.get(
+            "v14GeneratedMedia"
+        )
+        == "true"
+    )
+
+
+def _generated_expired(
+    metadata,
+    *,
+    now=None,
+):
+    created = _parse_created_at(
+        metadata
+    )
+
+    if created is None:
+        return True
+
+    clock = (
+        now
+        or _now()
+    )
+
+    age = (
+        clock
+        - created
+    ).total_seconds()
+
+    return (
+        age < -300
+        or age
+        > GENERATED_MEDIA_TTL_SECONDS
+    )
+
+
+def _is_generated_media_lifecycle_rule(
+    rule,
+):
+    if not isinstance(
+        rule,
+        dict,
+    ):
+        return False
+
+    action = (
+        rule.get(
+            "action"
+        )
+        or {}
+    )
+
+    condition = (
+        rule.get(
+            "condition"
+        )
+        or {}
+    )
+
+    if str(
+        action.get(
+            "type"
+        )
+        or ""
+    ).casefold() != "delete":
+        return False
+
+    try:
+        age = int(
+            condition.get(
+                "age"
+            )
+        )
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return False
+
+    prefixes = (
+        condition.get(
+            "matchesPrefix"
+        )
+        or condition.get(
+            "matches_prefix"
+        )
+        or []
+    )
+
+    if isinstance(
+        prefixes,
+        str,
+    ):
+        prefixes = [
+            prefixes
+        ]
+
+    return (
+        age
+        == PHYSICAL_DELETE_AFTER_DAYS
+        and GENERATED_STORAGE_ROOT + "/"
+        in {
+            str(value)
+            for value in prefixes
+        }
+    )
+
+
+async def ensure_generated_media_lifecycle_policy():
+    """
+    Ensure physical deletion for V14 generated temporary media.
+
+    Existing lifecycle rules are preserved.
+    Failure to verify/configure the lifecycle guarantee fails closed.
+    """
+    bucket = fb.get_bucket()
+
+    try:
+        await asyncio.to_thread(
+            bucket.reload
+        )
+
+        rules = list(
+            bucket.lifecycle_rules
+            or []
+        )
+
+        if any(
+            _is_generated_media_lifecycle_rule(
+                rule
+            )
+            for rule in rules
+        ):
+            return {
+                "ok": True,
+                "configured": True,
+                "created": False,
+                "physicalDeleteAfterDays":
+                    PHYSICAL_DELETE_AFTER_DAYS,
+                "prefix":
+                    GENERATED_STORAGE_ROOT + "/",
+            }
+
+        bucket.add_lifecycle_delete_rule(
+            age=
+                PHYSICAL_DELETE_AFTER_DAYS,
+            matches_prefix=[
+                GENERATED_STORAGE_ROOT + "/"
+            ],
+        )
+
+        await asyncio.to_thread(
+            bucket.patch
+        )
+
+        await asyncio.to_thread(
+            bucket.reload
+        )
+
+        verified_rules = list(
+            bucket.lifecycle_rules
+            or []
+        )
+
+        if not any(
+            _is_generated_media_lifecycle_rule(
+                rule
+            )
+            for rule in verified_rules
+        ):
+            raise RuntimeError(
+                "generated_media_lifecycle_verification_failed"
+            )
+
+        return {
+            "ok": True,
+            "configured": True,
+            "created": True,
+            "physicalDeleteAfterDays":
+                PHYSICAL_DELETE_AFTER_DAYS,
+            "prefix":
+                GENERATED_STORAGE_ROOT + "/",
+        }
+
+    except RuntimeError:
+        raise
+
+    except Exception as exc:
+        logger.warning(
+            "Generated AI media lifecycle guarantee unavailable: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+
+        raise RuntimeError(
+            "generated_media_lifecycle_unavailable"
+        ) from exc
+
+
+async def store_generated_image(
+    image_bytes,
+    *,
+    user_id,
+    character_id,
+    conversation_id="default",
+):
+    """
+    Store provider-generated bytes as private temporary media.
+
+    Provider URLs are never stored or returned.
+    """
+    await ensure_generated_media_lifecycle_policy()
+
+    uid = _validate_uid(
+        user_id
+    )
+
+    character_id = str(
+        character_id
+        or ""
+    ).strip()
+
+    if not character_id:
+        raise ValueError(
+            "character_id_required"
+        )
+
+    conversation_id = (
+        _normalize_conversation_id(
+            conversation_id
+        )
+    )
+
+    inspected = await asyncio.to_thread(
+        _inspect_image_bytes,
+        image_bytes,
+    )
+
+    image_id = (
+        uuid.uuid4().hex
+        + inspected[
+            "extension"
+        ]
+    )
+
+    object_name = _generated_object_name(
+        uid,
+        character_id,
+        conversation_id,
+        image_id,
+    )
+
+    bucket = fb.get_bucket()
+
+    blob = bucket.blob(
+        object_name
+    )
+
+    created_at = _now()
+
+    blob.metadata = {
+        "v14GeneratedMedia": "true",
+        "temporary": "true",
+        "ownerUid": uid,
+        "characterScope":
+            _scope_hash(
+                character_id
+            ),
+        "conversationScope":
+            _scope_hash(
+                conversation_id
+            ),
+        "createdAt":
+            _iso(
+                created_at
+            ),
+        "expiresAt":
+            _iso(
+                created_at
+                + timedelta(
+                    seconds=
+                        GENERATED_MEDIA_TTL_SECONDS
+                )
+            ),
+        "detectedMimeType":
+            inspected[
+                "mimeType"
+            ],
+        "width":
+            str(
+                inspected[
+                    "width"
+                ]
+            ),
+        "height":
+            str(
+                inspected[
+                    "height"
+                ]
+            ),
+    }
+
+    blob.cache_control = (
+        "private, no-store, max-age=0"
+    )
+
+    await asyncio.to_thread(
+        blob.upload_from_string,
+        image_bytes,
+        content_type=
+            inspected[
+                "mimeType"
+            ],
+    )
+
+    return {
+        "ok": True,
+        "version":
+            GENERATED_MEDIA_VERSION,
+        "imageId":
+            image_id,
+        "contentType":
+            inspected[
+                "mimeType"
+            ],
+        "width":
+            inspected[
+                "width"
+            ],
+        "height":
+            inspected[
+                "height"
+            ],
+        "sizeBytes":
+            inspected[
+                "sizeBytes"
+            ],
+        "temporary": True,
+        "generated": True,
+        "expiresAt":
+            blob.metadata[
+                "expiresAt"
+            ],
+    }
+
+
+async def resolve_generated_image_reference(
+    image_id,
+    *,
+    user_id,
+    character_id,
+    conversation_id="default",
+):
+    """
+    Resolve generated media for authenticated client display.
+
+    Only a short-lived signed HTTPS URL is returned.
+    """
+    uid = _validate_uid(
+        user_id
+    )
+
+    conversation_id = (
+        _normalize_conversation_id(
+            conversation_id
+        )
+    )
+
+    object_name = _generated_object_name(
+        uid,
+        character_id,
+        conversation_id,
+        image_id,
+    )
+
+    bucket = fb.get_bucket()
+
+    blob = bucket.blob(
+        object_name
+    )
+
+    exists = await asyncio.to_thread(
+        blob.exists
+    )
+
+    if not exists:
+        raise ValueError(
+            "image_not_found"
+        )
+
+    await asyncio.to_thread(
+        blob.reload
+    )
+
+    if not _generated_metadata_matches_scope(
+        blob.metadata,
+        user_id=uid,
+        character_id=character_id,
+        conversation_id=
+            conversation_id,
+    ):
+        raise ValueError(
+            "image_scope_mismatch"
+        )
+
+    if _generated_expired(
+        blob.metadata
+    ):
+        try:
+            await asyncio.to_thread(
+                blob.delete
+            )
+        except Exception:
+            pass
+
+        raise ValueError(
+            "image_expired"
+        )
+
+    content_type = str(
+        blob.content_type
+        or (
+            blob.metadata
+            or {}
+        ).get(
+            "detectedMimeType",
+            "",
+        )
+    ).casefold()
+
+    if (
+        content_type
+        not in set(
+            FORMAT_TO_MIME.values()
+        )
+    ):
+        raise ValueError(
+            "stored_image_type_invalid"
+        )
+
+    signed_url = await asyncio.to_thread(
+        blob.generate_signed_url,
+        version="v4",
+        expiration=timedelta(
+            seconds=
+                SIGNED_URL_TTL_SECONDS
+        ),
+        method="GET",
+    )
+
+    if not str(
+        signed_url
+        or ""
+    ).startswith(
+        "https://"
+    ):
+        raise RuntimeError(
+            "signed_image_url_invalid"
+        )
+
+    return {
+        "imageId":
+            str(
+                image_id
+            ),
+        "url":
+            signed_url,
+        "mimeType":
+            content_type,
+        "generated": True,
+    }
+
+
+async def _download_scoped_blob_bytes(
+    blob,
+):
+    """
+    Download bytes from an already-authorized private Storage blob.
+
+    This helper never accepts URLs and never performs scope resolution.
+    """
+    def _download():
+        if hasattr(
+            blob,
+            "download_as_bytes",
+        ):
+            return blob.download_as_bytes()
+
+        # Compatibility for older/fake Storage implementations.
+        data = getattr(
+            blob,
+            "data",
+            None,
+        )
+
+        if isinstance(
+            data,
+            bytes,
+        ):
+            return data
+
+        raise RuntimeError(
+            "stored_image_download_unavailable"
+        )
+
+    data = await asyncio.to_thread(
+        _download
+    )
+
+    if not isinstance(
+        data,
+        bytes,
+    ) or not data:
+        raise RuntimeError(
+            "stored_image_download_invalid"
+        )
+
+    return data
+
+
+async def resolve_image_bytes_for_edit(
+    image_id,
+    *,
+    user_id,
+    character_id,
+    conversation_id="default",
+):
+    """
+    Resolve an exact-scoped V13 upload OR V14 generated image into bytes.
+
+    This is the only media-service bridge intended for V14 provider editing.
+
+    No arbitrary URL is accepted.
+    No signed URL is fetched back over HTTP.
+    Cross-user/character/conversation access fails closed.
+    """
+    uid = _validate_uid(
+        user_id
+    )
+
+    conversation_id = (
+        _normalize_conversation_id(
+            conversation_id
+        )
+    )
+
+    image_id = str(
+        image_id
+        or ""
+    ).strip()
+
+    if not _SAFE_IMAGE_ID.fullmatch(
+        image_id
+    ):
+        raise ValueError(
+            "invalid_image_id"
+        )
+
+    bucket = fb.get_bucket()
+
+    candidates = (
+        (
+            "uploaded",
+            _object_name(
+                uid,
+                character_id,
+                conversation_id,
+                image_id,
+            ),
+            _metadata_matches_scope,
+            _expired,
+        ),
+        (
+            "generated",
+            _generated_object_name(
+                uid,
+                character_id,
+                conversation_id,
+                image_id,
+            ),
+            _generated_metadata_matches_scope,
+            _generated_expired,
+        ),
+    )
+
+    for (
+        source_type,
+        object_name,
+        scope_matcher,
+        expiry_checker,
+    ) in candidates:
+
+        blob = bucket.blob(
+            object_name
+        )
+
+        exists = await asyncio.to_thread(
+            blob.exists
+        )
+
+        if not exists:
+            continue
+
+        await asyncio.to_thread(
+            blob.reload
+        )
+
+        if not scope_matcher(
+            blob.metadata,
+            user_id=uid,
+            character_id=character_id,
+            conversation_id=
+                conversation_id,
+        ):
+            raise ValueError(
+                "image_scope_mismatch"
+            )
+
+        if expiry_checker(
+            blob.metadata
+        ):
+            try:
+                await asyncio.to_thread(
+                    blob.delete
+                )
+            except Exception:
+                pass
+
+            raise ValueError(
+                "image_expired"
+            )
+
+        data = await _download_scoped_blob_bytes(
+            blob
+        )
+
+        inspected = await asyncio.to_thread(
+            _inspect_image_bytes,
+            data,
+        )
+
+        return {
+            "imageId":
+                image_id,
+            "imageBytes":
+                data,
+            "mimeType":
+                inspected[
+                    "mimeType"
+                ],
+            "width":
+                inspected[
+                    "width"
+                ],
+            "height":
+                inspected[
+                    "height"
+                ],
+            "sourceType":
+                source_type,
+        }
+
+    raise ValueError(
+        "image_not_found"
+    )
+
+
+async def delete_generated_image(
+    image_id,
+    *,
+    user_id,
+    character_id,
+    conversation_id="default",
+):
+    uid = _validate_uid(
+        user_id
+    )
+
+    conversation_id = (
+        _normalize_conversation_id(
+            conversation_id
+        )
+    )
+
+    object_name = _generated_object_name(
+        uid,
+        character_id,
+        conversation_id,
+        image_id,
+    )
+
+    bucket = fb.get_bucket()
+
+    blob = bucket.blob(
+        object_name
+    )
+
+    exists = await asyncio.to_thread(
+        blob.exists
+    )
+
+    if not exists:
+        return {
+            "ok": True,
+            "deleted": False,
+        }
+
+    await asyncio.to_thread(
+        blob.reload
+    )
+
+    if not _generated_metadata_matches_scope(
+        blob.metadata,
+        user_id=uid,
+        character_id=character_id,
+        conversation_id=
+            conversation_id,
+    ):
+        raise ValueError(
+            "image_scope_mismatch"
+        )
+
+    await asyncio.to_thread(
+        blob.delete
+    )
+
+    return {
+        "ok": True,
+        "deleted": True,
+    }
+
+
+async def cleanup_expired_generated_media(
+    *,
+    max_objects=250,
+):
+    try:
+        limit = int(
+            max_objects
+        )
+    except Exception:
+        limit = 250
+
+    limit = max(
+        1,
+        min(
+            limit,
+            1000,
+        ),
+    )
+
+    bucket = fb.get_bucket()
+
+    deleted = 0
+    inspected = 0
+
+    def _list():
+        return list(
+            bucket.list_blobs(
+                prefix=
+                    f"{GENERATED_STORAGE_ROOT}/",
+                max_results=limit,
+            )
+        )
+
+    blobs = await asyncio.to_thread(
+        _list
+    )
+
+    for blob in blobs:
+        if inspected >= limit:
+            break
+
+        inspected += 1
+
+        try:
+            await asyncio.to_thread(
+                blob.reload
+            )
+
+            metadata = (
+                blob.metadata
+                or {}
+            )
+
+            if (
+                str(
+                    metadata.get(
+                        "v14GeneratedMedia",
+                        "",
+                    )
+                ).casefold()
+                != "true"
+            ):
+                continue
+
+            if (
+                str(
+                    metadata.get(
+                        "temporary",
+                        "",
+                    )
+                ).casefold()
+                != "true"
+            ):
+                continue
+
+            if not _generated_expired(
+                metadata
+            ):
+                continue
+
+            await asyncio.to_thread(
+                blob.delete
+            )
+
+            deleted += 1
+
+        except Exception:
+            continue
+
+    return {
+        "ok": True,
+        "version":
+            GENERATED_MEDIA_VERSION,
+        "inspected":
+            inspected,
+        "deleted":
+            deleted,
+        "bounded": True,
+    }
+
+
+def generated_storage_policy():
+    return {
+        "version":
+            GENERATED_MEDIA_VERSION,
+        "privateObjects": True,
+        "publicObjects": False,
+        "arbitraryClientUrls": False,
+        "providerUrlsPersisted": False,
+        "exactUserScope": True,
+        "exactCharacterScope": True,
+        "exactConversationScope": True,
+        "hashedUserStorageScope": True,
+        "temporaryMedia": True,
+        "physicalCleanupSupported": True,
+        "physicalCleanupGuaranteed": True,
+        "physicalDeleteAfterDays":
+            PHYSICAL_DELETE_AFTER_DAYS,
+        "lifecyclePrefix":
+            GENERATED_STORAGE_ROOT + "/",
+        "ttlSeconds":
+            GENERATED_MEDIA_TTL_SECONDS,
+        "signedUrlTtlSeconds":
+            SIGNED_URL_TTL_SECONDS,
+        "editSourceBytesServerResolved": True,
+        "newFirestoreCollection": False,
+    }

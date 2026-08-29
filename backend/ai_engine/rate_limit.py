@@ -44,6 +44,48 @@ MEDIA_UPLOAD_PER_DAY = int(
 )
 
 
+
+# V14 IMAGE CREATION COST GUARD
+#
+# Image creation is materially more expensive than ordinary text
+# chat. These are backend operational abuse/cost limits only.
+# They are NOT wallet charging, subscription entitlement or billing.
+#
+# Production can tune them through environment configuration without
+# changing application code.
+IMAGE_CREATE_PER_MINUTE = int(
+    os.environ.get(
+        "AI_IMAGE_CREATE_PER_MINUTE",
+        4,
+    )
+)
+
+IMAGE_CREATE_PER_HOUR = int(
+    os.environ.get(
+        "AI_IMAGE_CREATE_PER_HOUR",
+        30,
+    )
+)
+
+IMAGE_CREATE_PER_DAY = int(
+    os.environ.get(
+        "AI_IMAGE_CREATE_PER_DAY",
+        100,
+    )
+)
+
+IMAGE_CREATE_PLATFORM_PER_DAY = int(
+    os.environ.get(
+        "AI_IMAGE_CREATE_PLATFORM_DAILY_CAP",
+        5000,
+    )
+)
+
+IMAGE_CREATE_PLATFORM_DOC = (
+    "image_platform_daily"
+)
+
+
 COLL = "aiRateLimits"
 PLATFORM_DOC = "platform_daily"
 
@@ -221,6 +263,226 @@ def check_and_consume_media_upload(
         logger.warning(
             "AI media upload rate-limit check failed "
             "for %s: %s: %s; denying upload",
+            uid,
+            type(exc).__name__,
+            exc,
+        )
+
+        return {
+            "allowed": False,
+            "reason": "guard_unavailable",
+            "retryAfter": 30,
+        }
+
+
+
+def check_and_consume_image_creation(
+    db,
+    uid,
+):
+    """
+    Atomically consume one V14 image-creation provider-call slot.
+
+    Properties:
+    - uses the existing aiRateLimits collection;
+    - user counters are isolated from chat and media-upload counters;
+    - one transaction protects both the user limit and platform budget;
+    - denied operations do not increment counters;
+    - guard/storage failure fails CLOSED because image generation
+      is a high-cost external provider operation;
+    - no wallet, subscription or tier mutation occurs here.
+    """
+    uid = str(
+        uid
+        or ""
+    ).strip()
+
+    if not uid:
+        return {
+            "allowed": False,
+            "reason": "invalid_user",
+            "retryAfter": 0,
+        }
+
+    try:
+        now = _now()
+
+        mk, hk, dk = _keys(
+            now
+        )
+
+        user_ref = db.collection(
+            COLL
+        ).document(
+            f"image_{uid}"
+        )
+
+        platform_ref = db.collection(
+            COLL
+        ).document(
+            IMAGE_CREATE_PLATFORM_DOC
+        )
+
+        txn = db.transaction()
+
+        @firestore.transactional
+        def _txn(t):
+            user_snap = user_ref.get(
+                transaction=t
+            )
+
+            platform_snap = platform_ref.get(
+                transaction=t
+            )
+
+            user_data = (
+                user_snap.to_dict()
+                if user_snap.exists
+                else {}
+            )
+
+            platform_data = (
+                platform_snap.to_dict()
+                if platform_snap.exists
+                else {}
+            )
+
+            minute_count = (
+                user_data.get(
+                    "minCount",
+                    0,
+                )
+                if user_data.get(
+                    "minKey"
+                ) == mk
+                else 0
+            )
+
+            hour_count = (
+                user_data.get(
+                    "hourCount",
+                    0,
+                )
+                if user_data.get(
+                    "hourKey"
+                ) == hk
+                else 0
+            )
+
+            day_count = (
+                user_data.get(
+                    "dayCount",
+                    0,
+                )
+                if user_data.get(
+                    "dayKey"
+                ) == dk
+                else 0
+            )
+
+            platform_count = (
+                platform_data.get(
+                    "dayCount",
+                    0,
+                )
+                if platform_data.get(
+                    "dayKey"
+                ) == dk
+                else 0
+            )
+
+            if (
+                minute_count
+                >= IMAGE_CREATE_PER_MINUTE
+            ):
+                return {
+                    "allowed": False,
+                    "reason": "minute",
+                    "retryAfter":
+                        max(
+                            1,
+                            60 - now.second,
+                        ),
+                }
+
+            if (
+                hour_count
+                >= IMAGE_CREATE_PER_HOUR
+            ):
+                return {
+                    "allowed": False,
+                    "reason": "hour",
+                    "retryAfter": 300,
+                }
+
+            if (
+                day_count
+                >= IMAGE_CREATE_PER_DAY
+            ):
+                return {
+                    "allowed": False,
+                    "reason": "day",
+                    "retryAfter": 3600,
+                }
+
+            if (
+                platform_count
+                >= IMAGE_CREATE_PLATFORM_PER_DAY
+            ):
+                return {
+                    "allowed": False,
+                    "reason": "platform",
+                    "retryAfter": 3600,
+                }
+
+            t.set(
+                user_ref,
+                {
+                    "minKey": mk,
+                    "minCount":
+                        minute_count + 1,
+                    "hourKey": hk,
+                    "hourCount":
+                        hour_count + 1,
+                    "dayKey": dk,
+                    "dayCount":
+                        day_count + 1,
+                    "kind":
+                        "ai_image_creation",
+                    "updatedAt":
+                        now.isoformat(),
+                },
+                merge=True,
+            )
+
+            t.set(
+                platform_ref,
+                {
+                    "dayKey": dk,
+                    "dayCount":
+                        platform_count + 1,
+                    "kind":
+                        "ai_image_creation_platform",
+                    "updatedAt":
+                        now.isoformat(),
+                },
+                merge=True,
+            )
+
+            return {
+                "allowed": True,
+                "reason": None,
+                "retryAfter": 0,
+            }
+
+        return _txn(
+            txn
+        )
+
+    except Exception as exc:
+        logger.warning(
+            "AI image creation rate-limit check failed "
+            "for %s: %s: %s; denying provider call",
             uid,
             type(exc).__name__,
             exc,

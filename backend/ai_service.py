@@ -619,6 +619,521 @@ async def chat(
 _locks = {}
 
 
+
+# ============================================================
+# V14 IMAGE REQUEST IDEMPOTENCY
+# ============================================================
+
+def _v14_image_request_ref(
+    character_id,
+    user_id,
+    conversation_id,
+):
+    """
+    Exact existing conversation-document authority.
+
+    No new Firestore collection is introduced.
+    """
+    from ai_engine.repository import (
+        _conversation_doc_id,
+    )
+
+    conversation_id = str(
+        conversation_id
+        or "default"
+    ).strip() or "default"
+
+    db = prod_repo().db
+
+    return (
+        db,
+        db.collection(
+            "aiCharacterConversations"
+        ).document(
+            _conversation_doc_id(
+                character_id,
+                user_id,
+                conversation_id,
+            )
+        ),
+    )
+
+
+def begin_image_request(
+    character_id,
+    user_id,
+    conversation_id,
+    client_request_id,
+    request_fingerprint,
+    operation,
+    *,
+    lease_seconds=180,
+):
+    """
+    Transactionally reserve one V14 image operation.
+
+    Returns one of:
+      new
+      replay
+      in_progress
+      busy
+      conflict
+
+    Same completed request ID + same fingerprint replays.
+    Same request ID + changed payload fails closed as conflict.
+    Pending requests are protected by a bounded lease so process
+    crashes cannot permanently deadlock a conversation.
+    """
+    import time
+    from google.cloud import firestore
+
+    client_request_id = str(
+        client_request_id
+        or ""
+    ).strip()
+
+    request_fingerprint = str(
+        request_fingerprint
+        or ""
+    ).strip()
+
+    operation = str(
+        operation
+        or ""
+    ).strip()
+
+    lease_seconds = max(
+        30,
+        int(
+            lease_seconds
+            or 180
+        ),
+    )
+
+    if not client_request_id:
+        raise ValueError(
+            "client_request_id_required"
+        )
+
+    if not request_fingerprint:
+        raise ValueError(
+            "request_fingerprint_required"
+        )
+
+    if operation not in {
+        "generate",
+        "edit",
+    }:
+        raise ValueError(
+            "invalid_image_operation"
+        )
+
+    db, ref = _v14_image_request_ref(
+        character_id,
+        user_id,
+        conversation_id,
+    )
+
+    txn = db.transaction()
+
+    @firestore.transactional
+    def _txn(t):
+        snap = ref.get(
+            transaction=t
+        )
+
+        data = (
+            snap.to_dict()
+            if snap.exists
+            else {}
+        )
+
+        current = (
+            data.get(
+                "v14ImageRequest"
+            )
+            or {}
+        )
+
+        now = time.time()
+
+        current_id = str(
+            current.get(
+                "clientRequestId"
+            )
+            or ""
+        )
+
+        current_fp = str(
+            current.get(
+                "requestFingerprint"
+            )
+            or ""
+        )
+
+        current_operation = str(
+            current.get(
+                "operation"
+            )
+            or ""
+        )
+
+        current_status = str(
+            current.get(
+                "status"
+            )
+            or ""
+        )
+
+        try:
+            started_at = float(
+                current.get(
+                    "startedAtEpoch",
+                    0,
+                )
+                or 0
+            )
+        except Exception:
+            started_at = 0.0
+
+        age = max(
+            0.0,
+            now - started_at,
+        )
+
+        active_pending = (
+            current_status == "pending"
+            and
+            age < lease_seconds
+        )
+
+        if (
+            current_id
+            == client_request_id
+        ):
+            if (
+                current_fp
+                != request_fingerprint
+                or
+                current_operation
+                != operation
+            ):
+                return {
+                    "action": "conflict",
+                }
+
+            if (
+                current_status
+                == "complete"
+                and
+                isinstance(
+                    current.get(
+                        "result"
+                    ),
+                    dict,
+                )
+            ):
+                return {
+                    "action": "replay",
+                    "result": dict(
+                        current[
+                            "result"
+                        ]
+                    ),
+                }
+
+            if active_pending:
+                return {
+                    "action":
+                        "in_progress",
+                    "retryAfter": 2,
+                }
+
+            # Same request after a stale/dead lease:
+            # reclaim reservation safely.
+            t.set(
+                ref,
+                {
+                    "v14ImageRequest": {
+                        "clientRequestId":
+                            client_request_id,
+                        "requestFingerprint":
+                            request_fingerprint,
+                        "operation":
+                            operation,
+                        "status":
+                            "pending",
+                        "startedAtEpoch":
+                            now,
+                        "updatedAtEpoch":
+                            now,
+                        "result":
+                            None,
+                    }
+                },
+                merge=True,
+            )
+
+            return {
+                "action": "new",
+                "reclaimed": True,
+            }
+
+        if active_pending:
+            return {
+                "action": "busy",
+                "retryAfter": 2,
+            }
+
+        t.set(
+            ref,
+            {
+                "v14ImageRequest": {
+                    "clientRequestId":
+                        client_request_id,
+                    "requestFingerprint":
+                        request_fingerprint,
+                    "operation":
+                        operation,
+                    "status":
+                        "pending",
+                    "startedAtEpoch":
+                        now,
+                    "updatedAtEpoch":
+                        now,
+                    "result":
+                        None,
+                }
+            },
+            merge=True,
+        )
+
+        return {
+            "action": "new",
+            "reclaimed": False,
+        }
+
+    return _txn(
+        txn
+    )
+
+
+def complete_image_request(
+    character_id,
+    user_id,
+    conversation_id,
+    client_request_id,
+    request_fingerprint,
+    operation,
+    result,
+):
+    """
+    Transactionally commit the completed image result.
+
+    The signed URL is intentionally NOT persisted. Replay resolves a
+    fresh scoped short-lived URL from the stored opaque image ID.
+    """
+    import time
+    from google.cloud import firestore
+
+    result = dict(
+        result
+        or {}
+    )
+
+    if "url" in result:
+        raise ValueError(
+            "signed_url_must_not_persist"
+        )
+
+    db, ref = _v14_image_request_ref(
+        character_id,
+        user_id,
+        conversation_id,
+    )
+
+    txn = db.transaction()
+
+    @firestore.transactional
+    def _txn(t):
+        snap = ref.get(
+            transaction=t
+        )
+
+        data = (
+            snap.to_dict()
+            if snap.exists
+            else {}
+        )
+
+        current = (
+            data.get(
+                "v14ImageRequest"
+            )
+            or {}
+        )
+
+        if (
+            current.get(
+                "clientRequestId"
+            )
+            != client_request_id
+            or
+            current.get(
+                "requestFingerprint"
+            )
+            != request_fingerprint
+            or
+            current.get(
+                "operation"
+            )
+            != operation
+        ):
+            return False
+
+        if (
+            current.get(
+                "status"
+            )
+            == "complete"
+        ):
+            return True
+
+        if (
+            current.get(
+                "status"
+            )
+            != "pending"
+        ):
+            return False
+
+        now = time.time()
+
+        t.set(
+            ref,
+            {
+                "v14ImageRequest": {
+                    "clientRequestId":
+                        client_request_id,
+                    "requestFingerprint":
+                        request_fingerprint,
+                    "operation":
+                        operation,
+                    "status":
+                        "complete",
+                    "startedAtEpoch":
+                        current.get(
+                            "startedAtEpoch",
+                            now,
+                        ),
+                    "updatedAtEpoch":
+                        now,
+                    "completedAtEpoch":
+                        now,
+                    "result":
+                        result,
+                }
+            },
+            merge=True,
+        )
+
+        return True
+
+    return bool(
+        _txn(
+            txn
+        )
+    )
+
+
+def abort_image_request(
+    character_id,
+    user_id,
+    conversation_id,
+    client_request_id,
+    request_fingerprint,
+    operation,
+):
+    """
+    Best-effort transactional reservation release.
+
+    Only the exact currently-pending request may clear itself.
+    A newer or completed request can never be erased by an older
+    failing worker.
+    """
+    from google.cloud import firestore
+
+    db, ref = _v14_image_request_ref(
+        character_id,
+        user_id,
+        conversation_id,
+    )
+
+    txn = db.transaction()
+
+    @firestore.transactional
+    def _txn(t):
+        snap = ref.get(
+            transaction=t
+        )
+
+        if not snap.exists:
+            return False
+
+        data = (
+            snap.to_dict()
+            or {}
+        )
+
+        current = (
+            data.get(
+                "v14ImageRequest"
+            )
+            or {}
+        )
+
+        if (
+            current.get(
+                "clientRequestId"
+            )
+            != client_request_id
+            or
+            current.get(
+                "requestFingerprint"
+            )
+            != request_fingerprint
+            or
+            current.get(
+                "operation"
+            )
+            != operation
+            or
+            current.get(
+                "status"
+            )
+            != "pending"
+        ):
+            return False
+
+        t.set(
+            ref,
+            {
+                "v14ImageRequest":
+                    None
+            },
+            merge=True,
+        )
+
+        return True
+
+    return bool(
+        _txn(
+            txn
+        )
+    )
+
+
+
 def _chat_lock(character_id, user_id, conversation_id="default"):
     conversation_id = str(conversation_id or "default").strip() or "default"
     return _locks.setdefault(

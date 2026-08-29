@@ -22,6 +22,7 @@ import notifications_service as notif
 import games_service as games
 import ai_service as ai_svc
 import ai_media_service as ai_media
+import ai_image_creation_service as ai_image_creation
 from ai_engine import rate_limit as AI_RATE_LIMIT
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -1349,6 +1350,146 @@ async def put_settings(body: dict, request: Request, admin: dict = Depends(get_c
 async def root():
     return {"message": "Earn2Love Admin API (Firebase)", "status": "ok"}
 
+# V14 IMAGE CREATION API
+# ============================================================
+
+class AiImageGenerateBody(BaseModel):
+    characterId: str
+    conversationId: str = "default"
+    prompt: str
+    size: str = "1024x1024"
+    quality: str = "medium"
+    background: str = "auto"
+    clientRequestId: str | None = None
+
+
+class AiImageEditBody(BaseModel):
+    characterId: str
+    conversationId: str = "default"
+    prompt: str
+    sourceImageIds: list[str]
+    size: str = "1024x1024"
+    quality: str = "medium"
+    background: str = "auto"
+    clientRequestId: str | None = None
+
+
+def _v14_image_http_error(exc):
+    from fastapi import HTTPException
+
+    if isinstance(
+        exc,
+        ai_image_creation.ImageCreationServiceError,
+    ):
+        headers = None
+
+        if getattr(
+            exc,
+            "retry_after",
+            0,
+        ):
+            headers = {
+                "Retry-After":
+                    str(
+                        exc.retry_after
+                    )
+            }
+
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.code,
+            headers=headers,
+        )
+
+    raise HTTPException(
+        status_code=503,
+        detail="image_creation_unavailable",
+    )
+
+
+@api.post("/ai/images/generate")
+async def ai_image_generate(
+    body: AiImageGenerateBody,
+    user=Depends(get_current_user),
+):
+    try:
+        return await ai_image_creation.generate_image(
+            user_id=user["uid"],
+            character_id=body.characterId,
+            conversation_id=body.conversationId,
+            prompt=body.prompt,
+            size=body.size,
+            quality=body.quality,
+            background=body.background,
+            client_request_id=body.clientRequestId,
+        )
+    except Exception as exc:
+        _v14_image_http_error(
+            exc
+        )
+
+
+@api.post("/ai/images/edit")
+async def ai_image_edit(
+    body: AiImageEditBody,
+    user=Depends(get_current_user),
+):
+    try:
+        return await ai_image_creation.edit_image(
+            user_id=user["uid"],
+            character_id=body.characterId,
+            conversation_id=body.conversationId,
+            prompt=body.prompt,
+            source_image_ids=body.sourceImageIds,
+            size=body.size,
+            quality=body.quality,
+            background=body.background,
+            client_request_id=body.clientRequestId,
+        )
+    except Exception as exc:
+        _v14_image_http_error(
+            exc
+        )
+
+
+@api.get("/ai/images/{image_id}")
+async def ai_image_resolve(
+    image_id: str,
+    characterId: str,
+    conversationId: str = "default",
+    user=Depends(get_current_user),
+):
+    try:
+        return await ai_image_creation.resolve_generated_image(
+            user_id=user["uid"],
+            character_id=characterId,
+            conversation_id=conversationId,
+            image_id=image_id,
+        )
+    except Exception as exc:
+        _v14_image_http_error(
+            exc
+        )
+
+
+@api.delete("/ai/images/{image_id}")
+async def ai_image_delete(
+    image_id: str,
+    characterId: str,
+    conversationId: str = "default",
+    user=Depends(get_current_user),
+):
+    try:
+        return await ai_image_creation.delete_generated_image(
+            user_id=user["uid"],
+            character_id=characterId,
+            conversation_id=conversationId,
+            image_id=image_id,
+        )
+    except Exception as exc:
+        _v14_image_http_error(
+            exc
+        )
 
 app.include_router(api)
 
@@ -1359,3 +1500,4 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# ============================================================

@@ -751,3 +751,238 @@ async def analyze_images(
                 ).__name__
             ),
         )
+
+# ============================================================
+# V14 IMAGE CREATION PROVIDER BOUNDARY
+# ============================================================
+
+async def generate_image(
+    *,
+    prompt: str,
+    model: str,
+    size: str = "1024x1024",
+    quality: str = "medium",
+    background: str = "auto",
+    provider: str = "openai",
+) -> dict:
+    """
+    Generate one image.
+
+    External image-generation communication is intentionally
+    isolated inside provider.py.
+
+    Returns ephemeral bytes only. Persistence is owned by a
+    higher-level backend media service.
+    """
+    import base64
+    import os
+    from openai import AsyncOpenAI
+
+    if provider.strip().casefold() != "openai":
+        raise ValueError("unsupported_image_provider")
+
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("image_model_required")
+
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ValueError("image_prompt_required")
+
+    timeout = float(
+        os.getenv(
+            "AI_ENGINE_IMAGE_TIMEOUT",
+            "120",
+        )
+    )
+
+    client = AsyncOpenAI(
+        timeout=timeout,
+    )
+
+    response = await client.images.generate(
+        model=model.strip(),
+        prompt=prompt.strip(),
+        size=size,
+        quality=quality,
+        background=background,
+        n=1,
+        response_format="b64_json",
+    )
+
+    data = getattr(
+        response,
+        "data",
+        None,
+    )
+
+    if not data or len(data) != 1:
+        raise RuntimeError(
+            "image_generation_empty"
+        )
+
+    item = data[0]
+
+    encoded = getattr(
+        item,
+        "b64_json",
+        None,
+    )
+
+    if not isinstance(encoded, str) or not encoded:
+        raise RuntimeError(
+            "image_generation_missing_bytes"
+        )
+
+    try:
+        image_bytes = base64.b64decode(
+            encoded,
+            validate=True,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "image_generation_invalid_bytes"
+        ) from exc
+
+    if not image_bytes:
+        raise RuntimeError(
+            "image_generation_missing_bytes"
+        )
+
+    revised_prompt = getattr(
+        item,
+        "revised_prompt",
+        None,
+    )
+
+    return {
+        "imageBytes": image_bytes,
+        "mimeType": "image/png",
+        "revisedPrompt": (
+            revised_prompt.strip()
+            if isinstance(revised_prompt, str)
+            and revised_prompt.strip()
+            else None
+        ),
+    }
+
+
+async def edit_image(
+    *,
+    instruction: str,
+    image_files,
+    model: str,
+    size: str = "1024x1024",
+    quality: str = "medium",
+    background: str = "auto",
+    provider: str = "openai",
+) -> dict:
+    """
+    Edit one or more already-authorized source images.
+
+    image_files must be prepared by the backend media layer.
+    This function performs no storage lookup and no persistence.
+    """
+    import base64
+    import os
+    from openai import AsyncOpenAI
+
+    if provider.strip().casefold() != "openai":
+        raise ValueError("unsupported_image_provider")
+
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("image_model_required")
+
+    if (
+        not isinstance(instruction, str)
+        or not instruction.strip()
+    ):
+        raise ValueError("edit_instruction_required")
+
+    if not isinstance(image_files, (list, tuple)):
+        raise ValueError("source_image_required")
+
+    if not image_files:
+        raise ValueError("source_image_required")
+
+    timeout = float(
+        os.getenv(
+            "AI_ENGINE_IMAGE_TIMEOUT",
+            "120",
+        )
+    )
+
+    client = AsyncOpenAI(
+        timeout=timeout,
+    )
+
+    image_arg = (
+        image_files[0]
+        if len(image_files) == 1
+        else list(image_files)
+    )
+
+    response = await client.images.edit(
+        model=model.strip(),
+        image=image_arg,
+        prompt=instruction.strip(),
+        size=size,
+        quality=quality,
+        background=background,
+        n=1,
+        response_format="b64_json",
+    )
+
+    data = getattr(
+        response,
+        "data",
+        None,
+    )
+
+    if not data or len(data) != 1:
+        raise RuntimeError(
+            "image_edit_empty"
+        )
+
+    item = data[0]
+
+    encoded = getattr(
+        item,
+        "b64_json",
+        None,
+    )
+
+    if not isinstance(encoded, str) or not encoded:
+        raise RuntimeError(
+            "image_edit_missing_bytes"
+        )
+
+    try:
+        image_bytes = base64.b64decode(
+            encoded,
+            validate=True,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "image_edit_invalid_bytes"
+        ) from exc
+
+    if not image_bytes:
+        raise RuntimeError(
+            "image_edit_missing_bytes"
+        )
+
+    revised_prompt = getattr(
+        item,
+        "revised_prompt",
+        None,
+    )
+
+    return {
+        "imageBytes": image_bytes,
+        "mimeType": "image/png",
+        "revisedPrompt": (
+            revised_prompt.strip()
+            if isinstance(revised_prompt, str)
+            and revised_prompt.strip()
+            else None
+        ),
+    }
