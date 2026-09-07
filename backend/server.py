@@ -1082,6 +1082,42 @@ async def ai_delete(cid: str, request: Request, admin: dict = Depends(get_curren
 
 
 # ---- Production chat (persistent conversation — Group Play / Flutter client) ----
+
+
+# ---- Production AI profile discovery for authenticated app users ----
+@api.get("/ai/profiles")
+async def ai_profiles_list(
+    user: dict = Depends(get_current_user),
+):
+    items = await _fs_guarded(
+        ai_svc.list_public_profiles,
+        [],
+    )
+
+    return {
+        "items": items,
+        "count": len(items),
+    }
+
+
+@api.get("/ai/profiles/{cid}")
+async def ai_profile_get(
+    cid: str,
+    user: dict = Depends(get_current_user),
+):
+    profile = await _fs_guarded(
+        lambda: ai_svc.get_public_profile(cid),
+        None,
+    )
+
+    if profile is None:
+        raise HTTPException(
+            status_code=404,
+            detail="AI profile not found",
+        )
+
+    return profile
+
 @api.post("/ai/chat")
 async def ai_chat(body: AiChatBody, user: dict = Depends(get_current_user)):
     """Authenticated user chats with an AI character. Persists memory / relationship /

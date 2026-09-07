@@ -21,6 +21,7 @@ from ai_engine import evaluation as EVAL
 from ai_engine import rate_limit as RL
 from ai_engine import feature_flags as FF
 from ai_engine.schema import new_character, validate_character
+import ai_profile_contract as AI_PROFILE
 
 logger = logging.getLogger(__name__)
 
@@ -49,19 +50,76 @@ def get_character(cid):
 
 
 def upsert_character(data, author=""):
-    if not data.get("characterId"):
-        data["characterId"] = data.get("slug") or f"char_{uuid.uuid4().hex[:8]}"
-    c = new_character(**{**data})
-    ok, errs = validate_character(c)
-    if not ok:
-        raise ValueError("; ".join(errs))
+    incoming = dict(data or {})
+
+    if not incoming.get("characterId"):
+        incoming["characterId"] = (
+            incoming.get("slug")
+            or f"char_{uuid.uuid4().hex[:8]}"
+        )
+
     repo = prod_repo()
-    existing = repo.get_character(c["characterId"])
+
+    existing = (
+        repo.get_character(
+            incoming["characterId"]
+        )
+        or {}
+    )
+
+    # Partial admin updates must preserve the existing
+    # global character identity and profile metadata.
+    merged = {
+        **existing,
+        **incoming,
+    }
+
+    core = new_character(
+        **merged
+    )
+
+    ok, errs = validate_character(
+        core
+    )
+
+    if not ok:
+        raise ValueError(
+            "; ".join(errs)
+        )
+
+    # new_character intentionally owns semantic identity
+    # fields. Production profile metadata is layered on
+    # afterwards without changing the frozen AI engine.
+    profile = AI_PROFILE.normalize_profile(
+        {
+            **merged,
+            **core,
+        }
+    )
+
     if existing:
-        c["version"] = existing.get("version", 1)
-        c["createdAt"] = existing.get("createdAt", c["createdAt"])
-    repo.upsert_character(c)
-    return c
+        profile["version"] = existing.get(
+            "version",
+            1,
+        )
+
+        profile["createdAt"] = existing.get(
+            "createdAt",
+            profile.get("createdAt"),
+        )
+
+    if (
+        not existing
+        and author
+        and not profile.get("createdBy")
+    ):
+        profile["createdBy"] = author
+
+    repo.upsert_character(
+        profile
+    )
+
+    return profile
 
 
 def new_version(cid, author=""):
@@ -105,6 +163,52 @@ def metrics(cid):
 
 def delete_character(cid):
     return prod_repo().delete_character(cid)
+
+
+def list_public_profiles():
+    """
+    Return only production profiles explicitly published
+    and visible for authenticated app users.
+
+    Reference/lab characters are deliberately excluded.
+    """
+    stored = prod_repo().list_characters(
+        include_archived=False
+    )
+
+    items = []
+
+    for character in stored:
+        profile = AI_PROFILE.public_profile(
+            character
+        )
+
+        if profile is not None:
+            items.append(profile)
+
+    items.sort(
+        key=lambda item: (
+            not bool(item.get("featured")),
+            int(item.get("sortOrder", 0) or 0),
+            str(item.get("displayName", "")).casefold(),
+            str(item.get("characterId", "")),
+        )
+    )
+
+    return items
+
+
+def get_public_profile(cid):
+    character = prod_repo().get_character(
+        cid
+    )
+
+    if not character:
+        return None
+
+    return AI_PROFILE.public_profile(
+        character
+    )
 
 
 def seed_reference_to_firestore():
